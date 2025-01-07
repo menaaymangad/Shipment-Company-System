@@ -502,12 +502,12 @@ class _CountriesPageState extends State<CountriesPage> {
         shape: isCircular ? BoxShape.circle : BoxShape.rectangle,
         borderRadius: isCircular ? null : BorderRadius.circular(8),
         border: Border.all(
-          color: Theme.of(context).primaryColor.withOpacity(0.3),
+          color: Theme.of(context).primaryColor.withAlpha(60),
           width: 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withAlpha(20),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -609,7 +609,9 @@ class _CountriesPageState extends State<CountriesPage> {
     );
 
     if (confirm == true) {
-      await context.read<CountryCubit>().deleteCountry(_selectedCountry!.id!);
+      if(mounted){
+        await context.read<CountryCubit>().deleteCountry(_selectedCountry!.id!);
+      }
       _clearFields();
     }
   }

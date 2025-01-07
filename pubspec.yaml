@@ -99,5 +99,14 @@ flutter:
           weight: 700
         - asset: fonts/Cairo/static/Cairo-Regular.ttf
           weight: 400
+    - family: NotoSansArabic
+      fonts:
+        - asset: fonts/NotoSansArabic-Regular.ttf
+    - family: Amiri
+      fonts:
+        - asset: fonts/Amiri-Regular.ttf
+    - family: Roboto
+      fonts:
+        - asset: fonts/Roboto-Regular.ttf
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package

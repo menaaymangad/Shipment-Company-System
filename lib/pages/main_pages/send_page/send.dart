@@ -97,7 +97,7 @@ class _SendScreenState extends State<SendScreen> {
 
   IdType? _selectedIdType;
   String? _lastTruckNumber;
-
+  String? _selectedLanguage = '';
   @override
   void initState() {
     super.initState();
@@ -161,7 +161,7 @@ class _SendScreenState extends State<SendScreen> {
     super.dispose();
   }
 
-void _onTruckNumberChanged(String truckNumber) async {
+  void _onTruckNumberChanged(String truckNumber) async {
     if (truckNumber.isEmpty) return;
 
     if (truckNumber == _lastTruckNumber) {
@@ -183,6 +183,7 @@ void _onTruckNumberChanged(String truckNumber) async {
     // Update the last truck number
     _lastTruckNumber = truckNumber;
   }
+
 // Helper method to fetch branch details and set the Agent field
   String _initialCodeNumber = 'BA-2400001'; // Default initial code number
 
@@ -207,6 +208,13 @@ void _onTruckNumberChanged(String truckNumber) async {
         ),
       );
 
+      // Set the agent field to the contact person name of the selected branch
+      setState(() {
+        _selectedAgent = selectedBranch.contactPersonName;
+      });
+      setState(() {
+        _selectedLanguage = selectedBranch.invoiceLanguage;
+      });
       // Set the initial code number from the branch's codeStyle
       setState(() {
         _initialCodeNumber = selectedBranch.codeStyle;
@@ -225,6 +233,8 @@ void _onTruckNumberChanged(String truckNumber) async {
   Future<String> _getNextCodeNumber(
       String truckNumber, String branchName) async {
     final records = await context.read<SendRecordCubit>().fetchAllSendRecords();
+
+    // Filter records for the same truck and branch
     final sameTruckRecords = records
         .where((record) =>
             record.truckNumber == truckNumber &&
@@ -232,7 +242,8 @@ void _onTruckNumberChanged(String truckNumber) async {
         .toList();
 
     if (sameTruckRecords.isEmpty) {
-      return _initialCodeNumber; // Use the initial code number from the branch
+      // If no records exist for this truck and branch, use the initial code number from the branch
+      return _initialCodeNumber;
     }
 
     // Find the latest code number for this truck and branch
@@ -240,22 +251,31 @@ void _onTruckNumberChanged(String truckNumber) async {
         .map((record) => record.codeNumber ?? 'BA-2400000')
         .reduce((a, b) => a.compareTo(b) > 0 ? a : b);
 
+    // Split the code into prefix and sequence parts
     final codeParts = latestCode.split('-');
     if (codeParts.length == 2) {
       final prefix = codeParts[0]; // "BA"
       final numericPart = codeParts[1]; // "2400001"
 
-      final lastFiveDigits = numericPart.length >= 5
-          ? numericPart.substring(numericPart.length - 5)
-          : '00000';
+      // Extract the year prefix (first two digits of the numeric part)
+      final yearPrefix = numericPart.substring(0, 2); // "24"
 
-      final incrementedNumber = (int.tryParse(lastFiveDigits) ?? 0) + 1;
-      final newNumericPart = incrementedNumber.toString().padLeft(5, '0');
+      // Extract the sequence number (remaining digits)
+      final sequenceNumber = numericPart.substring(2); // "0001"
 
-      return '$prefix-24$newNumericPart';
+      // Increment the sequence number
+      final incrementedNumber = (int.tryParse(sequenceNumber) ?? 0) + 1;
+
+      // Pad the sequence number with leading zeros to match the original length
+      final newSequenceNumber =
+          incrementedNumber.toString().padLeft(sequenceNumber.length, '0');
+
+      // Combine the prefix, year prefix, and new sequence number
+      return '$prefix-$yearPrefix$newSequenceNumber';
     }
 
-    return 'BA-2400001'; // Fallback
+    // Fallback if the code format is invalid
+    return 'BA-2400001';
   }
 
   Future<void> _saveRecordWithCode() async {
@@ -1624,6 +1644,20 @@ void _onTruckNumberChanged(String truckNumber) async {
       final regularFont = await PDFGenerator.loadCairoFont(isBold: false);
       final boldFont = await PDFGenerator.loadCairoFont(isBold: true);
 
+      // Map the selected language to the InvoiceLanguage enum
+      InvoiceLanguage invoiceLanguage;
+      switch (_selectedLanguage?.toLowerCase()) {
+        case 'arabic':
+          invoiceLanguage = InvoiceLanguage.arabic;
+          break;
+        case 'kurdish':
+          invoiceLanguage = InvoiceLanguage.kurdish;
+          break;
+        default:
+          invoiceLanguage = InvoiceLanguage.english;
+          break;
+      }
+
       final invoice = await PDFGenerator.generateInvoice(
         shipment: shipment,
         sender: sender,
@@ -1631,7 +1665,9 @@ void _onTruckNumberChanged(String truckNumber) async {
         costs: costs,
         regularFont: regularFont,
         boldFont: boldFont,
+        language: invoiceLanguage,
       );
+
       if (mounted) {
         final result = await showDialog(
           context: context,
@@ -1648,7 +1684,6 @@ void _onTruckNumberChanged(String truckNumber) async {
           );
         }
       }
-      // Show the PDF preview dialog
     } catch (e) {
       // Check if the widget is still mounted before showing the error
       if (mounted) {
