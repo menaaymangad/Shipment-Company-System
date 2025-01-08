@@ -3,58 +3,48 @@ import 'package:flutter/material.dart';
 class SendPageLogic {
   static void updateCalculations({
     required Map<String, TextEditingController> controllers,
+    required bool isInsuranceEnabled,
   }) {
-    double totalWeight = _calculateTotalWeight(controllers);
+    // Parse input values
+    final realWeight =
+        double.tryParse(controllers['weightController']!.text) ?? 0;
+    final additionalKg =
+        double.tryParse(controllers['additionalKGController']!.text) ?? 0;
+    final pricePerKg =
+        double.tryParse(controllers['pricePerKgController']!.text) ?? 0;
+    final minimumPrice =
+        double.tryParse(controllers['minimumPriceController']!.text) ?? 0;
+    final insuranceAmount = isInsuranceEnabled
+        ? double.tryParse(controllers['insuranceAmountController']!.text) ?? 0
+        : 0;
+    final boxPackingCost =
+        double.tryParse(controllers['boxPackingCostController']!.text) ?? 0;
+
+    // Calculate total weight
+    final totalWeight = realWeight + additionalKg;
     controllers['totalWeightController']!.text = totalWeight.toStringAsFixed(2);
 
-    double insuranceAmount = _calculateInsuranceAmount(controllers);
-    controllers['insuranceAmountController']!.text =
-        insuranceAmount.toStringAsFixed(2);
+    // Calculate shipping cost
+    double shippingCost = totalWeight * pricePerKg;
+    if (shippingCost < minimumPrice) {
+      shippingCost = minimumPrice;
+    }
 
-    double shippingCost = _calculateShippingCost(totalWeight, controllers);
-    controllers['doorToDoorCostController']!.text =
-        shippingCost.toStringAsFixed(2);
+    // Add insurance amount and box packing cost
+    double totalPostCost = shippingCost + boxPackingCost;
+    if (isInsuranceEnabled) {
+      totalPostCost += insuranceAmount;
+    }
 
-    double totalCost =
-        _calculateTotalCost(controllers, shippingCost, insuranceAmount);
-    controllers['totalPostCostController']!.text = totalCost.toStringAsFixed(2);
+    // Update the total post cost field
+    controllers['totalPostCostController']!.text =
+        totalPostCost.toStringAsFixed(2);
 
-    _updateUnpaidAmounts(controllers, totalCost);
-    _updateEuroAmounts(controllers, totalCost);
-  }
+    // Update unpaid amounts
+    _updateUnpaidAmounts(controllers, totalPostCost);
 
-  static double _calculateTotalWeight(
-      Map<String, TextEditingController> controllers) {
-    double weight = double.tryParse(controllers['weightController']!.text) ?? 0;
-    double additionalKG =
-        double.tryParse(controllers['additionalKGController']!.text) ?? 0;
-    return weight + additionalKG; // Add volumetric weight logic if needed
-  }
-
-  static double _calculateInsuranceAmount(
-      Map<String, TextEditingController> controllers) {
-    double goodsValue =
-        double.tryParse(controllers['goodsValueController']!.text) ?? 0;
-    double insurancePercent =
-        double.tryParse(controllers['insurancePercentController']!.text) ?? 0;
-    return (goodsValue * insurancePercent) / 100;
-  }
-
-  static double _calculateShippingCost(
-      double totalWeight, Map<String, TextEditingController> controllers) {
-    double pricePerKg =
-        double.tryParse(controllers['pricePerKgController']!.text) ?? 0;
-    return (totalWeight * pricePerKg).clamp(
-        double.tryParse(controllers['minimumPriceController']!.text) ?? 0,
-        double.infinity);
-  }
-
-  static double _calculateTotalCost(
-      Map<String, TextEditingController> controllers,
-      double shippingCost,
-      double insuranceAmount) {
-    // Similar calculations for customs cost, export doc cost, etc.
-    return shippingCost + insuranceAmount; // Add other costs
+    // Update Euro amounts
+    _updateEuroAmounts(controllers, totalPostCost);
   }
 
   static void _updateUnpaidAmounts(

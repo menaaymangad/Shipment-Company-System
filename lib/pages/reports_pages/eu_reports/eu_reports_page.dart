@@ -1,23 +1,23 @@
 import 'dart:io';
 
+import 'package:app/helper/send_db_helper.dart';
+import 'package:app/models/send_model.dart';
+import 'package:app/pages/reports_pages/reports_utils.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
-import 'package:app/pages/reports_pages/reports_utils.dart';
-import 'package:app/helper/send_db_helper.dart';
-import 'package:app/models/send_model.dart';
+
 import 'package:pdf/widgets.dart' as pw;
 
-class OverviewScreen extends StatefulWidget {
-  const OverviewScreen({super.key});
+class EUReportScreen extends StatefulWidget {
+  const EUReportScreen({super.key});
 
   @override
-  State<OverviewScreen> createState() => _OverviewScreenState();
+  State<EUReportScreen> createState() => _EUReportScreenState();
 }
 
-class _OverviewScreenState extends State<OverviewScreen> {
+class _EUReportScreenState extends State<EUReportScreen> {
   // Dropdown values
   String? selectedOffice;
   String? selectedTruck;
@@ -26,6 +26,17 @@ class _OverviewScreenState extends State<OverviewScreen> {
 
   // Date picker values
   DateTime? selectedDate;
+  DateTime? depDateKU;
+  DateTime? arrivalDateNL;
+
+  // Text field controllers
+  final TextEditingController truckNoController = TextEditingController();
+
+  // Checkbox values
+  bool getOnlyCountriesAccounts = true;
+  bool getAllAgentsAccounts = false;
+  bool makeCompleteShipment = true;
+  bool printPreview = true;
 
   // Lists to hold dropdown options
   List<String> officeNames = [];
@@ -81,16 +92,14 @@ class _OverviewScreenState extends State<OverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 1.sw,
-      height: 1.sh,
-      padding: EdgeInsets.all(16.w),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: ReportCard(
-              title: 'Make Report',
+              title: 'EU Report Data Per Office',
               children: [
                 CustomDropdown(
                   label: 'Office Name',
@@ -141,7 +150,6 @@ class _OverviewScreenState extends State<OverviewScreen> {
                     });
                   },
                 ),
-                const Spacer(),
                 ButtonRow(
                   buttons: [
                     CustomButton(
@@ -160,7 +168,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                     ),
                     CustomButton(
                       text: 'PDF Report',
-                      color: Colors.purple,
+                      color: Colors.blue,
                       onPressed: () async {
                         final records = await fetchSendRecords(
                           selectedDate: selectedDate,
@@ -177,49 +185,69 @@ class _OverviewScreenState extends State<OverviewScreen> {
               ],
             ),
           ),
-          SizedBox(width: 16.w),
+          const SizedBox(width: 16),
           Expanded(
             child: ReportCard(
-              title: 'Daily Report',
+              title: 'EU Report Data Per Truck',
               children: [
-                CustomDropdown(
-                  label: 'Office Name',
-                  value: selectedOffice,
-                  items: officeNames,
+                CheckboxListTile(
+                  title: const Text('Get Only Countries Accounts'),
+                  value: getOnlyCountriesAccounts,
                   onChanged: (value) {
                     setState(() {
-                      selectedOffice = value;
+                      getOnlyCountriesAccounts = value ?? true;
                     });
                   },
                 ),
-                const CustomTextField(
-                  label: 'Daily Codes',
+                CheckboxListTile(
+                  title: const Text('Get All Agents Accounts'),
+                  value: getAllAgentsAccounts,
+                  onChanged: (value) {
+                    setState(() {
+                      getAllAgentsAccounts = value ?? false;
+                    });
+                  },
                 ),
-                const CustomTextField(
-                  label: 'Daily Pallet',
+                CheckboxListTile(
+                  title: const Text('Make Complete Shipment'),
+                  value: makeCompleteShipment,
+                  onChanged: (value) {
+                    setState(() {
+                      makeCompleteShipment = value ?? true;
+                    });
+                  },
                 ),
-                const CustomTextField(
-                  label: 'Daily Boxes',
+                CheckboxListTile(
+                  title: const Text('Print Preview'),
+                  value: printPreview,
+                  onChanged: (value) {
+                    setState(() {
+                      printPreview = value ?? true;
+                    });
+                  },
                 ),
-                const CustomTextField(
-                  label: 'Daily KG',
-                ),
-                const CustomTextField(
-                  label: 'Daily Cash in',
-                ),
-                const CustomTextField(
-                  label: 'Daily Commission',
+                CustomTextField(
+                  label: 'EU Truck No.',
+                  controller: truckNoController,
                 ),
                 CustomDatePicker(
-                  label: 'Date',
-                  selectedDate: selectedDate,
+                  label: 'Dep. Date KU',
+                  selectedDate: depDateKU,
                   onDateSelected: (date) {
                     setState(() {
-                      selectedDate = date;
+                      depDateKU = date;
                     });
                   },
                 ),
-                const Spacer(),
+                CustomDatePicker(
+                  label: 'Arrival Date NL',
+                  selectedDate: arrivalDateNL,
+                  onDateSelected: (date) {
+                    setState(() {
+                      arrivalDateNL = date;
+                    });
+                  },
+                ),
                 ButtonRow(
                   buttons: [
                     CustomButton(
@@ -232,7 +260,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                     ),
                     CustomButton(
                       text: 'PDF Report',
-                      color: Colors.purple,
+                      color: Colors.blue,
                       onPressed: () async {
                         final records = await fetchSendRecords();
                         await exportToPdf(records);
@@ -248,6 +276,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
     );
   }
 
+  // Export to Excel
   Future<void> exportToExcel(List<SendRecord> records) async {
     // Create an Excel workbook
     var excel = Excel.createExcel();

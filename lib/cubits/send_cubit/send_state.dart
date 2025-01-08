@@ -55,3 +55,10 @@ class SendRecordListLoaded extends SendRecordState {
 
   List<Object?> get props => [sendRecords];
 }
+class SendFormDataSaved extends SendRecordState {
+  final Map<String, dynamic> formData;
+
+  const SendFormDataSaved(this.formData);
+}
+
+class SendFormDataCleared extends SendRecordState {}

@@ -27,7 +27,7 @@ class _AdminPageState extends State<AdminPage> {
     _checkAdminStatus();
   }
 
- Future<void> _checkAdminStatus() async {
+  Future<void> _checkAdminStatus() async {
     try {
       _isAdmin = await SharedPrefsService.isUserAdmin();
       debugPrint('Admin status: $_isAdmin');
@@ -37,9 +37,7 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-
   final List<String> _tabs = [
-    
     'Branches',
     'Countries',
     'Cities',
@@ -47,13 +45,13 @@ class _AdminPageState extends State<AdminPage> {
     'Users',
   ];
 
-@override
+  @override
   Widget build(BuildContext context) {
-    if (!_isAdmin) {
-      return const Center(
-        child: Text('You are not authorized to access the Admin page.'),
-      );
-    }
+    // if (!_isAdmin) {
+    //   return const Center(
+    //     child: Text('You are not authorized to access the Admin page.'),
+    //   );
+    // }
     return Column(
       children: [
         // Top Navigation
@@ -100,10 +98,10 @@ class _AdminPageState extends State<AdminPage> {
       ],
     );
   }
+
   Widget _buildMainContent() {
     try {
       switch (_selectedIndex) {
-      
         case 0:
           return const BranchesPage();
         case 1:
@@ -122,10 +120,8 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-
   IconData _getIconForTab(String tab) {
     switch (tab) {
-     
       case 'Branches':
         return Icons.business;
       case 'Countries':

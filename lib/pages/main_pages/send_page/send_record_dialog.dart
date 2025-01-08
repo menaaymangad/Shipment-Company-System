@@ -450,7 +450,9 @@ class _RecordsTableDialogState extends State<RecordsTableDialog> {
               foregroundColor: Colors.white,
             ),
             onPressed: () {
-              context.read<SendRecordCubit>().deleteSendRecord(record.id!);
+              context
+                  .read<SendRecordCubit>()
+                  .deleteSendRecord(record.id!, record.codeNumber!);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(

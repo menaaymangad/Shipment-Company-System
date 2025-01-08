@@ -1,5 +1,5 @@
 // main_screen.dart
-import 'package:app/pages/reports_pages/eu_reports_page.dart';
+import 'package:app/pages/reports_pages/eu_reports/eu_reports_page.dart';
 import 'package:app/pages/reports_pages/overview_page.dart';
 import 'package:app/pages/reports_pages/reports_page.dart';
 import 'package:app/pages/reports_pages/reports_utils.dart';

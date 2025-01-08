@@ -9,7 +9,7 @@ class CityInitialState extends CityState {}
 class CityLoadingState extends CityState {}
 
 class CityLoadedState extends CityState {
-  final List<City> cities;
+  final List<City> cities; // List of cities
   CityLoadedState(this.cities);
 }
 

@@ -3,6 +3,7 @@ class City {
   final String cityName;
   final String country;
   final bool hasAgent;
+  final bool isPost; // New field
   final double doorToDoorPrice;
   final double priceKg;
   final double minimumPrice;
@@ -13,6 +14,7 @@ class City {
     required this.cityName,
     required this.country,
     required this.hasAgent,
+    required this.isPost, // New field
     required this.doorToDoorPrice,
     required this.priceKg,
     required this.minimumPrice,
@@ -25,6 +27,7 @@ class City {
       'cityName': cityName,
       'country': country,
       'hasAgent': hasAgent ? 1 : 0,
+      'isPost': isPost ? 1 : 0, // New field
       'doorToDoorPrice': doorToDoorPrice,
       'priceKg': priceKg,
       'minimumPrice': minimumPrice,
@@ -38,6 +41,7 @@ class City {
       cityName: map['cityName'],
       country: map['country'],
       hasAgent: map['hasAgent'] == 1,
+      isPost: map['isPost'] == 1, // New field
       doorToDoorPrice: map['doorToDoorPrice'],
       priceKg: map['priceKg'],
       minimumPrice: map['minimumPrice'],

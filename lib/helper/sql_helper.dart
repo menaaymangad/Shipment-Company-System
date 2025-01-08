@@ -259,19 +259,19 @@ class DatabaseHelper {
     ''');
 
       // Cities table
-      batch.execute('''
-      CREATE TABLE IF NOT EXISTS cities (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        cityName TEXT NOT NULL,
-        country TEXT NOT NULL,
-        hasAgent INTEGER NOT NULL,
-        doorToDoorPrice REAL NOT NULL,
-        priceKg REAL NOT NULL DEFAULT 0,
-        minimumPrice REAL NOT NULL DEFAULT 0,
-        boxPrice REAL NOT NULL DEFAULT 0
-      )
-    ''');
-
+    batch.execute('''
+  CREATE TABLE IF NOT EXISTS cities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cityName TEXT NOT NULL,
+    country TEXT NOT NULL,
+    hasAgent INTEGER NOT NULL,
+    isPost INTEGER NOT NULL DEFAULT 0, // New column
+    doorToDoorPrice REAL NOT NULL,
+    priceKg REAL NOT NULL DEFAULT 0,
+    minimumPrice REAL NOT NULL DEFAULT 0,
+    boxPrice REAL NOT NULL DEFAULT 0
+  )
+''');
       // Currencies table
       batch.execute('''
       CREATE TABLE IF NOT EXISTS currencies (

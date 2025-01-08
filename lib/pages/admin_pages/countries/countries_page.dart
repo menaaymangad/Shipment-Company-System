@@ -61,14 +61,13 @@ class _CountriesPageState extends State<CountriesPage> {
                   onChanged: (query) => _filterCountries(query),
                   labelText: 'Search Countries',
                 ),
-    
+
                 // Countries Data Grid
                 Expanded(
                   child: BlocBuilder<CountryCubit, CountryState>(
                     builder: (context, state) {
                       if (state is CountryLoading) {
-                        return const Center(
-                            child: CircularProgressIndicator());
+                        return const Center(child: CircularProgressIndicator());
                       }
                       if (state is CountryError) {
                         return Center(child: Text('Error: ${state.message}'));
@@ -88,7 +87,7 @@ class _CountriesPageState extends State<CountriesPage> {
             ),
           ),
         ),
-    
+
         // Form Section
         Flexible(
           flex: 2,
@@ -101,7 +100,6 @@ class _CountriesPageState extends State<CountriesPage> {
                   _buildFormFields(),
                   _buildImageSelectors(),
                   PageUtils.buildActionButtons(
-              
                     onAddPressed: () => _handleAddCountry(),
                     onUpdatePressed: _selectedCountry != null
                         ? () => _handleUpdateCountry()
@@ -609,7 +607,7 @@ class _CountriesPageState extends State<CountriesPage> {
     );
 
     if (confirm == true) {
-      if(mounted){
+      if (mounted) {
         await context.read<CountryCubit>().deleteCountry(_selectedCountry!.id!);
       }
       _clearFields();
@@ -629,7 +627,6 @@ class _CountriesPageState extends State<CountriesPage> {
       contentPadding: EdgeInsets.zero,
     );
   }
-
 
   Widget _buildCurrencyDropdown() {
     return BlocBuilder<CurrencyCubit, CurrencyState>(

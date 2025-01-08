@@ -48,10 +48,8 @@ class SendUtils {
     Color? iconColor,
     bool isIconButton =
         false, // Add this parameter to toggle between Icon and IconButton
-    VoidCallback?
-        onIconPressed, 
-        // Add this parameter for IconButton's onPressed
-      
+    VoidCallback? onIconPressed,
+    // Add this parameter for IconButton's onPressed
   }) {
     return Padding(
       padding: EdgeInsets.only(bottom: 10.h),
@@ -80,14 +78,15 @@ class SendUtils {
       ),
     );
   }
+
   static Widget buildIdInputRow({
     IconData? icon,
     required Widget child,
     Color? iconColor,
     bool isIconButton =
         false, // Add this parameter to toggle between Icon and IconButton
-    VoidCallback?
-        onIconPressed, required Function(IdType) onTypeSelected,
+    VoidCallback? onIconPressed,
+    required Function(IdType) onTypeSelected,
     IdType? currentType, // Add this parameter for IconButton's onPressed
   }) {
     return Padding(
@@ -99,17 +98,17 @@ class SendUtils {
             currentType: currentType,
             onTypeSelected: onTypeSelected,
           ),
-            SizedBox(width: 12.w), // Add spacing only if icon is present
+          SizedBox(width: 12.w), // Add spacing only if icon is present
           Expanded(child: child),
         ],
       ),
     );
   }
 
-
   /// Builds a custom text field with enhanced styling
   static Widget buildTextField({
     required String hint,
+    String? label, // Add a label parameter
     bool optional = false,
     required TextEditingController controller,
     bool enabled = true,
@@ -133,6 +132,11 @@ class SendUtils {
           fontSize: 24.sp,
         ),
         decoration: InputDecoration(
+          labelText: hint, // Add the label here
+          labelStyle: TextStyle(
+            color: enabled ? Colors.grey[700] : Colors.grey[500],
+            fontSize: 24.sp,
+          ),
           hintText: hint,
           hintStyle: TextStyle(
             color: Colors.grey[500],

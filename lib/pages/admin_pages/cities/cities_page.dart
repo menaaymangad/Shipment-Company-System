@@ -31,7 +31,7 @@ class _CitiesPageState extends State<CitiesPage> {
   String _selectedCountry = '';
   City? selectedCity;
   bool _hasAgent = false;
-
+  bool _isPost = false;
   @override
   void initState() {
     super.initState();
@@ -59,6 +59,7 @@ class _CitiesPageState extends State<CitiesPage> {
       selectedCity = null;
       _selectedCountry = '';
       _hasAgent = false;
+      _isPost = false;
     });
   }
 
@@ -72,6 +73,7 @@ class _CitiesPageState extends State<CitiesPage> {
       _boxPriceController.text = city.boxPrice.toString();
       _selectedCountry = city.country;
       _hasAgent = city.hasAgent;
+      _isPost = city.isPost;
     });
   }
 
@@ -81,11 +83,18 @@ class _CitiesPageState extends State<CitiesPage> {
       cityName: _cityNameController.text,
       country: _selectedCountry,
       hasAgent: _hasAgent,
+      isPost: _isPost,
       doorToDoorPrice: double.parse(_doorToDoorPriceController.text),
       priceKg: double.parse(_priceKgController.text),
       minimumPrice: double.parse(_minimumPriceController.text),
       boxPrice: double.parse(_boxPriceController.text),
     );
+  }
+
+  void _onIsPostChanged(bool? value) {
+    setState(() {
+      _isPost = value ?? false;
+    });
   }
 
   void _onAdd() {
@@ -153,6 +162,8 @@ class _CitiesPageState extends State<CitiesPage> {
                             });
                           },
                         ),
+                        PageUtils.buildPostSelection(
+                            onChanged: _onIsPostChanged, value: _isPost),
                         SizedBox(height: 16.h),
                         PageUtils.buildActionButtons(
                           onAddPressed: _onAdd,

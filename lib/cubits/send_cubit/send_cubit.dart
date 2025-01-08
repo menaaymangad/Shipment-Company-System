@@ -72,14 +72,32 @@ class SendRecordCubit extends Cubit<SendRecordState> {
   //   }
   // }
 
-  Future<void> deleteSendRecord(int id) async {
+ Future<void> deleteSendRecord(int id, String codeNumber) async {
     try {
       emit(SendRecordLoading());
-      await databaseHelper.deleteSendRecord(id);
+      await databaseHelper.updateSendRecordFields(id, codeNumber);
       emit(SendRecordInitial());
     } catch (e) {
       emit(SendRecordError('Failed to delete send record: ${e.toString()}'));
     }
   }
- 
+  // Add a map to store form data
+  Map<String, dynamic> _formData = {};
+
+  // Save form data
+  void saveFormData(Map<String, dynamic> formData) {
+    _formData = formData;
+    emit(SendFormDataSaved(formData));
+  }
+
+  // Clear form data
+  void clearFormData() {
+    _formData = {};
+    emit(SendFormDataCleared());
+  }
+
+  // Get form data
+  Map<String, dynamic> getFormData() {
+    return _formData;
+  }
 }

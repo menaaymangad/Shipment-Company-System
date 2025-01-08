@@ -34,8 +34,7 @@ class _BranchesPageState extends State<BranchesPage> {
 
   String _selectedCity = '';
   Branch? selectedBranch;
-  bool isArabic = false;
-  bool isKurdish = false;
+  String _selectedLanguage = 'Arabic'; // Default language
 
   String? _charPrefixError;
   String? _yearPrefixError;
@@ -132,8 +131,7 @@ class _BranchesPageState extends State<BranchesPage> {
     _codeStyleController.clear();
     setState(() {
       selectedBranch = null;
-      isArabic = false;
-      isKurdish = false;
+      _selectedLanguage = 'Arabic'; // Reset to default language
       _selectedCity = '';
     });
   }
@@ -152,8 +150,7 @@ class _BranchesPageState extends State<BranchesPage> {
       _digitsController.text = branch.numberOfDigits.toString();
       _codeStyleController.text = branch.codeStyle;
       _selectedCity = branch.city;
-      isArabic = branch.invoiceLanguage.contains('Arabic');
-      isKurdish = branch.invoiceLanguage.contains('Kurdish');
+      _selectedLanguage = branch.invoiceLanguage; // Set selected language
     });
   }
 
@@ -171,10 +168,7 @@ class _BranchesPageState extends State<BranchesPage> {
       yearPrefix: _yearPrefixController.text,
       numberOfDigits: int.tryParse(_digitsController.text) ?? 0,
       codeStyle: _codeStyleController.text,
-      invoiceLanguage: [
-        if (isArabic) 'Arabic',
-        if (isKurdish) 'Kurdish',
-      ].join(', '),
+      invoiceLanguage: _selectedLanguage, // Use selected language
     );
   }
 
@@ -244,7 +238,11 @@ class _BranchesPageState extends State<BranchesPage> {
           } else if (state is BranchErrorState) {
             return Center(child: Text(state.errorMessage));
           }
-          return const Center(child: Text('No data available'));
+          return Center(
+              child: Text(
+            'No data available',
+            style: TextStyle(fontSize: 32.sp),
+          ));
         },
       ),
     );
@@ -264,9 +262,8 @@ class _BranchesPageState extends State<BranchesPage> {
               children: [
                 _buildFormFields(),
                 _buildLanguageSelection(),
-                const SizedBox(height: 16),
+                SizedBox(height: 16.h),
                 PageUtils.buildActionButtons(
-            
                   onAddPressed: _onAdd,
                   onUpdatePressed: selectedBranch != null ? _onUpdate : null,
                   onDeletePressed: selectedBranch != null ? _onDelete : null,
@@ -347,6 +344,7 @@ class _BranchesPageState extends State<BranchesPage> {
                 labelText: 'Year Prefix',
                 validator: (_) => _yearPrefixError,
                 keyboardType: TextInputType.number,
+                enabled: false,
               ),
             ),
           ],
@@ -372,11 +370,14 @@ class _BranchesPageState extends State<BranchesPage> {
             ),
           ],
         ),
-        SizedBox(height: 16.h),
-        ElevatedButton(
-          onPressed: validateAndUpdateCode,
-          child: const Text('Generate Code'),
-        ),
+        // SizedBox(height: 16.h),
+        // ElevatedButton(
+        //   onPressed: validateAndUpdateCode,
+        //   child: Text(
+        //     'Generate Code',
+        //     style: TextStyle(fontSize: 24.sp),
+        //   ),
+        // ),
       ],
     );
   }
@@ -388,32 +389,52 @@ class _BranchesPageState extends State<BranchesPage> {
         SizedBox(height: 16.h),
         Padding(
           padding: EdgeInsets.only(left: 64.w),
-          child: const Text('Invoice Language'),
+          child: Text(
+            'Invoice Language',
+            style: TextStyle(fontSize: 38.sp, fontWeight: FontWeight.bold),
+          ),
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        Column(
           children: [
-            Checkbox(
-              value: isArabic,
+            RadioListTile<String>(
+              title: Text(
+                'Arabic Language',
+                style: TextStyle(fontSize: 32.sp),
+              ),
+              value: 'Arabic',
+              groupValue: _selectedLanguage,
               onChanged: (value) {
                 setState(() {
-                  isArabic = value ?? false;
+                  _selectedLanguage = value!;
                 });
               },
-              shape: const CircleBorder(),
             ),
-            const Text('Arabic Language'),
-            SizedBox(width: 32.w),
-            Checkbox(
-              value: isKurdish,
+            RadioListTile<String>(
+              title: Text(
+                'Kurdish Language',
+                style: TextStyle(fontSize: 32.sp),
+              ),
+              value: 'Kurdish',
+              groupValue: _selectedLanguage,
               onChanged: (value) {
                 setState(() {
-                  isKurdish = value ?? false;
+                  _selectedLanguage = value!;
                 });
               },
-              shape: const CircleBorder(),
             ),
-            const Text('Kurdish Language'),
+            RadioListTile<String>(
+              title: Text(
+                'English Language',
+                style: TextStyle(fontSize: 32.sp),
+              ),
+              value: 'English',
+              groupValue: _selectedLanguage,
+              onChanged: (value) {
+                setState(() {
+                  _selectedLanguage = value!;
+                });
+              },
+            ),
           ],
         ),
       ],

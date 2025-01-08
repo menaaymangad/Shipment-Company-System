@@ -120,6 +120,64 @@ Future<void> _createTable(Database db, int version) async {
     );
   }
 
+Future<int> updateSendRecordFields(int id, String codeNumber) async {
+    final db = await database;
+    final columns = [
+      'id',
+      'date',
+      'truckNumber',
+      'senderName',
+      'senderPhone',
+      'senderIdNumber',
+      'goodsDescription',
+      'boxNumber',
+      'palletNumber',
+      'realWeightKg',
+      'length',
+      'width',
+      'height',
+      'isDimensionCalculated',
+      'additionalKg',
+      'totalWeightKg',
+      'agentName',
+      'branchName',
+      'agentCode',
+      'receiverName',
+      'receiverPhone',
+      'receiverCountry',
+      'receiverCity',
+      'streetName',
+      'apartmentNumber',
+      'zipCode',
+      'postalCity',
+      'postalCountry',
+      'doorToDoorPrice',
+      'pricePerKg',
+      'minimumPrice',
+      'insurancePercent',
+      'goodsValue',
+      'agentCommission',
+      'insuranceAmount',
+      'customsCost',
+      'exportDocCost',
+      'boxPackingCost',
+      'doorToDoorCost',
+      'postSubCost',
+      'discountAmount',
+      'totalPostCost',
+      'totalPostCostPaid',
+      'unpaidAmount',
+      'totalCostEuroCurrency',
+      'unpaidAmountEuro'
+    ];
+    final setClause = columns.map((col) => '$col = NULL').join(', ');
+    return await db.rawUpdate('''
+    UPDATE send_records
+    SET $setClause
+    WHERE id = ? AND codeNumber = ?
+  ''', [id, codeNumber]);
+  }
+  
   Future<int> deleteSendRecord(int id) async {
     final db = await database;
     return await db.delete(
@@ -127,5 +185,96 @@ Future<void> _createTable(Database db, int version) async {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+  Future<List<String>> getUniqueOfficeNames() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
+      'SELECT DISTINCT branchName FROM send_records WHERE branchName IS NOT NULL',
+    );
+    return List.generate(maps.length, (i) => maps[i]['branchName'] as String);
+  }
+
+  Future<List<String>> getUniqueTruckNumbers() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
+      'SELECT DISTINCT truckNumber FROM send_records WHERE truckNumber IS NOT NULL',
+    );
+    return List.generate(maps.length, (i) => maps[i]['truckNumber'] as String);
+  }
+
+  Future<List<String>> getUniqueEUCountries() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
+      'SELECT DISTINCT receiverCountry FROM send_records WHERE receiverCountry IS NOT NULL',
+    );
+    return List.generate(
+        maps.length, (i) => maps[i]['receiverCountry'] as String);
+  }
+
+  Future<List<String>> getUniqueAgentCities() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
+      'SELECT DISTINCT receiverCity FROM send_records WHERE receiverCity IS NOT NULL',
+    );
+    return List.generate(maps.length, (i) => maps[i]['receiverCity'] as String);
+  }
+  Future<int> getTotalCodes() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
+      'SELECT COUNT(*) as total FROM send_records',
+    );
+    return maps.first['total'] as int;
+  }
+
+  Future<int> getTotalBoxes() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
+      'SELECT SUM(boxNumber) as total FROM send_records',
+    );
+    return maps.first['total'] as int;
+  }
+
+  Future<int> getTotalPallets() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
+      'SELECT SUM(palletNumber) as total FROM send_records',
+    );
+    return maps.first['total'] as int;
+  }
+
+  Future<double> getTotalKG() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
+      'SELECT SUM(totalWeightKg) as total FROM send_records',
+    );
+    return maps.first['total'] as double;
+  }
+
+  Future<List<String>> getUniqueCountries() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery(
+      'SELECT DISTINCT receiverCountry FROM send_records WHERE receiverCountry IS NOT NULL',
+    );
+    return List.generate(
+        maps.length, (i) => maps[i]['receiverCountry'] as String);
+  }
+
+  Future<Map<String, dynamic>> getCountryTotals(String country) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT
+        COUNT(*) as totalCodes,
+        SUM(boxNumber) as totalBoxes,
+        SUM(palletNumber) as totalPallets,
+        SUM(totalWeightKg) as totalKG,
+        SUM(totalCostEuroCurrency) as totalCashIn,
+        SUM(agentCommission) as totalCommissions,
+        SUM(totalPostCostPaid) as totalPaidToCompany,
+        SUM(unpaidAmountEuro) as totalPaidInEurope
+      FROM send_records
+      WHERE receiverCountry = ?
+    ''', [country]);
+
+    return maps.first;
   }
 }

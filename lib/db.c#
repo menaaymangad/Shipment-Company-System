@@ -1,0 +1,30 @@
+using System;
+using System.Data.OleDb;
+using Newtonsoft.Json;
+
+public class AccessReader
+{
+    public static string ReadAccessFile(string filePath)
+    {
+        string connectionString = $"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={filePath};";
+        using (OleDbConnection connection = new OleDbConnection(connectionString))
+        {
+            connection.Open();
+            OleDbCommand command = new OleDbCommand("SELECT * FROM Branches", connection);
+            OleDbDataReader reader = command.ExecuteReader();
+
+            var data = new List<Dictionary<string, object>>();
+            while (reader.Read())
+            {
+                var row = new Dictionary<string, object>();
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    row[reader.GetName(i)] = reader.GetValue(i);
+                }
+                data.Add(row);
+            }
+
+            return JsonConvert.SerializeObject(data);
+        }
+    }
+}

@@ -1,5 +1,4 @@
-// Reusable Components
-
+import 'package:app/widgets/send_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -109,44 +108,6 @@ class TabButton extends StatelessWidget {
   }
 }
 
-class StatsGridView extends StatelessWidget {
-  const StatsGridView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 4,
-      mainAxisSpacing: 16.w,
-      crossAxisSpacing: 16.w,
-      childAspectRatio: 2,
-      children: const [
-        StatsCard(
-          value: '1,235',
-          label: 'Total Codes',
-          color: Colors.purple,
-        ),
-        StatsCard(
-          value: '2,425',
-          label: 'Total Boxes',
-          color: Colors.cyan,
-        ),
-        StatsCard(
-          value: '0',
-          label: 'Total Pallets',
-          color: Colors.orange,
-        ),
-        StatsCard(
-          value: '37,350.25',
-          label: 'Total KG',
-          color: Colors.blue,
-        ),
-      ],
-    );
-  }
-}
-
 class StatsCard extends StatelessWidget {
   final String value;
   final String label;
@@ -228,56 +189,115 @@ class ReportCard extends StatelessWidget {
 }
 
 class CustomDropdown extends StatelessWidget {
+  // Constants for styling
+  static const Color _borderColor = Color(0xFFE2E8F0);
+  static const Color _textColor = Color(0xFF2D3748);
+  static const Color _hintColor = Color(0xFF94A3B8);
+  static const Color _iconColor = Color(0xFF64748B);
+
   final String label;
-  final String? helper;
+  final String? value;
   final List<String> items;
+  final Function(String?)? onChanged;
+  final bool isRequired;
+  final bool enabled;
+  final Widget? suffixIcon;
+  final String? Function(String?)? validator;
+  final double? height;
+  final TextStyle? labelStyle;
+  final TextStyle? itemStyle;
 
   const CustomDropdown({
     super.key,
     required this.label,
-    this.helper,
-    this.items = const [], // Default empty list for backward compatibility
+    this.value,
+    this.items = const [],
+    this.onChanged,
+    this.isRequired = true,
+    this.enabled = true,
+    this.suffixIcon,
+    this.validator,
+    this.height,
+    this.labelStyle,
+    this.itemStyle,
   });
 
   @override
   Widget build(BuildContext context) {
-    return _FormField(
-      label: label,
-      helper: helper,
-      child: Container(
-        height: 70.h,
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          borderRadius: BorderRadius.circular(8.r),
-          color: Colors.white,
+    // Ensure the value is valid or set to null
+    final validValue = items.contains(value) ? value : null;
+
+    return SizedBox(
+      height: height ?? 80.h,
+      child: DropdownButtonFormField<String>(
+        value: validValue,
+        decoration: InputDecoration(
+          labelText: isRequired ? '$label *' : label,
+          labelStyle: labelStyle ??
+              TextStyle(
+                fontSize: 24.sp,
+                color: enabled ? Colors.grey[700] : Colors.grey[500],
+              ),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: 12.w,
+            vertical: 8.h,
+          ),
+          filled: true,
+          fillColor: enabled ? Colors.white : Colors.lightGreen,
+          border: _buildBorder(enabled: enabled),
+          enabledBorder: _buildBorder(enabled: enabled),
+          focusedBorder: _buildBorder(
+            color: SendUtils.primaryColor,
+            width: 2,
+          ),
+          disabledBorder: _buildBorder(enabled: false),
+          suffixIcon: suffixIcon,
         ),
-        child: DropdownButtonFormField<String>(
-          items: items.map((item) {
-            return DropdownMenuItem(
-              value: item,
-              child: Text(item),
-            );
-          }).toList(),
-          onChanged: (value) {},
-          decoration: InputDecoration(
-            contentPadding: EdgeInsets.symmetric(horizontal: 16.w),
-            border: InputBorder.none,
-            hintText: 'Select ${label.toLowerCase()}',
-            hintStyle: TextStyle(
-              color: const Color(0xFF94A3B8),
-              fontSize: 16.sp,
+        style: itemStyle ??
+            TextStyle(
+              fontSize: 24.sp,
+              color: enabled ? _textColor : Colors.grey[600],
             ),
-          ),
-          style: TextStyle(
-            fontSize: 16.sp,
-            color: const Color(0xFF2D3748),
-          ),
-          icon: Icon(
-            Icons.keyboard_arrow_down,
-            size: 28.sp,
-            color: const Color(0xFF64748B),
-          ),
+        items: items.map((String item) {
+          return DropdownMenuItem<String>(
+            value: item,
+            child: Text(
+              item,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 24.sp),
+            ),
+          );
+        }).toList(),
+        validator: validator ??
+            (value) {
+              if (isRequired && (value == null || value.isEmpty)) {
+                return '$label is required';
+              }
+              return null;
+            },
+        onChanged: enabled ? onChanged : null,
+        isExpanded: true,
+        icon: Icon(
+          Icons.keyboard_arrow_down,
+          size: 28.sp,
+          color: enabled ? _iconColor : Colors.grey[400],
         ),
+        dropdownColor: Colors.white,
+        alignment: AlignmentDirectional.center,
+      ),
+    );
+  }
+
+  OutlineInputBorder _buildBorder({
+    Color? color,
+    double width = 1.5,
+    bool enabled = true,
+  }) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: BorderSide(
+        color: color ?? (enabled ? _borderColor : Colors.grey.shade200),
+        width: width,
       ),
     );
   }
@@ -285,7 +305,6 @@ class CustomDropdown extends StatelessWidget {
 
 class CustomTextField extends StatelessWidget {
   final String label;
-  final String? helper;
   final TextEditingController? controller;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
@@ -293,7 +312,6 @@ class CustomTextField extends StatelessWidget {
   const CustomTextField({
     super.key,
     required this.label,
-    this.helper,
     this.controller,
     this.keyboardType,
     this.validator,
@@ -303,7 +321,6 @@ class CustomTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return _FormField(
       label: label,
-      helper: helper,
       child: SizedBox(
         height: 70.h,
         child: TextFormField(
@@ -311,7 +328,7 @@ class CustomTextField extends StatelessWidget {
           keyboardType: keyboardType,
           validator: validator,
           style: TextStyle(
-            fontSize: 16.sp,
+            fontSize: 26.sp,
             color: const Color(0xFF2D3748),
           ),
           decoration: InputDecoration(
@@ -355,28 +372,25 @@ class CustomTextField extends StatelessWidget {
 
 class CustomDatePicker extends StatelessWidget {
   final String label;
-  final String? helper;
-  final DateTime? initialDate;
-  final Function(DateTime)? onDateSelected;
+  final DateTime? selectedDate;
+  final Function(DateTime) onDateSelected;
 
   const CustomDatePicker({
     super.key,
     required this.label,
-    this.helper,
-    this.initialDate,
-    this.onDateSelected,
+    this.selectedDate,
+    required this.onDateSelected,
   });
 
   @override
   Widget build(BuildContext context) {
     return _FormField(
       label: label,
-      helper: helper,
       child: InkWell(
         onTap: () async {
           final DateTime? picked = await showDatePicker(
             context: context,
-            initialDate: initialDate ?? DateTime.now(),
+            initialDate: selectedDate ?? DateTime.now(),
             firstDate: DateTime(2000),
             lastDate: DateTime(2100),
             builder: (context, child) {
@@ -390,8 +404,8 @@ class CustomDatePicker extends StatelessWidget {
               );
             },
           );
-          if (picked != null && onDateSelected != null) {
-            onDateSelected!(picked);
+          if (picked != null) {
+            onDateSelected(picked);
           }
         },
         child: Container(
@@ -406,10 +420,10 @@ class CustomDatePicker extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  initialDate?.toString().split(' ')[0] ?? 'Select date',
+                  selectedDate?.toString().split(' ')[0] ?? 'Select date',
                   style: TextStyle(
-                    fontSize: 16.sp,
-                    color: initialDate != null
+                    fontSize: 26.sp,
+                    color: selectedDate != null
                         ? const Color(0xFF2D3748)
                         : const Color(0xFF94A3B8),
                   ),
@@ -417,7 +431,7 @@ class CustomDatePicker extends StatelessWidget {
               ),
               Icon(
                 Icons.calendar_today_outlined,
-                size: 20.sp,
+                size: 24.sp,
                 color: const Color(0xFF64748B),
               ),
             ],
@@ -430,13 +444,11 @@ class CustomDatePicker extends StatelessWidget {
 
 class _FormField extends StatelessWidget {
   final String label;
-  final String? helper;
   final Widget child;
 
   const _FormField({
     required this.label,
     required this.child,
-    this.helper,
   });
 
   @override
@@ -456,16 +468,6 @@ class _FormField extends StatelessWidget {
           ),
           SizedBox(height: 8.h),
           child,
-          if (helper != null) ...[
-            SizedBox(height: 4.h),
-            Text(
-              helper!,
-              style: TextStyle(
-                fontSize: 24.sp,
-                color: const Color(0xFF64748B),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -591,41 +593,3 @@ class CustomButton extends StatelessWidget {
   }
 }
 
-class EUCountriesTable extends StatelessWidget {
-  const EUCountriesTable({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columns: const [
-            DataColumn(label: Text('Country')),
-            DataColumn(label: Text('Total Codes')),
-            DataColumn(label: Text('Total Boxes')),
-            DataColumn(label: Text('Total Pallets')),
-            DataColumn(label: Text('Total KG')),
-            DataColumn(label: Text('Total Cash in')),
-            DataColumn(label: Text('Total Commissions')),
-            DataColumn(label: Text('Total Paid To company')),
-            DataColumn(label: Text('Total Paid in Europe')),
-          ],
-          rows: [
-            'Germany',
-            'Netherlands',
-            'United Kingdom',
-            'Finland',
-            'Sweden',
-            'Norway',
-          ]
-              .map((country) => DataRow(
-                    cells: List.generate(9,
-                        (index) => DataCell(Text(index == 0 ? country : ''))),
-                  ))
-              .toList(),
-        ),
-      ),
-    );
-  }
-}

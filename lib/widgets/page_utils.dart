@@ -175,4 +175,27 @@ class PageUtils {
       ],
     );
   }
+  static Widget buildPostSelection({
+    required bool value,
+    required void Function(bool?)? onChanged,
+  }) {
+    return Column(
+      children: [
+        const Divider(),
+        SizedBox(height: 16.h),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Checkbox(
+              value: value,
+              onChanged: onChanged,
+              shape: const CircleBorder(),
+            ),
+            const Text('Is Post'),
+          ],
+        ),
+      ],
+    );
+  }
+
 }

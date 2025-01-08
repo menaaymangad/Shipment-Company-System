@@ -1,17 +1,19 @@
 import 'dart:io';
 
-import 'package:app/cubits/agent_cubit/agent_cubit.dart';
 import 'package:app/cubits/brach_cubit/branch_cubit.dart';
 import 'package:app/cubits/brach_cubit/branch_states.dart';
 import 'package:app/cubits/cities_cubit/cities_cubit.dart';
 import 'package:app/cubits/cities_cubit/cities_state.dart';
 import 'package:app/cubits/countries_cubit/countries_cubit.dart';
 import 'package:app/cubits/countries_cubit/countries_state.dart';
+import 'package:app/cubits/currencies_cubit/currencies_cubit.dart';
 import 'package:app/cubits/login_cubit/login_cubit_cubit.dart';
 import 'package:app/cubits/send_cubit/send_cubit.dart';
 import 'package:app/cubits/send_cubit/send_state.dart';
 import 'package:app/helper/sql_helper.dart';
 import 'package:app/models/branches_model.dart';
+import 'package:app/models/city_model.dart';
+import 'package:app/models/country_model.dart';
 import 'package:app/models/good_description_model.dart';
 import 'package:app/models/send_model.dart';
 import 'package:app/pages/main_pages/invoice_pdf/invoice_pdf.dart';
@@ -91,55 +93,41 @@ class _SendScreenState extends State<SendScreen> {
   String _selectedCountry = '';
   String _selectedCity = '';
 
-  bool areDimensionsEnabled = true;
-  bool isInsuranceEnabled = true;
+  bool areDimensionsEnabled = false;
+  bool isInsuranceEnabled = false;
   bool isPostCostPaid = false;
 
   IdType? _selectedIdType;
   String? _lastTruckNumber;
   String? _selectedLanguage = '';
+
+  // Add this method to fetch currencies
+  void _fetchCurrencies() {
+    try {
+      context.read<CurrencyCubit>().fetchCurrencies();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load currencies: $e')),
+      );
+    }
+  }
+
+  // Add this method to update costs based on the selected currency
+
+  // Add this method to handle currency selection
+
   @override
   void initState() {
     super.initState();
-
+    _restoreFormData();
     // Set the initial date
     _controllers[ControllerKeys.dateController]?.text =
         DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     // Add listeners for automatic calculations
     for (var controller in _controllers.values) {
-      controller.addListener(
-          () => SendPageLogic.updateCalculations(controllers: _controllers));
-    }
-
-    // Fetch cities, countries, branches, and agents
-    try {
-      context.read<CityCubit>().fetchCities();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load cities: $e')),
-      );
-    }
-    try {
-      context.read<CountryCubit>().fetchCountries();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load countries: $e')),
-      );
-    }
-    try {
-      context.read<BranchCubit>().fetchBranches();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load branches: $e')),
-      );
-    }
-    try {
-      context.read<AgentCubit>().loadAgents();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load agents: $e')),
-      );
+      controller.addListener(() => SendPageLogic.updateCalculations(
+          controllers: _controllers, isInsuranceEnabled: isInsuranceEnabled));
     }
 
     // Retrieve the selected branch from AuthCubit
@@ -150,6 +138,7 @@ class _SendScreenState extends State<SendScreen> {
     if (_selectedBranch != null) {
       _fetchBranchAndSetAgentAndCode(_selectedBranch!);
     }
+    _fetchCurrencies();
   }
 
   @override
@@ -157,8 +146,49 @@ class _SendScreenState extends State<SendScreen> {
     for (var controller in _controllers.values) {
       controller.dispose();
     }
-
     super.dispose();
+  }
+
+  @override
+  void deactivate() {
+    _saveFormData(); // Save form data before the widget is disposed
+    super.deactivate();
+  }
+
+  void _saveFormData() {
+    final formData = {
+      'controllers':
+          _controllers.map((key, controller) => MapEntry(key, controller.text)),
+      'isInsuranceEnabled': isInsuranceEnabled,
+      'areDimensionsEnabled': areDimensionsEnabled,
+      'selectedCountry': _selectedCountry,
+      'selectedCity': _selectedCity,
+    };
+
+    context.read<SendRecordCubit>().saveFormData(formData);
+  }
+
+  void _restoreFormData() {
+    final formData = context.read<SendRecordCubit>().getFormData();
+
+    if (formData.isNotEmpty) {
+      // Restore field values
+      for (var key in _controllers.keys) {
+        _controllers[key]?.text = formData['controllers'][key] ?? '';
+      }
+
+      // Restore checkbox states
+      setState(() {
+        isInsuranceEnabled = formData['isInsuranceEnabled'] ?? false;
+        areDimensionsEnabled = formData['areDimensionsEnabled'] ?? false;
+      });
+
+      // Restore selected country and city
+      setState(() {
+        _selectedCountry = formData['selectedCountry'] ?? '';
+        _selectedCity = formData['selectedCity'] ?? '';
+      });
+    }
   }
 
   void _onTruckNumberChanged(String truckNumber) async {
@@ -569,90 +599,118 @@ class _SendScreenState extends State<SendScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<SendRecordCubit, SendRecordState>(
-      listener: (context, state) {
-        if (state is SendRecordError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message)),
-          );
-        } else if (state is SendRecordLoaded) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Record saved successfully')),
-          );
-        }
-      },
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: Container(
-          color: Colors.grey,
-          child: Form(
-            key: _formKey,
-            child: Padding(
-              padding: EdgeInsets.all(10.r),
-              child: Column(
-                children: [
-                  IntrinsicHeight(
-                    child: Row(
-                      children: [
-                        Expanded(child: _buildCard(child: buildMainCard())),
-                        Expanded(child: _buildCard(child: agentCard())),
-                        Expanded(
-                            child: _buildCard(child: doorToDoorPriceCard())),
-                      ],
-                    ),
-                  ),
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // First Column
-                        Flexible(
-                          child: Column(
-                            children: [
-                              Expanded(
-                                  child: _buildCard(child: buildSenderCard())),
-                              _buildCard(child: buildItemsCard()),
-                            ],
-                          ),
-                        ),
-
-                        // Second Column
-                        Flexible(
-                          child: Column(
-                            children: [
-                              _buildCard(child: receiverCard()),
-                              _buildCard(child: ifPostCard()),
-                              Flexible(
-                                  child:
-                                      _buildCard(child: insuranceInfoCard())),
-                            ],
-                          ),
-                        ),
-
-                        // Third Column
-                        Flexible(
-                          child: Column(
-                            children: [
-                              _buildCard(child: costsCard()),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Flexible(flex: 2, child: actionButton()),
-                      Flexible(flex: 1, child: clearButton()),
-                    ],
-                  ),
-                ],
+    return Shortcuts(
+        shortcuts: {
+          // Define the shortcut (Ctrl + F)
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyF):
+              const ActivateIntent(),
+        },
+        child: Actions(
+            actions: {
+              // Map the ActivateIntent to the openDialog function
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (ActivateIntent intent) {
+                  if (kDebugMode) {
+                    print('Shortcut triggered: Ctrl + F');
+                  }
+                  _openCodeListDialog(); // Call the function to open the dialog
+                  return null;
+                },
               ),
-            ),
-          ),
-        ),
-      ),
-    );
+            },
+            child: Focus(
+              autofocus: true,
+              child: BlocListener<SendRecordCubit, SendRecordState>(
+                listener: (context, state) {
+                  if (state is SendRecordError) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(state.message)),
+                    );
+                  } else if (state is SendRecordLoaded) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Record saved successfully')),
+                    );
+                  }
+                },
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.vertical,
+                  child: Container(
+                    color: Colors.grey,
+                    child: Form(
+                      key: _formKey,
+                      child: Padding(
+                        padding: EdgeInsets.all(10.r),
+                        child: Column(
+                          children: [
+                            IntrinsicHeight(
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                      child:
+                                          _buildCard(child: buildMainCard())),
+                                  Expanded(
+                                      child: _buildCard(child: agentCard())),
+                                  Expanded(
+                                      child: _buildCard(
+                                          child: doorToDoorPriceCard())),
+                                ],
+                              ),
+                            ),
+                            IntrinsicHeight(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // First Column
+                                  Flexible(
+                                    child: Column(
+                                      children: [
+                                        Expanded(
+                                            child: _buildCard(
+                                                child: buildSenderCard())),
+                                        _buildCard(child: buildItemsCard()),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Second Column
+                                  Flexible(
+                                    child: Column(
+                                      children: [
+                                        _buildCard(child: receiverCard()),
+                                        _buildCard(child: ifPostCard()),
+                                        Flexible(
+                                            child: _buildCard(
+                                                child: insuranceInfoCard())),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Third Column
+                                  Flexible(
+                                    child: Column(
+                                      children: [
+                                        _buildCard(child: costsCard()),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                Flexible(flex: 2, child: actionButton()),
+                                Flexible(flex: 1, child: clearButton()),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            )));
   }
 
   Widget buildMainCard() {
@@ -681,22 +739,125 @@ class _SendScreenState extends State<SendScreen> {
           SizedBox(height: 10.h),
           SendUtils.buildInputRow(
             icon: Icons.code,
-            child: SendUtils.buildTextField(
-              controller: _controllers[ControllerKeys.codeNumberController] ??
-                  TextEditingController(),
-              hint: 'Code Number',
-              enabled: false, // Make the field non-editable
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Code Number is required';
-                }
-                return null;
-              },
+            child: Row(
+              children: [
+                Expanded(
+                  child: SendUtils.buildTextField(
+                    controller:
+                        _controllers[ControllerKeys.codeNumberController] ??
+                            TextEditingController(),
+                    hint: 'Code Number',
+                    enabled: false, // Make the field non-editable
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Code Number is required';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.delete,
+                  ), // Delete icon
+                  onPressed: _deleteRecordByCodeNumber, // Delete function
+                  tooltip: 'Delete Record', // Tooltip for better UX
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _deleteRecordByCodeNumber() async {
+    final codeNumber = _controllers[ControllerKeys.codeNumberController]?.text;
+
+    if (codeNumber == null || codeNumber.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid code number')),
+      );
+      return;
+    }
+
+    try {
+      // Fetch all records
+      final records =
+          await context.read<SendRecordCubit>().fetchAllSendRecords();
+
+      // Find the record with the matching code number
+      final recordToUpdate = records.firstWhere(
+        (record) => record.codeNumber == codeNumber,
+        orElse: () => SendRecord(), // Fallback if not found
+      );
+
+      // Check if the record was found
+      if (recordToUpdate.id == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Record not found')),
+        );
+        return;
+      }
+
+      // Show confirmation dialog
+      final shouldClear = await _showDeleteConfirmationDialog();
+      if (!shouldClear) {
+        return; // User canceled the operation
+      }
+
+      // Use the new method to clear all fields except codeNumber
+      await context
+          .read<SendRecordCubit>()
+          .databaseHelper
+          .updateSendRecordFields(
+            recordToUpdate.id!, // Pass the record ID
+            codeNumber, // Pass the codeNumber to ensure it's not cleared
+          );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Record cleared successfully (except Code Number)')),
+      );
+
+      // Clear the form after successful deletion
+      _clearForm();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error clearing record: $e')),
+      );
+    }
+  }
+
+  Future<bool> _showDeleteConfirmationDialog() async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Confirm Delete'),
+              content:
+                  const Text('Are you sure you want to delete this record?'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context)
+                        .pop(false); // Return false (do not delete)
+                  },
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context)
+                        .pop(true); // Return true (confirm delete)
+                  },
+                  child:
+                      const Text('Delete', style: TextStyle(color: Colors.red)),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false; // Return false if the dialog is dismissed
   }
 
   Widget buildSenderCard() {
@@ -949,6 +1110,24 @@ class _SendScreenState extends State<SendScreen> {
                       _controllers[ControllerKeys.boxNumberController] ??
                           TextEditingController(),
                   hint: 'Box No.',
+                  onChanged: (value) {
+                    // Recalculate Box Packing Cost when the Box Number changes
+                    final boxNumber = int.tryParse(value) ?? 0;
+                    final boxPrice = double.tryParse(_controllers[
+                                    ControllerKeys.boxPackingCostController]
+                                ?.text ??
+                            '0') ??
+                        0;
+                    final boxPackingCost = boxNumber * boxPrice;
+                    _controllers[ControllerKeys.boxPackingCostController]
+                        ?.text = boxPackingCost.toStringAsFixed(2);
+
+                    // Trigger calculations
+                    SendPageLogic.updateCalculations(
+                      controllers: _controllers,
+                      isInsuranceEnabled: isInsuranceEnabled,
+                    );
+                  },
                 ),
               ),
               SizedBox(width: 8.w),
@@ -977,6 +1156,22 @@ class _SendScreenState extends State<SendScreen> {
             controller: _controllers[ControllerKeys.weightController] ??
                 TextEditingController(),
             hint: 'Real Weight KG',
+            keyboardType: TextInputType.number,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Real Weight is required';
+              }
+              final weight = double.tryParse(value);
+              if (weight == null || weight <= 0) {
+                return 'Please enter a valid positive number';
+              }
+              // Check if the weight exceeds the selected country's max weight
+              final maxWeight = _getSelectedCountryDetails()['maxWeight']!;
+              if (maxWeight > 0 && weight > maxWeight) {
+                return 'Weight cannot exceed $maxWeight KG for the selected country';
+              }
+              return null;
+            },
           ),
           SizedBox(height: 8.h),
           Row(
@@ -1056,14 +1251,24 @@ class _SendScreenState extends State<SendScreen> {
             children: [
               Expanded(
                 child: SendUtils.buildTextField(
-                  hint: '6%',
                   controller:
-                      _controllers[ControllerKeys.insurancePercentController] ??
+                      _controllers[ControllerKeys.insuranceAmountController] ??
                           TextEditingController(),
-                  enabled: true,
+                  hint: 'Insurance Amount',
                 ),
               ),
-              Checkbox(value: true, onChanged: (value) {}),
+              Checkbox(
+                value: isInsuranceEnabled, // Use the existing state variable
+                onChanged: (value) {
+                  setState(() {
+                    isInsuranceEnabled = value ?? false;
+                    // Trigger calculations when the checkbox state changes
+                    SendPageLogic.updateCalculations(
+                        controllers: _controllers,
+                        isInsuranceEnabled: isInsuranceEnabled);
+                  });
+                },
+              ),
             ],
           ),
           SizedBox(height: 8.h),
@@ -1086,7 +1291,32 @@ class _SendScreenState extends State<SendScreen> {
     );
   }
 
+  bool _isPostCitySelected() {
+    final cityState = context.read<CityCubit>().state;
+    if (cityState is CityLoadedState) {
+      final selectedCity = cityState.cities.firstWhere(
+        (city) => city.cityName == _selectedCity,
+        orElse: () => City(
+          cityName: '',
+          country: '',
+          hasAgent: false,
+          isPost: false,
+          doorToDoorPrice: 0,
+          priceKg: 0,
+          minimumPrice: 0,
+          boxPrice: 0,
+        ),
+      );
+      return selectedCity
+          .isPost; // Return true if the city supports postal services
+    }
+    return false; // Default to false if no city is selected
+  }
+
   Widget ifPostCard() {
+    // Check if the selected city supports postal services
+    final isPostCity = _selectedCity.isNotEmpty && _isPostCitySelected();
+
     return SendUtils.buildCard(
       title: 'Send Via Post',
       child: Column(
@@ -1097,6 +1327,7 @@ class _SendScreenState extends State<SendScreen> {
               hint: 'Street Name & No.',
               controller: _controllers[ControllerKeys.streetController] ??
                   TextEditingController(),
+              enabled: isPostCity, // Disable if not a post city
             ),
           ),
           SendUtils.buildInputRow(
@@ -1105,6 +1336,7 @@ class _SendScreenState extends State<SendScreen> {
               hint: 'ZIP Code',
               controller: _controllers[ControllerKeys.zipCodeController] ??
                   TextEditingController(),
+              enabled: isPostCity, // Disable if not a post city
             ),
           ),
         ],
@@ -1170,57 +1402,137 @@ class _SendScreenState extends State<SendScreen> {
 
   // Replace the current _buildCountryDropdown with this implementation
   Widget _buildCountryDropdown() {
-    return BlocBuilder<CountryCubit, CountryState>(builder: (context, state) {
-      final countries = state is CountryLoaded
-          ? state.countries.map((country) => country.countryName).toList()
-          : <String>[];
+    return BlocBuilder<CountryCubit, CountryState>(
+      builder: (context, state) {
+        // Filter countries to only show those with hasAgent = true
+        final countries = state is CountryLoaded
+            ? state.countries
+                .where(
+                    (country) => country.hasAgent) // Only countries with agents
+                .map((country) => country.countryName)
+                .toList()
+            : <String>[];
 
-      return SendUtils.buildDropdownField(
-        label: 'Country',
-        items: countries,
-        value: _selectedCountry,
-        height: 65.h,
-        onChanged: (String? newValue) {
-          setState(() {
-            _selectedCountry = newValue ?? '';
-          });
-        },
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return 'Country is required';
-          }
-          return null;
-        },
-      );
-    });
+        return SendUtils.buildDropdownField(
+          label: 'Country',
+          items: countries,
+          value: _selectedCountry,
+          height: 65.h,
+          onChanged: (String? newValue) {
+            setState(() {
+              _selectedCountry = newValue ?? '';
+              // Clear the selected city when the country changes
+              _selectedCity = '';
+              // Fetch cities for the selected country and filter by hasAgent
+              context.read<CityCubit>().fetchCities();
+            });
+          },
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Country is required';
+            }
+            return null;
+          },
+        );
+      },
+    );
   }
 
-// Replace the current _buildCityDropdown with this implementation
-  Widget _buildCityDropdown() {
-    return BlocBuilder<CityCubit, CityState>(builder: (context, state) {
-      List<String> cityNames = [];
-      if (state is CityLoadedState) {
-        cityNames = state.cities.map((city) => city.cityName).toList();
-      }
+  void _openCodeListDialog() {
+    context.read<SendRecordCubit>().fetchAllSendRecords();
+    showDialog(
+      context: context,
+      builder: (context) => RecordsTableDialog(
+        onRecordSelected: (record) {
+          _populateFormWithRecord(record);
+        },
+      ),
+    );
+  }
 
-      return SendUtils.buildDropdownField(
-        label: 'City',
-        items: cityNames,
-        value: _selectedCity,
-        height: 65.h,
-        onChanged: (String? newValue) {
-          setState(() {
-            _selectedCity = newValue ?? '';
-          });
-        },
-        validator: (value) {
-          if (value == null || value.isEmpty) {
-            return 'City is required';
-          }
-          return null;
-        },
-      );
-    });
+  Widget _buildCityDropdown() {
+    return BlocBuilder<CityCubit, CityState>(
+      builder: (context, state) {
+        List<String> cityNames = [];
+
+        // Check if the state is CityLoadedState
+        if (state is CityLoadedState) {
+          // Filter cities to include only those with hasAgent = true and matching the selected country
+          final citiesWithAgent = state.cities
+              .where((city) =>
+                  city.country == _selectedCountry &&
+                  city.hasAgent) // Filter by country and hasAgent
+              .toList();
+
+          cityNames = citiesWithAgent.map((city) => city.cityName).toList();
+        }
+
+        return SendUtils.buildDropdownField(
+          label: 'City',
+          items: cityNames,
+          value: _selectedCity,
+          height: 65.h,
+          onChanged: (String? newValue) async {
+            if (newValue != null) {
+              setState(() {
+                _selectedCity = newValue;
+              });
+
+              // Fetch the city details based on the selected city name
+              if (state is CityLoadedState) {
+                final city = state.cities.firstWhere(
+                  (city) => city.cityName == newValue,
+                  orElse: () => City(
+                    cityName: '',
+                    country: '',
+                    hasAgent: false,
+                    isPost: false,
+                    doorToDoorPrice: 0,
+                    priceKg: 0,
+                    minimumPrice: 0,
+                    boxPrice: 0,
+                  ),
+                );
+
+                // Update the fields with the city's prices
+                _controllers[ControllerKeys.doorToDoorPriceController]?.text =
+                    city.doorToDoorPrice.toString();
+                _controllers[ControllerKeys.pricePerKgController]?.text =
+                    city.priceKg.toString();
+                _controllers[ControllerKeys.minimumPriceController]?.text =
+                    city.minimumPrice.toString();
+                // Calculate and update the Box Packing Cost
+                final boxNumber = int.tryParse(
+                        _controllers[ControllerKeys.boxNumberController]
+                                ?.text ??
+                            '0') ??
+                    0;
+                final boxPackingCost = boxNumber * city.boxPrice;
+                _controllers[ControllerKeys.boxPackingCostController]?.text =
+                    boxPackingCost.toStringAsFixed(2);
+                // Trigger calculations
+                SendPageLogic.updateCalculations(
+                    controllers: _controllers,
+                    isInsuranceEnabled: isInsuranceEnabled);
+
+                // Check if the selected city supports postal services
+                if (!city.isPost) {
+                  // Clear the postal fields if the city does not support postal services
+                  _controllers[ControllerKeys.streetController]?.clear();
+                  _controllers[ControllerKeys.zipCodeController]?.clear();
+                }
+              }
+            }
+          },
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'City is required';
+            }
+            return null;
+          },
+        );
+      },
+    );
   }
 
   Widget _buildBranchDropdown() {
@@ -1267,18 +1579,6 @@ class _SendScreenState extends State<SendScreen> {
     required String hint,
     required BuildContext context,
   }) {
-    void openDialog() {
-      context.read<SendRecordCubit>().fetchAllSendRecords();
-      showDialog(
-        context: context,
-        builder: (context) => RecordsTableDialog(
-          onRecordSelected: (record) {
-            _populateFormWithRecord(record);
-          },
-        ),
-      );
-    }
-
     return BlocBuilder<SendRecordCubit, SendRecordState>(
       builder: (context, state) {
         List<String> codeNumbers = [];
@@ -1300,59 +1600,75 @@ class _SendScreenState extends State<SendScreen> {
           selectedValue = null; // Reset the value if it's not in the list
         }
 
-        return Shortcuts(
-          shortcuts: {
-            LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyF):
-                const ActivateIntent(),
+        return SendUtils.buildDropdownField(
+          label: hint,
+          items: codeNumbers,
+          value: selectedValue,
+          height: 65.h,
+          onChanged: (String? value) {
+            setState(() {
+              selectedValue = value;
+              if (kDebugMode) {
+                print('Selected Value: $selectedValue');
+              }
+              // Find the record with the selected code number
+              if (value != null) {
+                final selectedRecord = records.firstWhere(
+                  (record) => record.codeNumber == value,
+                  orElse: () => SendRecord(), // Fallback if not found
+                );
+                if (selectedRecord.codeNumber != null) {
+                  _populateFormWithRecord(selectedRecord);
+                }
+              }
+            });
           },
-          child: Actions(
-            actions: {
-              ActivateIntent: CallbackAction<ActivateIntent>(
-                onInvoke: (ActivateIntent intent) {
-                  openDialog();
-                  return null;
-                },
-              ),
-            },
-            child: Focus(
-              autofocus: true,
-              child: SendUtils.buildDropdownField(
-                label: hint,
-                items: codeNumbers, // Pass the unique code numbers as items
-                value: selectedValue, // Pass the selected value
-                height: 65.h,
-                onChanged: (String? value) {
-                  setState(() {
-                    selectedValue = value;
-                    if (kDebugMode) {
-                      print('Selected Value: $selectedValue');
-                    } // Update the selected value
-                    // Find the record with the selected code number
-                    if (value != null) {
-                      final selectedRecord = records.firstWhere(
-                        (record) => record.codeNumber == value,
-                        orElse: () => SendRecord(), // Fallback if not found
-                      );
-                      if (selectedRecord.codeNumber != null) {
-                        _populateFormWithRecord(selectedRecord);
-                      }
-                    }
-                  });
-                },
-                isRequired: false,
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: openDialog,
-                ),
-              ),
-            ),
+          isRequired: false,
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: _openCodeListDialog, // Use the same function here
           ),
         );
       },
     );
   }
 
+  Map<String, double> _getSelectedCountryDetails() {
+    final countryState = context.read<CountryCubit>().state;
+    if (countryState is CountryLoaded) {
+      final selectedCountry = countryState.countries.firstWhere(
+        (country) => country.countryName == _selectedCountry,
+        orElse: () => Country(
+          id: null,
+          countryName: '',
+          alpha2Code: '',
+          zipCodeDigit1: '',
+          zipCodeDigit2: '',
+          zipCodeText: '',
+          currency: '',
+          currencyAgainstIQD: 1.0, // Default exchange rate
+          hasAgent: false,
+          maxWeightKG: 0, // Default max weight
+          flagBoxLabel: '',
+          postBoxLabel: '',
+        ),
+      );
+      return {
+        'exchangeRate': selectedCountry.currencyAgainstIQD,
+        'maxWeight': selectedCountry.maxWeightKG,
+      };
+    }
+    return {
+      'exchangeRate': 1.0, // Default exchange rate
+      'maxWeight': 0, // Default max weight
+    };
+  }
+
   Widget doorToDoorPriceCard() {
+    // Get the exchange rate and max weight from the selected country
+    final countryDetails = _getSelectedCountryDetails();
+    final exchangeRate = countryDetails['exchangeRate']!;
+
     return SendUtils.buildCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1362,25 +1678,27 @@ class _SendScreenState extends State<SendScreen> {
                 _controllers[ControllerKeys.doorToDoorPriceController] ??
                     TextEditingController(),
             hint: 'Door To Door Price',
-            enabled: false,
+            enabled: false, // Make the field read-only
           ),
           SizedBox(height: 8.h),
           SendUtils.buildTextField(
             controller: _controllers[ControllerKeys.pricePerKgController] ??
                 TextEditingController(),
             hint: 'Price For Each 1 KG',
+            enabled: false, // Make the field read-only
           ),
           SizedBox(height: 8.h),
           SendUtils.buildTextField(
             controller: _controllers[ControllerKeys.minimumPriceController] ??
                 TextEditingController(),
             hint: 'Minimum Price',
+            enabled: false, // Make the field read-only
           ),
           SizedBox(height: 16.h),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: Text(
-              'Exchange Currency: 1 EUR = 1.309 IQD',
+              'Exchange Currency: 1 EUR = $exchangeRate IQD', // Dynamic exchange rate
               style: TextStyle(
                 color: Colors.blue,
                 fontSize: 24.sp,
