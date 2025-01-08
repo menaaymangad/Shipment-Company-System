@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 
@@ -38,7 +39,7 @@ class _PDFPreviewDialogState extends State<PDFPreviewDialog> {
       int copies = int.tryParse(_copiesController.text) ?? 1;
       if (copies < 1) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Invalid number of copies. Defaulting to 1.'),
             backgroundColor: Colors.orange,
           ),
@@ -62,12 +63,14 @@ class _PDFPreviewDialogState extends State<PDFPreviewDialog> {
         }
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Printed $copies copies successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Printed $copies copies successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      
+    
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -112,7 +115,7 @@ class _PDFPreviewDialogState extends State<PDFPreviewDialog> {
             ],
           ),
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding:  EdgeInsets.all(16.0.r),
             child: TextField(
               controller: _copiesController,
               decoration: const InputDecoration(

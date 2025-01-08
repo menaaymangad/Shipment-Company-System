@@ -1697,58 +1697,89 @@ class _SendScreenState extends State<SendScreen> {
     }
   }
 
-  void generateLabelPdf({int currentLabelIndex = 1}) async {
+  void generateLabelPdf() async {
     final palletNumber = int.tryParse(
             _controllers[ControllerKeys.palletNumberController]?.text ?? '1') ??
         1;
 
-    if (currentLabelIndex > palletNumber) {
-      return; // Stop when all labels are processed
+    // Map the selected language to the ShippingLabelLanguage enum
+    ShippingLabelLanguage labelLanguage;
+    switch (_selectedLanguage?.toLowerCase()) {
+      case 'arabic':
+        labelLanguage = ShippingLabelLanguage.arabic;
+        break;
+      case 'kurdish':
+        labelLanguage = ShippingLabelLanguage.kurdish;
+        break;
+      default:
+        labelLanguage = ShippingLabelLanguage.english;
+        break;
     }
 
-    await ShippingLabelGenerator.generateShippingLabel(
-      sender: SenderDetails(
-        name: _controllers[ControllerKeys.senderNameController]?.text ?? '',
-      ),
-      receiver: ReceiverDetails(
-        name: _controllers[ControllerKeys.receiverNameController]?.text ?? '',
-        phone: _controllers[ControllerKeys.receiverPhoneController]?.text ?? '',
-        city: _selectedCity,
-        country: _selectedCountry,
-      ),
-      shipment: ShipmentInfo(
-        date: DateTime.now().toString(),
-        time: TimeOfDay.now().toString(),
-        itemDetails:
-            _controllers[ControllerKeys.goodsDescriptionController]?.text ?? '',
-        itemNumber:
-            '$currentLabelIndex of $palletNumber', // Dynamic item number
-        weight: _controllers[ControllerKeys.weightController]?.text ?? '',
-        volumeDifference:
-            _controllers[ControllerKeys.additionalKGController]?.text ?? '',
-        code: _controllers[ControllerKeys.codeNumberController]?.text ?? '',
-        branch: _selectedBranch ?? '',
-      ),
-      onGenerated: (Uint8List pdfData) async {
-        final tempDir = await getTemporaryDirectory();
-        final file =
-            await File('${tempDir.path}/shipping_label_$currentLabelIndex.pdf')
-                .create();
-        await file.writeAsBytes(pdfData);
+    // Loop through each pallet and generate a label
+    for (int currentLabelIndex = 1;
+        currentLabelIndex <= palletNumber;
+        currentLabelIndex++) {
+      // Debug log
+      print('Generating label $currentLabelIndex of $palletNumber');
+      var regularFont = await PDFGenerator.loadCairoFont(isBold: false);
+      var boldFont = await PDFGenerator.loadCairoFont(isBold: true);
 
-        if (mounted) {
-          final result = await showDialog(
-            context: context,
-            builder: (context) => PDFPreviewDialog(pdfFile: file),
-          );
+      // Generate the label for the current pallet
+      await ShippingLabelGenerator.generateShippingLabel(
+        regularFont: regularFont,
+        boldFont: boldFont,
+        sender: SenderDetails(
+          name: _controllers[ControllerKeys.senderNameController]?.text ?? '',
+        ),
+        receiver: ReceiverDetails(
+          name: _controllers[ControllerKeys.receiverNameController]?.text ?? '',
+          phone:
+              _controllers[ControllerKeys.receiverPhoneController]?.text ?? '',
+          city: _selectedCity,
+          country: _selectedCountry,
+        ),
+        shipment: ShipmentInfo(
+          date: DateTime.now().toString(),
+          time: TimeOfDay.now().toString(),
+          itemDetails:
+              _controllers[ControllerKeys.goodsDescriptionController]?.text ??
+                  '',
+          itemNumber:
+              '$currentLabelIndex of $palletNumber', // Dynamic item number
+          weight: _controllers[ControllerKeys.weightController]?.text ?? '',
+          volumeDifference:
+              _controllers[ControllerKeys.additionalKGController]?.text ?? '',
+          code: _controllers[ControllerKeys.codeNumberController]?.text ?? '',
+          branch: _selectedBranch ?? '',
+        ),
+        onGenerated: (Uint8List pdfData) async {
+          final tempDir = await getTemporaryDirectory();
+          final file = await File(
+                  '${tempDir.path}/shipping_label_$currentLabelIndex.pdf')
+              .create();
+          await file.writeAsBytes(pdfData);
 
-          // Check if the user printed or downloaded the current label
-          if (result == 'save' || result == 'print') {
-            // Show the next label
-            generateLabelPdf(currentLabelIndex: currentLabelIndex + 1);
+          if (mounted) {
+            print('PDF saved: ${file.path}'); // Debug log
+
+            // Show the preview dialog for the current label
+            final result = await showDialog(
+              context: context,
+              builder: (context) => PDFPreviewDialog(pdfFile: file),
+            );
+
+            // Wait for the user to take action (Save or Print)
+            if (result == 'save' || result == 'print') {
+              print('User action taken for label $currentLabelIndex');
+            }
           }
-        }
-      },
-    );
+        },
+        language: labelLanguage,
+      );
+    }
   }
 }
+
+// Enums and Models
+enum LabelLanguage { arabic, english, kurdish }

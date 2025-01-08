@@ -7,11 +7,11 @@ import 'package:pdf/widgets.dart' as pw;
 /// Comprehensive shipping label generation class with improved error handling and design
 class ShippingLabelGenerator {
   /// List of fallback fonts for Unicode support
-  static final List<pw.Font> _fontFallback = [];
+  static List<pw.Font> _fontFallback = [];
 
-  /// Loads Cairo font with error handling and fallback
-  static Future<pw.Font> _loadCairoFont({bool isBold = false}) async {
+  static Future<pw.Font> loadCairoFont({bool isBold = false}) async {
     try {
+      // Load font directly from assets
       final fontPath = isBold
           ? 'fonts/Cairo/static/Cairo-Bold.ttf'
           : 'fonts/Cairo/static/Cairo-Regular.ttf';
@@ -19,30 +19,58 @@ class ShippingLabelGenerator {
       final fontData = await rootBundle.load(fontPath);
       return pw.Font.ttf(fontData);
     } catch (e) {
-      debugPrint('Error loading Cairo font: $e');
+      if (kDebugMode) {
+        print('Error loading Cairo font: $e');
+      }
       // Fallback to a Unicode-supported font
-      return pw.Font.times();
+      return pw.Font.timesBold();
     }
   }
 
-  /// Initialize fonts with comprehensive error handling
-  static Future<void> _initializeFonts() async {
-    try {
-      final cairoBold = await _loadCairoFont(isBold: true);
-      final cairoRegular = await _loadCairoFont(isBold: false);
+  static Future<pw.Font> loadArabicFont() async {
+    final fontData = await rootBundle.load('fonts/NotoSansArabic-Regular.ttf');
+    return pw.Font.ttf(fontData);
+  }
 
-      // Add multiple fallback fonts for better Unicode support
-      _fontFallback.clear(); // Clear previous fallbacks
-      _fontFallback.addAll([
+  static Future<pw.Font> loadKurdishFont() async {
+    final fontData = await rootBundle.load('fonts/Amiri-Regular.ttf');
+    return pw.Font.ttf(fontData);
+  }
+
+  static Future<pw.Font> loadRobotoFont() async {
+    try {
+      final fontData = await rootBundle.load('fonts/Roboto-Regular.ttf');
+      return pw.Font.ttf(fontData);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading Roboto font: $e');
+      }
+      return pw.Font.helvetica();
+    }
+  }
+
+  static Future<void> initializeFonts() async {
+    try {
+      // Load Arabic fonts
+      final cairoBold = await loadCairoFont(isBold: true);
+      final cairoRegular = await loadCairoFont(isBold: false);
+      final arabicFont = await loadArabicFont();
+      final kurdishFont = await loadKurdishFont();
+
+      final robotoFont = await loadRobotoFont();
+
+      // Update fallback list to include Roboto
+      _fontFallback = [
         cairoBold,
         cairoRegular,
-        pw.Font.times(), // Times Roman
-        pw.Font.helvetica(), // Helvetica
-        pw.Font.courier(), // Courier
-        pw.Font.zapfDingbats(), // Additional symbol support
-      ]);
+        arabicFont,
+        kurdishFont,
+        robotoFont, // Add Roboto to fallback list
+      ];
     } catch (e) {
-      debugPrint('Critical error initializing fonts: $e');
+      if (kDebugMode) {
+        print('Error initializing fonts: $e');
+      }
     }
   }
 
@@ -78,14 +106,14 @@ class ShippingLabelGenerator {
     required SenderDetails sender,
     required ReceiverDetails receiver,
     required ShipmentInfo shipment,
+    required pw.Font regularFont,
+    required pw.Font boldFont,
     required Function(Uint8List) onGenerated,
+    required ShippingLabelLanguage language, // Add language parameter
   }) async {
     try {
-      await _initializeFonts();
+      await initializeFonts();
       final pdf = pw.Document();
-
-      final baseFont = await _loadCairoFont();
-      final boldFont = await _loadCairoFont(isBold: true);
 
       final logoImage =
           await _loadAssetImage('assets/icons/Sters Logo N-BG.png');
@@ -93,19 +121,23 @@ class ShippingLabelGenerator {
           await _loadAssetImage('assets/icons/EUKnet Logo Invoice.png');
       final qrCode = await _loadAssetImage('assets/icons/Sters QR.png');
 
+      final translations =
+          ShippingLabelLocalizations(language); // Initialize translations
+
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
           build: (context) => _buildShippingLabelContent(
             context: context,
-            baseFont: baseFont,
-            boldFont: boldFont,
+
             logoImage: logoImage,
             euknetLogo: euknetLogo,
             qrCode: qrCode,
             sender: sender,
             receiver: receiver,
             shipment: shipment,
+            translations: translations, baseFont: regularFont,
+            boldFont: boldFont, // Pass translations to the content builder
           ),
         ),
       );
@@ -114,7 +146,6 @@ class ShippingLabelGenerator {
       onGenerated(pdfData);
     } catch (e) {
       debugPrint('Error generating shipping label: $e');
-      // Consider providing error callback or rethrow
     }
   }
 
@@ -129,10 +160,12 @@ class ShippingLabelGenerator {
     required SenderDetails sender,
     required ReceiverDetails receiver,
     required ShipmentInfo shipment,
+    required ShippingLabelLocalizations
+        translations, // Add translations parameter
   }) {
     return pw.Column(
       children: [
-        _buildHeader(logoImage, qrCode, euknetLogo, boldFont),
+        _buildHeader(logoImage, qrCode, euknetLogo, boldFont, translations),
         pw.SizedBox(height: 20.h),
         _buildShippingDetails(
           sender: sender,
@@ -140,9 +173,12 @@ class ShippingLabelGenerator {
           shipment: shipment,
           baseFont: baseFont,
           boldFont: boldFont,
+          translations:
+              translations, // Pass translations to the details builder
         ),
         pw.SizedBox(height: 20.h),
-        _buildFooter(shipment, baseFont),
+        _buildFooter(shipment, baseFont,
+            translations), // Pass translations to the footer builder
       ],
     );
   }
@@ -153,6 +189,7 @@ class ShippingLabelGenerator {
     pw.MemoryImage qrCode,
     pw.MemoryImage euknetLogo,
     pw.Font boldFont,
+    ShippingLabelLocalizations translations, // Add translations parameter
   ) {
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -161,13 +198,16 @@ class ShippingLabelGenerator {
         pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
+            _buildContactInfo('Sulemany', ['0750 8155872', '0770 2120019'],
+                boldFont, translations),
+            _buildContactInfo('Hawler', ['07514142005', '0750 8957008'],
+                boldFont, translations),
             _buildContactInfo(
-                'Sulemany', ['0750 8155872', '0770 2120019'], boldFont),
+                'Duhok', ['0750 3179286'], boldFont, translations),
             _buildContactInfo(
-                'Hawler', ['07514142005', '0750 8957008'], boldFont),
-            _buildContactInfo('Duhok', ['0750 3179286'], boldFont),
-            _buildContactInfo('Karkuk', ['0771 4173401'], boldFont),
-            _buildContactInfo('Baghdad', ['0770 2961701'], boldFont),
+                'Karkuk', ['0771 4173401'], boldFont, translations),
+            _buildContactInfo(
+                'Baghdad', ['0770 2961701'], boldFont, translations),
           ],
         ),
         pw.Row(
@@ -188,6 +228,8 @@ class ShippingLabelGenerator {
     required ShipmentInfo shipment,
     required pw.Font baseFont,
     required pw.Font boldFont,
+    required ShippingLabelLocalizations
+        translations, // Add translations parameter
   }) {
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -200,16 +242,24 @@ class ShippingLabelGenerator {
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                _buildDetailRow('Sender', sender.name, boldFont),
-                _buildDetailRow('Receiver', receiver.name, boldFont),
-                _buildDetailRow('Phone No.', receiver.phone, boldFont),
-                _buildDetailRow('Item Details', shipment.itemDetails, boldFont),
-                _buildDetailRow('Item Number', shipment.itemNumber,
-                    boldFont), // Display item number
-                _buildDetailRow('Weight Kg', shipment.weight, boldFont),
-                _buildDetailRow('City', receiver.city, boldFont),
-                _buildDetailRow('Country', receiver.country, boldFont),
-                _buildDetailRow('Code', shipment.code, boldFont),
+                _buildDetailRow(translations.translations['sender_name']!,
+                    sender.name, boldFont, translations),
+                _buildDetailRow(translations.translations['receiver_name']!,
+                    receiver.name, boldFont, translations),
+                _buildDetailRow(translations.translations['receiver_phone']!,
+                    receiver.phone, boldFont, translations),
+                _buildDetailRow(translations.translations['item_details']!,
+                    shipment.itemDetails, boldFont, translations),
+                _buildDetailRow(translations.translations['item_number']!,
+                    shipment.itemNumber, boldFont, translations),
+                _buildDetailRow(translations.translations['weight_kg']!,
+                    shipment.weight, boldFont, translations),
+                _buildDetailRow(translations.translations['city']!,
+                    receiver.city, boldFont, translations),
+                _buildDetailRow(translations.translations['country']!,
+                    receiver.country, boldFont, translations),
+                _buildDetailRow(translations.translations['code']!,
+                    shipment.code, boldFont, translations),
               ],
             ),
           ),
@@ -220,7 +270,7 @@ class ShippingLabelGenerator {
             padding: pw.EdgeInsets.all(10.r),
             decoration: pw.BoxDecoration(border: pw.Border.all()),
             child: pw.Text(
-              shipment.branch.toUpperCase(), // Use the branch field
+              shipment.branch.toUpperCase(),
               style: _createTextStyle(
                 font: boldFont,
                 fontSize: 16,
@@ -238,10 +288,12 @@ class ShippingLabelGenerator {
     String location,
     List<String> numbers,
     pw.Font boldFont,
+    ShippingLabelLocalizations translations, // Add translations parameter
   ) {
     return pw.Row(
       children: [
         pw.Text(
+          textDirection: translations.textDirection,
           '$location : ',
           style: _createTextStyle(
             font: boldFont,
@@ -260,6 +312,7 @@ class ShippingLabelGenerator {
     String label,
     String value,
     pw.Font baseFont,
+    ShippingLabelLocalizations translations, // Add translations parameter
   ) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 4),
@@ -270,6 +323,7 @@ class ShippingLabelGenerator {
             width: 120.w,
             child: pw.Text(
               label,
+              textDirection: translations.textDirection,
               style: _createTextStyle(
                 font: baseFont,
                 fontSize: 20,
@@ -280,6 +334,7 @@ class ShippingLabelGenerator {
           pw.Text(' : ', style: _createTextStyle(font: baseFont, fontSize: 16)),
           pw.Expanded(
             child: pw.Text(
+              textDirection: translations.textDirection,
               value,
               style: _createTextStyle(font: baseFont, fontSize: 18),
             ),
@@ -290,24 +345,100 @@ class ShippingLabelGenerator {
   }
 
   /// Build footer with shipment details
-  static pw.Widget _buildFooter(ShipmentInfo shipment, pw.Font baseFont) {
+  static pw.Widget _buildFooter(ShipmentInfo shipment, pw.Font baseFont,
+      ShippingLabelLocalizations translations) {
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [
         pw.Text(
-          'Date: ${shipment.date}',
-          style: _createTextStyle(font: baseFont, fontSize: 16),
+          textDirection: translations.textDirection,
+          '${translations.translations['date']!}: ${shipment.date}',
+          style: _createTextStyle(font: baseFont, fontSize: 20),
         ),
         pw.Text(
-          'Time: ${shipment.time}',
-          style: _createTextStyle(font: baseFont, fontSize: 16),
+          textDirection: translations.textDirection,
+          '${translations.translations['time']!}: ${shipment.time}',
+          style: _createTextStyle(font: baseFont, fontSize: 20),
         ),
         pw.Text(
-          'Volume Difference: ${shipment.volumeDifference}',
-          style: _createTextStyle(font: baseFont, fontSize: 16),
+          textDirection: translations.textDirection,
+          '${translations.translations['volume_difference']!}: ${shipment.volumeDifference}',
+          style: _createTextStyle(font: baseFont, fontSize: 20),
         ),
       ],
     );
+  }
+}
+
+enum ShippingLabelLanguage { arabic, english, kurdish }
+
+class ShippingLabelLocalizations {
+  final ShippingLabelLanguage language;
+
+  ShippingLabelLocalizations(this.language);
+
+  pw.TextDirection get textDirection {
+    switch (language) {
+      case ShippingLabelLanguage.english:
+        return pw.TextDirection.ltr;
+      case ShippingLabelLanguage.arabic:
+      case ShippingLabelLanguage.kurdish:
+        return pw.TextDirection.rtl;
+    }
+  }
+
+  Map<String, String> get translations => {
+        // Company Info Section
+        'company_name':
+            _getTranslation('شركة ستيرس', 'Sters Company', 'کۆمپانیای ستێرس'),
+        'company_slogan': _getTranslation(
+            'الرائدة في مجال النقل الدولي',
+            'Leader in International Transport',
+            'پێشەنگ لە بواری گواستنەوەی نێودەوڵەتی'),
+        'phone': _getTranslation('الهاتف:', 'Phone:', 'تەلەفۆن:'),
+        'branch': _getTranslation('فرع:', 'Branch:', 'لق:'),
+
+        // Header Section
+        'shipping_label':
+            _getTranslation('ملصق الشحن', 'Shipping Label', 'پلاکی گواستنەوە'),
+
+        // Sender-Receiver Section
+        'sender_info':
+            _getTranslation('معلومات المرسل', 'Sender Info', 'زانیاری نێردەر'),
+        'receiver_info': _getTranslation(
+            'معلومات المستلم', 'Receiver Info', 'زانیاری وەرگر'),
+        'sender_name':
+            _getTranslation('اسم المرسل', 'Sender Name', 'ناوی نێردەر'),
+        'receiver_name':
+            _getTranslation('اسم المستلم', 'Receiver Name', 'ناوی وەرگر'),
+        'receiver_phone': _getTranslation(
+            'رقم هاتف المستلم', 'Receiver Phone', 'ژمارەی وەرگر'),
+        'item_details': _getTranslation(
+            'تفاصيل البضاعة', 'Item Details', 'زانیاری کاڵاکان'),
+        'item_number':
+            _getTranslation('رقم البضاعة', 'Item Number', 'ژمارەی کاڵا'),
+        'weight_kg':
+            _getTranslation('الوزن / كغم', 'Weight / Kg', 'کێش / کیلۆگرام'),
+        'city': _getTranslation('المدينة', 'City', 'شار'),
+        'country': _getTranslation('الدولة', 'Country', 'وڵات'),
+        'code': _getTranslation('الكود', 'Code', 'کۆد'),
+
+        // Footer Section
+        'date': _getTranslation('التاريخ', 'Date', 'بەروار'),
+        'time': _getTranslation('الوقت', 'Time', 'کات'),
+        'volume_difference': _getTranslation(
+            'الفرق في الحجم', 'Volume Difference', 'جیاوازیی قەبارە'),
+      };
+
+  String _getTranslation(String arabic, String english, String kurdish) {
+    switch (language) {
+      case ShippingLabelLanguage.arabic:
+        return arabic;
+      case ShippingLabelLanguage.english:
+        return english;
+      case ShippingLabelLanguage.kurdish:
+        return kurdish;
+    }
   }
 }
 
