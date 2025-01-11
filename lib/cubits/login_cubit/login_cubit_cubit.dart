@@ -17,11 +17,12 @@ class AuthCubit extends Cubit<AuthState> {
 
   AuthCubit(this.userCubit, this.databaseHelper) : super(AuthInitial());
 
-  Future<void> login(String branch, String username, String password) async {
+Future<void> login(String branch, String username, String password) async {
     emit(AuthLoading());
 
     try {
-       await databaseHelper.printAllUsers();
+      await databaseHelper.printAllUsers();
+
       // Check login attempt limits
       if (!LoginAttemptTracker.canAttemptLogin(username)) {
         emit(AuthFailure('Too many login attempts. Please try again later.'));
@@ -31,7 +32,7 @@ class AuthCubit extends Cubit<AuthState> {
       final User? authenticatedUser =
           await databaseHelper.authenticateUser(username, password);
 
-     if (authenticatedUser != null) {
+      if (authenticatedUser != null) {
         if (authenticatedUser.branchName == branch &&
             authenticatedUser.allowLogin) {
           // Reset failed attempts on successful login
@@ -54,10 +55,15 @@ class AuthCubit extends Cubit<AuthState> {
       LoginAttemptTracker.recordFailedAttempt(username);
       emit(AuthFailure('Invalid credentials or login not allowed'));
     } catch (e) {
-      emit(AuthFailure('Authentication error: ${e.toString()}'));
+      if (e.toString().contains('Password mismatch')) {
+        // Handle password mismatch error
+        emit(AuthFailure('Password mismatch'));
+      } else {
+        emit(AuthFailure('Authentication error: ${e.toString()}'));
+      }
     }
   }
-
+  
   Future<void> adminLogin(String username, String password) async {
     emit(AuthLoading());
 

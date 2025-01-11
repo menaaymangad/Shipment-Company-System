@@ -313,7 +313,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Header(level: 0, text: 'Send Report'),
-              pw.Table.fromTextArray(
+              pw.TableHelper.fromTextArray(
                 context: context,
                 data: [
                   [

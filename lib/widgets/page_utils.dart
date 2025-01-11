@@ -106,16 +106,17 @@ class PageUtils {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        ElevatedButton(
-          onPressed: onAddPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blueAccent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.r),
+        if (onUpdatePressed == null)
+          ElevatedButton(
+            onPressed: onAddPressed,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueAccent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.r),
+              ),
             ),
+            child: const Text('Add'),
           ),
-          child: const Text('Add'),
-        ),
         if (onUpdatePressed != null)
           ElevatedButton(
             onPressed: onUpdatePressed,
@@ -175,6 +176,7 @@ class PageUtils {
       ],
     );
   }
+
   static Widget buildPostSelection({
     required bool value,
     required void Function(bool?)? onChanged,
@@ -197,5 +199,4 @@ class PageUtils {
       ],
     );
   }
-
 }

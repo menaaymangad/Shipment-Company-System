@@ -23,7 +23,7 @@ class CustomAppBar extends StatelessWidget {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withAlpha(20),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -57,7 +57,7 @@ class CustomAppBar extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: isSelected
-                ? const Color(0xFF3B82F6).withOpacity(0.1)
+                ? const Color(0xFF3B82F6).withAlpha(20)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8.r),
             border: Border.all(
@@ -192,7 +192,6 @@ class CustomDropdown extends StatelessWidget {
   // Constants for styling
   static const Color _borderColor = Color(0xFFE2E8F0);
   static const Color _textColor = Color(0xFF2D3748);
-  static const Color _hintColor = Color(0xFF94A3B8);
   static const Color _iconColor = Color(0xFF64748B);
 
   final String label;

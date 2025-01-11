@@ -13,7 +13,7 @@ class GoodsDescription {
     this.quantity = 1,
   });
 
-  factory GoodsDescription.fromMap(Map<String, dynamic> map) {
+factory GoodsDescription.fromMap(Map<String, dynamic> map) {
     return GoodsDescription(
       id: map['id'],
       descriptionEn: map['descriptionEn'] ?? '',

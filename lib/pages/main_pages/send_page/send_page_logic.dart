@@ -4,25 +4,43 @@ class SendPageLogic {
   static void updateCalculations({
     required Map<String, TextEditingController> controllers,
     required bool isInsuranceEnabled,
+    required double euroRate,
   }) {
     // Parse input values
     final realWeight =
         double.tryParse(controllers['weightController']!.text) ?? 0;
-    final additionalKg =
+    final additionalWeight =
         double.tryParse(controllers['additionalKGController']!.text) ?? 0;
     final pricePerKg =
         double.tryParse(controllers['pricePerKgController']!.text) ?? 0;
     final minimumPrice =
         double.tryParse(controllers['minimumPriceController']!.text) ?? 0;
-    final insuranceAmount = isInsuranceEnabled
-        ? double.tryParse(controllers['insuranceAmountController']!.text) ?? 0
-        : 0;
+    final goodsValue =
+        double.tryParse(controllers['goodsValueController']!.text) ?? 0;
+    final insurancePercent =
+        double.tryParse(controllers['insurancePercentController']!.text) ?? 0;
     final boxPackingCost =
         double.tryParse(controllers['boxPackingCostController']!.text) ?? 0;
+    final discountAmount =
+        double.tryParse(controllers['discountAmountController']!.text) ?? 0;
+    final customsCost =
+        double.tryParse(controllers['customsCostController']!.text) ?? 0;
+    final doorToDoorPrice =
+        double.tryParse(controllers['doorToDoorPriceController']!.text) ?? 0;
 
     // Calculate total weight
-    final totalWeight = realWeight + additionalKg;
+    final totalWeight = realWeight + additionalWeight;
     controllers['totalWeightController']!.text = totalWeight.toStringAsFixed(2);
+
+    // Calculate insurance amount (if enabled)
+    double insuranceAmount = 0;
+    if (isInsuranceEnabled) {
+      insuranceAmount = (goodsValue * insurancePercent) / 100;
+      controllers['insuranceAmountController']!.text =
+          insuranceAmount.toStringAsFixed(2);
+    } else {
+      controllers['insuranceAmountController']!.text = '0.00';
+    }
 
     // Calculate shipping cost
     double shippingCost = totalWeight * pricePerKg;
@@ -30,35 +48,45 @@ class SendPageLogic {
       shippingCost = minimumPrice;
     }
 
-    // Add insurance amount and box packing cost
-    double totalPostCost = shippingCost + boxPackingCost;
-    if (isInsuranceEnabled) {
-      totalPostCost += insuranceAmount;
-    }
+    // Calculate door-to-door cost
+    final doorToDoorCost = (realWeight / 10) * doorToDoorPrice;
+    controllers['doorToDoorCostController']!.text =
+        doorToDoorCost.toStringAsFixed(2);
 
-    // Update the total post cost field
+    // Calculate post sub cost
+    final postSubCost = realWeight * pricePerKg;
+    controllers['postSubCostController']!.text = postSubCost.toStringAsFixed(2);
+
+    // Calculate total post cost
+    double totalPostCost = insuranceAmount +
+        customsCost +
+        boxPackingCost +
+        doorToDoorCost +
+        postSubCost -
+        discountAmount;
     controllers['totalPostCostController']!.text =
         totalPostCost.toStringAsFixed(2);
 
     // Update unpaid amounts
-    _updateUnpaidAmounts(controllers, totalPostCost);
+    final totalPostCostPaid = double.tryParse(
+            controllers['totalPostCostPaidController']?.text ?? '0') ??
+        0;
+    final unpaidAmount = totalPostCost - totalPostCostPaid;
+    controllers['unpaidAmountController']!.text =
+        unpaidAmount.toStringAsFixed(2);
 
     // Update Euro amounts
-    _updateEuroAmounts(controllers, totalPostCost);
-  }
+    if (euroRate > 0) {
+      // Calculate total cost in EUR and round to 2 decimal places
+      final totalCostEur = (totalPostCost / euroRate).toStringAsFixed(2);
+      controllers['totalCostEurController']!.text = totalCostEur;
 
-  static void _updateUnpaidAmounts(
-      Map<String, TextEditingController> controllers, double totalCost) {
-    double paidAmount =
-        double.tryParse(controllers['totalPostCostPaidController']!.text) ?? 0;
-    controllers['unpaidAmountController']!.text =
-        (totalCost - paidAmount).toStringAsFixed(2);
-  }
-
-  static void _updateEuroAmounts(
-      Map<String, TextEditingController> controllers, double totalCost) {
-    const euroRate = 1.309;
-    controllers['totalCostEurController']!.text =
-        (totalCost / euroRate).toStringAsFixed(2);
+      // Calculate unpaid amount in EUR and round to 2 decimal places
+      final unpaidEurCost = (unpaidAmount / euroRate).toStringAsFixed(2);
+      controllers['unpaidEurCostController']!.text = unpaidEurCost;
+    } else {
+      controllers['totalCostEurController']!.text = '0.00';
+      controllers['unpaidEurCostController']!.text = '0.00';
+    }
   }
 }

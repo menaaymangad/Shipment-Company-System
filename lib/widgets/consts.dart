@@ -2,6 +2,8 @@
 class ControllerKeys {
   // Shipment Info Keys
   static  String dateController = 'dateController';
+  static  String resultController = 'resultController';
+   static String euroRateController='euroRateController';
   static  String truckNumberController = 'truckNumberController';
   static  String codeNumberController = 'codeNumberController';
   static  String boxNumberController = 'boxNumberController';

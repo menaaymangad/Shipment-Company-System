@@ -92,7 +92,6 @@ class DatabaseHelper {
 
 // Add this helper method to DatabaseHelper class
   // In sql_helper.dart
-
   Future<void> resetDatabase() async {
     try {
       // Close existing connections first
@@ -216,6 +215,7 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE send_records ADD COLUMN newColumn TEXT;');
     }
   }
+
   Future<void> createTables(Database db, int version) async {
     try {
       // Create all tables first using batch
@@ -259,13 +259,13 @@ class DatabaseHelper {
     ''');
 
       // Cities table
-    batch.execute('''
+      batch.execute('''
   CREATE TABLE IF NOT EXISTS cities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cityName TEXT NOT NULL,
     country TEXT NOT NULL,
     hasAgent INTEGER NOT NULL,
-    isPost INTEGER NOT NULL DEFAULT 0, // New column
+    isPost INTEGER NOT NULL DEFAULT 0, 
     doorToDoorPrice REAL NOT NULL,
     priceKg REAL NOT NULL DEFAULT 0,
     minimumPrice REAL NOT NULL DEFAULT 0,
@@ -292,7 +292,9 @@ class DatabaseHelper {
         password TEXT NOT NULL
       )
     ''');
-
+      if (kDebugMode) {
+        print('Creating goods_descriptions table...');
+      }
       batch.execute('''
       CREATE TABLE IF NOT EXISTS goods_descriptions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

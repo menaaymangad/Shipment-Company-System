@@ -34,20 +34,20 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   @override
   void initState() {
     super.initState();
-    _initializeDatabase();
+    // _initializeDatabase();
     _loadDescriptions();
     _searchController.addListener(_filterList);
   }
 
-  Future<void> _initializeDatabase() async {
-    try {
-      await widget.dbHelper.ensureGoodsDescriptionTable();
-    } catch (e) {
-      if (mounted) {
-        _showError('Failed to initialize database: $e');
-      }
-    }
-  }
+  // Future<void> _initializeDatabase() async {
+  //   try {
+  //     await widget.dbHelper.ensureGoodsDescriptionTable();
+  //   } catch (e) {
+  //     if (mounted) {
+  //       _showError('Failed to initialize database: $e');
+  //     }
+  //   }
+  // }
 
   void _filterList() {
     setState(() {
@@ -113,7 +113,7 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
         isLoading = false;
       });
 
-      await _loadDescriptions();
+      await _loadDescriptions(); // Refresh the list after adding
       _showSuccess('Description added successfully');
     } catch (e) {
       setState(() {

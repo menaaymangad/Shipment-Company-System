@@ -7,7 +7,7 @@ import '../models/user_model.dart';
 import 'sql_helper.dart';
 
 extension UserDatabaseHelper on DatabaseHelper {
-Future<int> insertUser(User user) async {
+  Future<int> insertUser(User user) async {
     final db = await database;
 
     // Hash the password before inserting
@@ -15,7 +15,7 @@ Future<int> insertUser(User user) async {
 
     final userMap = {
       'userName': user.userName,
-      'password': hashedPassword,
+      'password': hashedPassword, // Use the hashed password
       'branchName': user.branchName,
       'authorization': user.authorization,
       'allowLogin': 1 // Make sure this is set to 1 to allow login
@@ -23,8 +23,26 @@ Future<int> insertUser(User user) async {
 
     if (kDebugMode) {
       print('Inserting new user: $userMap');
-    } // Debug line
+    }
     return await db.insert('users', userMap);
+  }
+
+  Future<int> updateUser(User user) async {
+    final db = await database;
+
+    // Hash the password before updating
+    final hashedPassword = hashPassword(user.password);
+
+    final userMap = {
+      'userName': user.userName,
+      'password': hashedPassword, // Use the hashed password
+      'branchName': user.branchName,
+      'authorization': user.authorization,
+      'allowLogin': user.allowLogin ? 1 : 0,
+    };
+
+    return await db
+        .update('users', userMap, where: 'id = ?', whereArgs: [user.id]);
   }
 
   Future<List<User>> getAllUsers() async {
@@ -40,11 +58,11 @@ Future<int> insertUser(User user) async {
     return User.fromMap(result.first);
   }
 
-  Future<int> updateUser(User user) async {
-    final db = await database;
-    return await db
-        .update('users', user.toMap(), where: 'id = ?', whereArgs: [user.id]);
-  }
+  // Future<int> updateUser(User user) async {
+  //   final db = await database;
+  //   return await db
+  //       .update('users', user.toMap(), where: 'id = ?', whereArgs: [user.id]);
+  // }
 
   Future<int> deleteUser(int id) async {
     final db = await database;
@@ -55,8 +73,6 @@ Future<int> insertUser(User user) async {
     return sha256.convert(utf8.encode(password)).toString();
   }
 
-// Update authentication to use hashed passwords
- // In user_db_helper.dart
   Future<User?> authenticateUser(String username, String password) async {
     try {
       final db = await database;
@@ -69,12 +85,29 @@ Future<int> insertUser(User user) async {
         throw Exception('Users table does not exist');
       }
 
-      final hashedPassword = hashPassword(password);
-      final result = await db.query('users',
-          where: 'userName = ? AND password = ?',
-          whereArgs: [username, hashedPassword]);
+      // Fetch the user by username
+      final result =
+          await db.query('users', where: 'userName = ?', whereArgs: [username]);
 
-      return result.isEmpty ? null : User.fromMap(result.first);
+      if (result.isEmpty) {
+        // No user found with the provided username
+        throw Exception('User not found');
+      }
+
+      // Get the stored hashed password from the database
+      final storedHashedPassword = result.first['password'] as String;
+
+      // Hash the password entered during login
+      final hashedPassword = hashPassword(password);
+
+      // Compare the hashed passwords
+      if (storedHashedPassword == hashedPassword) {
+        // Passwords match, return the user
+        return User.fromMap(result.first);
+      } else {
+        // Passwords do not match, throw an exception
+        throw Exception('Password mismatch');
+      }
     } catch (e, stackTrace) {
       if (kDebugMode) {
         print('Authentication error: $e');
@@ -95,6 +128,7 @@ Future<int> insertUser(User user) async {
       'is_success': 0
     });
   }
+
   Future<void> printAllUsers() async {
     final db = await database;
     final users = await db.query('users');
@@ -104,7 +138,7 @@ Future<int> insertUser(User user) async {
     for (var user in users) {
       if (kDebugMode) {
         print(
-          'User: ${user['userName']}, Authorization: ${user['authorization']}, AllowLogin: ${user['allowLogin']}');
+            'User: ${user['userName']}, Authorization: ${user['authorization']}, AllowLogin: ${user['allowLogin']}');
       }
     }
   }

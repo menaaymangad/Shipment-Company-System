@@ -342,7 +342,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Header(level: 0, text: 'Send Report'),
-              pw.Table.fromTextArray(
+              pw.TableHelper.fromTextArray(
                 context: context,
                 data: [
                   [

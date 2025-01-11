@@ -5,24 +5,29 @@ import 'sql_helper.dart';
 
 extension GoodsDescriptionDatabaseHelper on DatabaseHelper {
   // Function to check and update table schema
-Future<void> ensureGoodsDescriptionTable() async {
-    try {
-      final db = await database;
-      await db.execute('''
-      CREATE TABLE IF NOT EXISTS goods_descriptions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        descriptionEn TEXT NOT NULL,
-        descriptionAr TEXT NOT NULL,
-        UNIQUE(descriptionEn, descriptionAr)
-      )
-    ''');
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error ensuring goods descriptions table: $e');
-      }
-      rethrow;
-    }
-  }
+// Future<void> ensureGoodsDescriptionTable() async {
+//     try {
+//       final db = await database;
+
+//       // Drop the existing table if it exists
+//       await db.execute('DROP TABLE IF EXISTS goods_descriptions');
+
+//       // Create the table with the correct schema
+//       await db.execute('''
+//       CREATE TABLE IF NOT EXISTS goods_descriptions (
+//         id INTEGER PRIMARY KEY AUTOINCREMENT,
+//         descriptionEn TEXT NOT NULL,
+//         descriptionAr TEXT NOT NULL,
+//         UNIQUE(descriptionEn, descriptionAr)
+//       )
+//     ''');
+//     } catch (e) {
+//       if (kDebugMode) {
+//         print('Error ensuring goods descriptions table: $e');
+//       }
+//       rethrow;
+//     }
+//   }
 
 Future<int> insertGoodsDescription(
       String descriptionEn, String descriptionAr) async {
@@ -44,7 +49,7 @@ Future<int> insertGoodsDescription(
       rethrow;
     }
   }
-  Future<List<GoodsDescription>> getAllGoodsDescriptions() async {
+Future<List<GoodsDescription>> getAllGoodsDescriptions() async {
     try {
       final db = await database;
       final result = await db.query('goods_descriptions');
@@ -56,7 +61,6 @@ Future<int> insertGoodsDescription(
       rethrow;
     }
   }
-
   Future<int> updateGoodsDescription(GoodsDescription description) async {
     try {
       final db = await database;

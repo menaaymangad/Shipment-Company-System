@@ -34,7 +34,7 @@ class _UsersPageState extends State<UsersPage> {
   // State Variables
   String _selectedBranch = '';
   String _selectedAuthorization = '';
-  bool _allowLogin = true;
+  bool _allowLogin = false;
   User? _selectedUser;
 
   @override
@@ -158,22 +158,20 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   Widget _buildGridContent() {
-    return Expanded(
-      child: BlocBuilder<UserCubit, UserState>(
-        builder: (context, state) {
-          if (state is UserLoadingState) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (state is UserLoadedState) {
-            return UsersList(
-              onUserSelected: _populateForm,
-              // users: state.users,
-            );
-          } else if (state is UserErrorState) {
-            return Center(child: Text(state.errorMessage));
-          }
-          return const Center(child: Text('No data available'));
-        },
-      ),
+    return BlocBuilder<UserCubit, UserState>(
+      builder: (context, state) {
+        if (state is UserLoadingState) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (state is UserLoadedState) {
+          return UsersList(
+            onUserSelected: _populateForm,
+            // users: state.users,
+          );
+        } else if (state is UserErrorState) {
+          return Center(child: Text(state.errorMessage));
+        }
+        return const Center(child: Text('No data available'));
+      },
     );
   }
 

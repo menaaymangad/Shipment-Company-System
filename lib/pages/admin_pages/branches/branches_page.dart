@@ -344,7 +344,7 @@ class _BranchesPageState extends State<BranchesPage> {
                 labelText: 'Year Prefix',
                 validator: (_) => _yearPrefixError,
                 keyboardType: TextInputType.number,
-                enabled: false,
+                enabled: true,
               ),
             ),
           ],

@@ -7,6 +7,7 @@ import 'package:app/pages/main_pages/login_page.dart';
 import 'package:app/widgets/delete_db_button.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -84,7 +85,9 @@ class _SettingPageState extends State<SettingPage> {
   }
 
   Future<void> _restoreDatabase() async {
-    print("Restore button pressed"); // Debugging line
+    if (kDebugMode) {
+      print("Restore button pressed");
+    } // Debugging line
     try {
       // Open file picker to select a file
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -97,21 +100,29 @@ class _SettingPageState extends State<SettingPage> {
         String? filePath = file.path;
 
         if (filePath == null) {
-          print("File path is null");
+          if (kDebugMode) {
+            print("File path is null");
+          }
           return;
         }
 
-        print("Selected file: $filePath"); // Debugging line
+        if (kDebugMode) {
+          print("Selected file: $filePath");
+        } // Debugging line
 
         // Check if the file exists
         if (!File(filePath).existsSync()) {
-          print("File does not exist: $filePath");
+          if (kDebugMode) {
+            print("File does not exist: $filePath");
+          }
           return;
         }
 
         // Check file extension
         if (filePath.endsWith('.xlsx')) {
-          print("Processing Excel file"); // Debugging line
+          if (kDebugMode) {
+            print("Processing Excel file");
+          } // Debugging line
 
           // Parse the Excel file
           List<Map<String, dynamic>> data = await _parseExcelFile(filePath);
@@ -121,19 +132,25 @@ class _SettingPageState extends State<SettingPage> {
 
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Database restored successfully!')),
+            const SnackBar(content:  Text('Database restored successfully!')),
           );
         } else if (filePath.endsWith('.mdb') || filePath.endsWith('.accdb')) {
-          print("Processing Access file"); // Debugging line
+          if (kDebugMode) {
+            print("Processing Access file");
+          } // Debugging line
           // Handle Access file (not implemented in this example)
         }
       } else {
         // User canceled the picker
-        print("No file selected");
+        if (kDebugMode) {
+          print("No file selected");
+        }
       }
     } catch (e) {
       // Handle errors
-      print("Error restoring database: $e");
+      if (kDebugMode) {
+        print("Error restoring database: $e");
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error restoring database: $e')),
       );

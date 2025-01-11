@@ -4,10 +4,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class SendUtils {
   // Custom color palette for consistent design
-  static final Color primaryColor = const Color(0xFF2C3E50);
-  static final Color secondaryColor = const Color(0xFF34495E);
-  static final Color _lightGreyColor = const Color(0xFFF4F6F7);
-  static final Color _textColorLight = const Color(0xFF4A4A4A);
+  static const Color primaryColor = Color(0xFF2C3E50);
+  static const Color secondaryColor = Color(0xFF34495E);
+  static const Color _lightGreyColor = Color(0xFFF4F6F7);
+  static const Color _textColorLight = Color(0xFF4A4A4A);
 
   /// Builds a card with enhanced styling and optional title
   static Widget buildCard({
@@ -35,7 +35,7 @@ class SendUtils {
             ),
           ],
         ),
-        padding: EdgeInsets.all(20.r),
+        padding: EdgeInsets.all(10.r),
         child: Center(child: child),
       ),
     );
@@ -51,31 +51,28 @@ class SendUtils {
     VoidCallback? onIconPressed,
     // Add this parameter for IconButton's onPressed
   }) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 10.h),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (icon != null) // Only add the icon if it's provided
-            isIconButton
-                ? IconButton(
-                    icon: Icon(
-                      icon,
-                      size: 40.h,
-                      color: iconColor ?? secondaryColor,
-                    ),
-                    onPressed: onIconPressed, // Handle the icon button press
-                  )
-                : Icon(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (icon != null) // Only add the icon if it's provided
+          isIconButton
+              ? IconButton(
+                  icon: Icon(
                     icon,
                     size: 40.h,
                     color: iconColor ?? secondaryColor,
                   ),
-          if (icon != null)
-            SizedBox(width: 12.w), // Add spacing only if icon is present
-          Expanded(child: child),
-        ],
-      ),
+                  onPressed: onIconPressed, // Handle the icon button press
+                )
+              : Icon(
+                  icon,
+                  size: 40.h,
+                  color: iconColor ?? secondaryColor,
+                ),
+        if (icon != null)
+          SizedBox(width: 12.w), // Add spacing only if icon is present
+        Expanded(child: child),
+      ],
     );
   }
 
@@ -105,10 +102,31 @@ class SendUtils {
     );
   }
 
+  static void _showValidationErrorDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Validation Error'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   /// Builds a custom text field with enhanced styling
   static Widget buildTextField({
     required String hint,
-    String? label, // Add a label parameter
+    int? maxLines,
+    String? label,
     bool optional = false,
     required TextEditingController controller,
     bool enabled = true,
@@ -116,23 +134,41 @@ class SendUtils {
     FormFieldValidator<String>? validator,
     double? height,
     ValueChanged<String>? onChanged,
+    BuildContext? context, // Add context parameter for showing dialogs
   }) {
     return SizedBox(
-      height: height ?? 75.h,
+      height: height ?? 85.h, // Fixed height to prevent shrinking
       child: TextFormField(
         controller: controller,
         onChanged: onChanged,
-        maxLines: null,
+        maxLines: maxLines,
         enabled: enabled,
         keyboardType: keyboardType,
-        validator: validator,
+        validator: (value) {
+          if (validator != null) {
+            final errorMessage = validator(value);
+            if (errorMessage != null && context != null) {
+              _showValidationErrorDialog(context, errorMessage);
+            }
+            return null; // Return null to avoid showing the error below the field
+          }
+          return null;
+        },
         textAlign: TextAlign.center,
         style: TextStyle(
           color: _textColorLight,
           fontSize: 24.sp,
         ),
         decoration: InputDecoration(
-          labelText: hint, // Add the label here
+          errorMaxLines: null,
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(
+              color: Colors.red,
+              width: 1.5,
+            ),
+          ),
+          labelText: hint,
           labelStyle: TextStyle(
             color: enabled ? Colors.grey[700] : Colors.grey[500],
             fontSize: 24.sp,
@@ -146,6 +182,8 @@ class SendUtils {
             horizontal: 12.w,
             vertical: 8.h,
           ),
+          isDense: false,
+          isCollapsed: false,
           filled: true,
           fillColor: enabled ? Colors.white : _lightGreyColor,
           border: OutlineInputBorder(
@@ -164,7 +202,7 @@ class SendUtils {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
+            borderSide: const BorderSide(
               color: primaryColor,
               width: 2,
             ),
@@ -181,12 +219,15 @@ class SendUtils {
             color: Colors.grey[500],
             fontSize: 20.sp,
           ),
+          errorStyle: const TextStyle(
+              height: 0), // Hide the error message below the field
         ),
       ),
     );
   }
 
   static Widget buildDropdownField({
+    required BuildContext context,
     required String label,
     required List<String> items,
     required String? value,
@@ -198,13 +239,21 @@ class SendUtils {
     String? Function(String?)? validator,
   }) {
     // Ensure the value is valid or set a default value
-    final validValue = items.contains(value) ? value : null;
+    final validValue =
+        items.contains(value) ? value : (items.isNotEmpty ? items.first : null);
 
     return SizedBox(
       height: 80.h,
       child: DropdownButtonFormField<String>(
         value: validValue, // Use the valid value
         decoration: InputDecoration(
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(
+              color: Colors.red,
+              width: 1.5,
+            ),
+          ),
           labelText: isRequired ? '$label *' : label,
           labelStyle: TextStyle(
             fontSize: 24.sp,
@@ -232,12 +281,14 @@ class SendUtils {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
+            borderSide: const BorderSide(
               color: primaryColor,
               width: 2,
             ),
           ),
           suffixIcon: suffixIcon,
+          errorMaxLines: null,
+          errorStyle: const TextStyle(height: 0),
         ),
         style: TextStyle(
           fontSize: 24.sp,
@@ -253,13 +304,16 @@ class SendUtils {
             ),
           );
         }).toList(),
-        validator: validator ??
-            (value) {
-              if (isRequired && (value == null || value.isEmpty)) {
-                return '$label is required';
-              }
-              return null;
-            },
+        validator: (value) {
+          if (validator != null) {
+            final errorMessage = validator(value);
+            if (errorMessage != null) {
+              _showValidationErrorDialog(context, errorMessage);
+            }
+            return null; // Return null to avoid showing the error below the field
+          }
+          return null;
+        },
         onChanged: enabled ? onChanged : null,
         isExpanded: true,
         icon: Icon(
@@ -274,150 +328,4 @@ class SendUtils {
   }
 }
 
-class AppTheme {
-  // Color Palette
-  static const Color primary = Color(0xFF2C3E50);
-  static const Color secondary = Color(0xFF34495E);
-  static const Color background = Color(0xFFF4F6F7);
-  static const Color textDark = Color(0xFF4A4A4A);
-  static const Color textLight = Color(0xFF7A7A7A);
-
-  // Text Styles
-  static TextStyle get headingStyle => TextStyle(
-        fontSize: 28.sp,
-        fontWeight: FontWeight.w600,
-        color: textDark,
-      );
-
-  static TextStyle get bodyStyle => TextStyle(
-        fontSize: 24.sp,
-        color: textDark,
-      );
-
-  // Input Decorations
-  static InputDecoration textFieldDecoration({
-    required String hint,
-    bool optional = false,
-    bool enabled = true,
-    Widget? suffixIcon,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(
-        color: Colors.grey[500],
-        fontSize: 24.sp,
-      ),
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: 12.w,
-        vertical: 8.h,
-      ),
-      filled: true,
-      fillColor: enabled ? Colors.white : background,
-      border: _buildBorder(enabled: enabled),
-      enabledBorder: _buildBorder(enabled: enabled),
-      focusedBorder: _buildBorder(color: primary, width: 2),
-      disabledBorder: _buildBorder(enabled: false),
-      suffixText: optional ? 'Optional' : null,
-      suffixStyle: TextStyle(
-        color: Colors.grey[500],
-        fontSize: 20.sp,
-      ),
-      suffixIcon: suffixIcon,
-    );
-  }
-
-  // Shared Border Style
-  static OutlineInputBorder _buildBorder({
-    Color? color,
-    double width = 1.5,
-    bool enabled = true,
-  }) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide(
-        color: color ?? (enabled ? Colors.grey.shade300 : Colors.grey.shade200),
-        width: width,
-      ),
-    );
-  }
-
-  // Card Styles
-  static BoxDecoration cardDecoration = BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(12),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.grey.withOpacity(0.1),
-        spreadRadius: 2,
-        blurRadius: 5,
-        offset: const Offset(0, 3),
-      ),
-    ],
-  );
-
-  // Spacing Constants
-  static final double verticalSpacing = 10.h;
-  static final double horizontalSpacing = 12.w;
-  static final double cardPadding = 20.r;
-}
-
-// Enhanced Widget Builder Class
-class AppWidgets {
-  static Widget buildResponsiveCard({
-    String? title,
-    required Widget child,
-    double? height,
-    Color? backgroundColor,
-  }) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Container(
-        height: height,
-        decoration: AppTheme.cardDecoration.copyWith(
-          color: backgroundColor,
-        ),
-        padding: EdgeInsets.all(AppTheme.cardPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (title != null) ...[
-              Text(title, style: AppTheme.headingStyle),
-              SizedBox(height: AppTheme.verticalSpacing),
-            ],
-            Expanded(child: child),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static Widget buildResponsiveTextField({
-    required String hint,
-    required TextEditingController controller,
-    bool optional = false,
-    bool enabled = true,
-    TextInputType? keyboardType,
-    FormFieldValidator<String>? validator,
-    double? height,
-  }) {
-    return SizedBox(
-      height: height ?? 75.h,
-      child: TextFormField(
-        controller: controller,
-        enabled: enabled,
-        keyboardType: keyboardType,
-        validator: validator,
-        textAlign: TextAlign.center,
-        style: AppTheme.bodyStyle,
-        decoration: AppTheme.textFieldDecoration(
-          hint: hint,
-          optional: optional,
-          enabled: enabled,
-        ),
-      ),
-    );
-  }
-}
+//

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app/cubits/login_cubit/login_cubit_cubit.dart';
 import 'package:app/cubits/login_cubit/login_cubit_state.dart';
 import 'package:app/cubits/user_cubit/user_cubit.dart';
@@ -24,12 +26,23 @@ class _LoginPageState extends State<LoginPage> {
   String? selectedUserName;
   bool isPasswordVisible = false;
   final _passwordController = TextEditingController();
-
+  StreamSubscription<AuthState>? _authSubscription;
   @override
   void initState() {
     super.initState();
     context.read<BranchCubit>().fetchBranches();
     context.read<UserCubit>().fetchUsers();
+  }
+
+  @override
+  void dispose() {
+    // Cancel the stream subscription when the widget is disposed
+    _authSubscription?.cancel();
+
+    // Dispose the TextEditingController
+    _passwordController.dispose();
+
+    super.dispose();
   }
 
   void _handleLogin() {
@@ -43,12 +56,137 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
+    // Show loading dialog while authenticating
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Center(
+          child: CircularProgressIndicator(),
+        );
+      },
+    );
+
     context.read<AuthCubit>().login(
           selectedBranch!,
           selectedUserName!,
           _passwordController.text,
         );
-    Navigator.pushReplacementNamed(context, MainLayout.id);
+
+    // Listen for authentication state
+    _authSubscription = context.read<AuthCubit>().stream.listen((state) {
+      // Check if the widget is still mounted
+      if (!mounted) return;
+
+      // Dismiss the loading dialog
+      Navigator.pop(context);
+
+      if (state is AuthSuccess) {
+        // Only navigate on success
+        Navigator.pushNamed(context, MainLayout.id);
+      } else if (state is AuthFailure) {
+        if (state.message == 'Password mismatch') {
+          // Show password mismatch dialog
+          _showPasswordMismatchDialog();
+        } else {
+          _showAuthErrorDialog(state.message);
+        }
+      }
+    });
+  }
+
+  void _showPasswordMismatchDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red[700]),
+              const SizedBox(width: 10),
+              const Text(
+                'Password Mismatch',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'The password you entered is incorrect. Please try again.',
+            style: TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+
+                // Clear the password field only if the widget is still mounted
+                if (mounted) {
+                  _passwordController.clear();
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showAuthErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red[700]),
+              const SizedBox(width: 10),
+              const Text(
+                'Authentication Error',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            message,
+            style: const TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _passwordController.clear(); // Clear password field
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showErrorSnackBar(String message) {
@@ -434,9 +572,9 @@ class _LoginPageState extends State<LoginPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ).copyWith(
-                overlayColor: MaterialStateProperty.resolveWith<Color?>(
-                  (Set<MaterialState> states) {
-                    if (states.contains(MaterialState.hovered)) {
+                overlayColor: WidgetStateProperty.resolveWith<Color?>(
+                  (Set<WidgetState> states) {
+                    if (states.contains(WidgetState.hovered)) {
                       return Colors.grey.shade100;
                     }
                     return null;
@@ -650,7 +788,31 @@ class _LoginPageState extends State<LoginPage> {
 
   void _handleAdminLogin(
       BuildContext context, String username, String password) {
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Center(
+          child: CircularProgressIndicator(),
+        );
+      },
+    );
+
     context.read<AuthCubit>().adminLogin(username, password);
-    Navigator.pushReplacementNamed(context, MainLayout.id);
+
+    // Listen for authentication state
+    context.read<AuthCubit>().stream.listen((state) {
+      // Always pop the loading dialog first
+      Navigator.pop(context);
+
+      if (state is AuthSuccess) {
+        // Close the admin login dialog and navigate
+        Navigator.pop(context);
+        Navigator.pushReplacementNamed(context, MainLayout.id);
+      } else if (state is AuthFailure) {
+        _showAuthErrorDialog(state.message);
+      }
+    });
   }
 }

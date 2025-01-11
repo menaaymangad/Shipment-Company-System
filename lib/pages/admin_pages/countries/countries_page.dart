@@ -627,8 +627,7 @@ class _CountriesPageState extends State<CountriesPage> {
       contentPadding: EdgeInsets.zero,
     );
   }
-
-  Widget _buildCurrencyDropdown() {
+Widget _buildCurrencyDropdown() {
     return BlocBuilder<CurrencyCubit, CurrencyState>(
       builder: (context, state) {
         if (state is CurrencyLoaded) {
@@ -639,21 +638,30 @@ class _CountriesPageState extends State<CountriesPage> {
                 borderRadius: BorderRadius.circular(8.0),
               ),
             ),
-            value: _selectedCurrency.isNotEmpty ? _selectedCurrency : null,
+            value: _selectedCurrency.isNotEmpty &&
+                    state.currencies
+                        .any((c) => c.id.toString() == _selectedCurrency)
+                ? _selectedCurrency
+                : null,
             items: state.currencies.map((currency) {
-              return DropdownMenuItem(
-                value: currency.currencyAgainst1IraqiDinar.toString(),
+              return DropdownMenuItem<String>(
+                value: currency.id.toString(),
                 child: Text(currency.currencyName),
               );
             }).toList(),
             onChanged: (String? value) {
-              setState(() {
-                _selectedCurrency = value ?? '';
-                // Automatically set the currency rate when currency is selected
-                if (value != null) {
-                  _controllers['currencyRate']?.text = value;
-                }
-              });
+              if (value != null) {
+                setState(() {
+                  _selectedCurrency = value;
+                  // Find the selected currency and update the rate
+                  final selectedCurrency = state.currencies.firstWhere(
+                    (currency) => currency.id.toString() == value,
+                    orElse: () => state.currencies.first,
+                  );
+                  _controllers['currencyRate']?.text =
+                      selectedCurrency.currencyAgainst1IraqiDinar.toString();
+                });
+              }
             },
           );
         }
@@ -661,8 +669,7 @@ class _CountriesPageState extends State<CountriesPage> {
       },
     );
   }
-
-  void _populateFormFields(Country country) {
+ void _populateFormFields(Country country) {
     _controllers['countryId']?.text = country.id.toString();
     _controllers['countryName']?.text = country.countryName;
     _controllers['alpha2Code']?.text = country.alpha2Code;
@@ -673,14 +680,12 @@ class _CountriesPageState extends State<CountriesPage> {
     _controllers['maximumKg']?.text = country.maxWeightKG.toString();
 
     setState(() {
-      _selectedCurrency = country.currency;
+      _selectedCurrency = country.currency; // This should be the currency ID
       _hasAgent = country.hasAgent;
       _selectedCircularImage = country.postBoxLabel;
       _selectedSquareImage = country.flagBoxLabel;
-      _selectedCurrency = country.currencyAgainstIQD.toString();
     });
   }
-
   bool _validateForm() {
     // Add your validation logic here
     if (_controllers['countryName']!.text.isEmpty ||
