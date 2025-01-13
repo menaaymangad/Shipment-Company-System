@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show ByteData, rootBundle;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path_provider/path_provider.dart';
@@ -81,6 +82,7 @@ class PDFGenerator {
     required double fontSize,
     PdfColor? color,
     pw.FontWeight? fontWeight,
+    pw.TextDirection? textDirection,
   }) {
     return pw.TextStyle(
       font: baseFont,
@@ -132,6 +134,9 @@ class PDFGenerator {
             color: PdfColors.white,
             border: pw.Border.all(color: PdfColors.black),
           ),
+          alignment: translations.textDirection == pw.TextDirection.rtl
+              ? pw.Alignment.centerRight
+              : pw.Alignment.centerLeft,
           child: pw.Column(
             mainAxisSize: pw.MainAxisSize.max,
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,

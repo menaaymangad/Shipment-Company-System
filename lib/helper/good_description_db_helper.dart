@@ -4,38 +4,16 @@ import '../models/good_description_model.dart';
 import 'sql_helper.dart';
 
 extension GoodsDescriptionDatabaseHelper on DatabaseHelper {
-  // Function to check and update table schema
-// Future<void> ensureGoodsDescriptionTable() async {
-//     try {
-//       final db = await database;
 
-//       // Drop the existing table if it exists
-//       await db.execute('DROP TABLE IF EXISTS goods_descriptions');
-
-//       // Create the table with the correct schema
-//       await db.execute('''
-//       CREATE TABLE IF NOT EXISTS goods_descriptions (
-//         id INTEGER PRIMARY KEY AUTOINCREMENT,
-//         descriptionEn TEXT NOT NULL,
-//         descriptionAr TEXT NOT NULL,
-//         UNIQUE(descriptionEn, descriptionAr)
-//       )
-//     ''');
-//     } catch (e) {
-//       if (kDebugMode) {
-//         print('Error ensuring goods descriptions table: $e');
-//       }
-//       rethrow;
-//     }
-//   }
 
 Future<int> insertGoodsDescription(
-      String descriptionEn, String descriptionAr) async {
+      String descriptionEn, String descriptionAr,double weight) async {
     try {
       final db = await database;
       final descriptionMap = {
         'descriptionEn': descriptionEn.trim(),
         'descriptionAr': descriptionAr.trim(),
+        'weight': weight, 
       };
       return await db.insert(
         'goods_descriptions',
@@ -49,6 +27,9 @@ Future<int> insertGoodsDescription(
       rethrow;
     }
   }
+
+
+
 Future<List<GoodsDescription>> getAllGoodsDescriptions() async {
     try {
       final db = await database;
@@ -69,6 +50,7 @@ Future<List<GoodsDescription>> getAllGoodsDescriptions() async {
         {
           'descriptionEn': description.descriptionEn,
           'descriptionAr': description.descriptionAr,
+          'weight': description.weight
         },
         where: 'id = ?',
         whereArgs: [description.id],

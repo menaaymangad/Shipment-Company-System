@@ -83,7 +83,7 @@ class _LoginPageState extends State<LoginPage> {
 
       if (state is AuthSuccess) {
         // Only navigate on success
-        Navigator.pushNamed(context, MainLayout.id);
+        Navigator.pushReplacementNamed(context, MainLayout.id);
       } else if (state is AuthFailure) {
         if (state.message == 'Password mismatch') {
           // Show password mismatch dialog
@@ -521,31 +521,40 @@ class _LoginPageState extends State<LoginPage> {
           cursor: SystemMouseCursors.click,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            child: ElevatedButton(
-              onPressed: _handleLogin,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1565C0),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: BlocListener<AuthCubit, AuthState>(
+              listener: (context, state) {
+                if (state is AuthSuccess) {
+                  Navigator.pushReplacementNamed(context, MainLayout.id);
+                } else if (state is AuthFailure) {
+                  _showAuthErrorDialog(state.message);
+                }
+              },
+              child: ElevatedButton(
+                onPressed: _handleLogin,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1565C0),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 2,
+                ).copyWith(
+                  overlayColor: WidgetStateProperty.resolveWith<Color?>(
+                    (Set<WidgetState> states) {
+                      if (states.contains(WidgetState.hovered)) {
+                        return const Color(0xFF1976D2);
+                      }
+                      return null;
+                    },
+                  ),
                 ),
-                elevation: 2,
-              ).copyWith(
-                overlayColor: WidgetStateProperty.resolveWith<Color?>(
-                  (Set<WidgetState> states) {
-                    if (states.contains(WidgetState.hovered)) {
-                      return const Color(0xFF1976D2);
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              child: const Text(
-                'Login',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                child: const Text(
+                  'Login',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -787,7 +796,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _handleAdminLogin(
-      BuildContext context, String username, String password) {
+      BuildContext context, String username, String password) async {
     // Show loading dialog
     showDialog(
       context: context,
@@ -804,14 +813,20 @@ class _LoginPageState extends State<LoginPage> {
     // Listen for authentication state
     context.read<AuthCubit>().stream.listen((state) {
       // Always pop the loading dialog first
-      Navigator.pop(context);
+      if (mounted) {
+        Navigator.pop(context);
+      }
 
       if (state is AuthSuccess) {
         // Close the admin login dialog and navigate
-        Navigator.pop(context);
-        Navigator.pushReplacementNamed(context, MainLayout.id);
+        if (mounted) {
+          Navigator.pop(context);
+          Navigator.pushReplacementNamed(context, MainLayout.id);
+        }
       } else if (state is AuthFailure) {
-        _showAuthErrorDialog(state.message);
+        if (mounted) {
+          _showAuthErrorDialog(state.message);
+        }
       }
     });
   }

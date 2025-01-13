@@ -300,6 +300,7 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         description_en TEXT NOT NULL,
         description_ar TEXT NOT NULL,
+        weight REAL NOT NULL DEFAULT 0.0,
         UNIQUE(description_en, description_ar)
       )
     ''');
@@ -320,19 +321,16 @@ class DatabaseHelper {
     }
   }
 
-  // Moved method to be used directly in _createTables
-  Future<void> _insertDefaultAdminUser(Database db) async {
+Future<void> _insertDefaultAdminUser(Database db) async {
     try {
-      // Hash the default password
-      final hashedPassword = sha256.convert(utf8.encode('admin')).toString();
-
       await db.insert('users', {
         'userName': 'admin',
-        'password': hashedPassword, // Use hashed password
+        'password': 'admin', // Store plain text password
         'branchName': 'Main Branch',
         'authorization': 'Admin',
         'allowLogin': 1
       });
+
       if (kDebugMode) {
         print("Default admin user inserted successfully");
       }
@@ -350,7 +348,9 @@ class DatabaseHelper {
       rethrow;
     }
   }
-
+  
+  
+  
   static Future<void> closeDatabase() async {
     if (_database != null) {
       await _database!.close();

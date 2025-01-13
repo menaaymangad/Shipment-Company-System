@@ -109,7 +109,6 @@ class ShippingLabelGenerator {
     required pw.Font regularFont,
     required pw.Font boldFont,
     required Function(Uint8List) onGenerated,
-    required ShippingLabelLanguage language, // Add language parameter
   }) async {
     try {
       await initializeFonts();
@@ -121,23 +120,24 @@ class ShippingLabelGenerator {
           await _loadAssetImage('assets/icons/EUKnet Logo Invoice.png');
       final qrCode = await _loadAssetImage('assets/icons/Sters QR.png');
 
+      // Force English language
       final translations =
-          ShippingLabelLocalizations(language); // Initialize translations
+          ShippingLabelLocalizations(ShippingLabelLanguage.english);
 
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
           build: (context) => _buildShippingLabelContent(
             context: context,
-
             logoImage: logoImage,
             euknetLogo: euknetLogo,
             qrCode: qrCode,
             sender: sender,
             receiver: receiver,
             shipment: shipment,
-            translations: translations, baseFont: regularFont,
-            boldFont: boldFont, // Pass translations to the content builder
+            translations: translations,
+            baseFont: regularFont,
+            boldFont: boldFont,
           ),
         ),
       );
@@ -377,71 +377,38 @@ class ShippingLabelLocalizations {
 
   ShippingLabelLocalizations(this.language);
 
-  pw.TextDirection get textDirection {
-    switch (language) {
-      case ShippingLabelLanguage.english:
-        return pw.TextDirection.ltr;
-      case ShippingLabelLanguage.arabic:
-      case ShippingLabelLanguage.kurdish:
-        return pw.TextDirection.rtl;
-    }
-  }
+  pw.TextDirection get textDirection =>
+      pw.TextDirection.ltr; // Always LTR for English
 
   Map<String, String> get translations => {
         // Company Info Section
-        'company_name':
-            _getTranslation('شركة ستيرس', 'Sters Company', 'کۆمپانیای ستێرس'),
-        'company_slogan': _getTranslation(
-            'الرائدة في مجال النقل الدولي',
-            'Leader in International Transport',
-            'پێشەنگ لە بواری گواستنەوەی نێودەوڵەتی'),
-        'phone': _getTranslation('الهاتف:', 'Phone:', 'تەلەفۆن:'),
-        'branch': _getTranslation('فرع:', 'Branch:', 'لق:'),
+        'company_name': 'Sters Company',
+        'company_slogan': 'Leader in International Transport',
+        'phone': 'Phone:',
+        'branch': 'Branch:',
 
         // Header Section
-        'shipping_label':
-            _getTranslation('ملصق الشحن', 'Shipping Label', 'پلاکی گواستنەوە'),
+        'shipping_label': 'Shipping Label',
 
         // Sender-Receiver Section
-        'sender_info':
-            _getTranslation('معلومات المرسل', 'Sender Info', 'زانیاری نێردەر'),
-        'receiver_info': _getTranslation(
-            'معلومات المستلم', 'Receiver Info', 'زانیاری وەرگر'),
-        'sender_name':
-            _getTranslation('اسم المرسل', 'Sender Name', 'ناوی نێردەر'),
-        'receiver_name':
-            _getTranslation('اسم المستلم', 'Receiver Name', 'ناوی وەرگر'),
-        'receiver_phone': _getTranslation(
-            'رقم هاتف المستلم', 'Receiver Phone', 'ژمارەی وەرگر'),
-        'item_details': _getTranslation(
-            'تفاصيل البضاعة', 'Item Details', 'زانیاری کاڵاکان'),
-        'item_number':
-            _getTranslation('رقم البضاعة', 'Item Number', 'ژمارەی کاڵا'),
-        'weight_kg':
-            _getTranslation('الوزن / كغم', 'Weight / Kg', 'کێش / کیلۆگرام'),
-        'city': _getTranslation('المدينة', 'City', 'شار'),
-        'country': _getTranslation('الدولة', 'Country', 'وڵات'),
-        'code': _getTranslation('الكود', 'Code', 'کۆد'),
+        'sender_info': 'Sender Info',
+        'receiver_info': 'Receiver Info',
+        'sender_name': 'Sender Name',
+        'receiver_name': 'Receiver Name',
+        'receiver_phone': 'Receiver Phone',
+        'item_details': 'Item Details',
+        'item_number': 'Item Number',
+        'weight_kg': 'Weight / Kg',
+        'city': 'City',
+        'country': 'Country',
+        'code': 'Code',
 
         // Footer Section
-        'date': _getTranslation('التاريخ', 'Date', 'بەروار'),
-        'time': _getTranslation('الوقت', 'Time', 'کات'),
-        'volume_difference': _getTranslation(
-            'الفرق في الحجم', 'Volume Difference', 'جیاوازیی قەبارە'),
+        'date': 'Date',
+        'time': 'Time',
+        'volume_difference': 'Volume Difference',
       };
-
-  String _getTranslation(String arabic, String english, String kurdish) {
-    switch (language) {
-      case ShippingLabelLanguage.arabic:
-        return arabic;
-      case ShippingLabelLanguage.english:
-        return english;
-      case ShippingLabelLanguage.kurdish:
-        return kurdish;
-    }
-  }
 }
-
 // Data models (kept the same)
 class ShipmentInfo {
   final String date;

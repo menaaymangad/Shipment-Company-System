@@ -4,23 +4,24 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 
-class PDFPreviewDialog extends StatefulWidget {
+class InvoicePDFPreviewDialog extends StatefulWidget {
   final File pdfFile;
   final String title;
 
-  const PDFPreviewDialog({
+  const InvoicePDFPreviewDialog({
     super.key,
     required this.pdfFile,
     this.title = 'PDF Preview',
   });
 
   @override
-  State<PDFPreviewDialog> createState() => _PDFPreviewDialogState();
+  State<InvoicePDFPreviewDialog> createState() =>
+      _InvoicePDFPreviewDialogState();
 }
 
-class _PDFPreviewDialogState extends State<PDFPreviewDialog> {
+class _InvoicePDFPreviewDialogState extends State<InvoicePDFPreviewDialog> {
   final TextEditingController _copiesController =
-      TextEditingController(text: '1'); // Default to 1 copy
+      TextEditingController(text: '2'); // Default to 2 copy
 
   @override
   void dispose() {
@@ -36,15 +37,15 @@ class _PDFPreviewDialogState extends State<PDFPreviewDialog> {
     });
 
     try {
-      int copies = int.tryParse(_copiesController.text) ?? 1;
-      if (copies < 1) {
+      int copies = int.tryParse(_copiesController.text) ?? 2;
+      if (copies < 2) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Invalid number of copies. Defaulting to 1.'),
+            content: Text('Invalid number of copies. Defaulting to 2.'),
             backgroundColor: Colors.orange,
           ),
         );
-        copies = 1;
+        copies = 2;
       }
 
       for (int i = 0; i < copies; i++) {
@@ -63,14 +64,12 @@ class _PDFPreviewDialogState extends State<PDFPreviewDialog> {
         }
       }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Printed $copies copies successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      
-    
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Printed $copies copies successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -91,7 +90,17 @@ class _PDFPreviewDialogState extends State<PDFPreviewDialog> {
       child: Column(
         children: [
           AppBar(
+            elevation: 1,
+            iconTheme: const IconThemeData(
+              color: Colors.black,
+            ),
+            backgroundColor: Colors.white,
             title: Text(widget.title),
+            titleTextStyle: TextStyle(
+              color: Colors.black,
+              fontSize: 36.sp,
+              fontWeight: FontWeight.w500,
+            ),
             actions: [
               // Disable the print button while printing
               _isPrinting
@@ -115,7 +124,7 @@ class _PDFPreviewDialogState extends State<PDFPreviewDialog> {
             ],
           ),
           Padding(
-            padding:  EdgeInsets.all(16.0.r),
+            padding: EdgeInsets.all(16.0.r),
             child: TextField(
               controller: _copiesController,
               decoration: const InputDecoration(

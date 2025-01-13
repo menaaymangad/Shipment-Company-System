@@ -2,6 +2,7 @@ import 'package:app/helper/good_description_db_helper.dart';
 import 'package:app/helper/sql_helper.dart';
 import 'package:app/models/good_description_model.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class GoodsDescriptionPopup extends StatefulWidget {
   final TextEditingController controller;
@@ -25,6 +26,7 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   final TextEditingController _newDescriptionArController =
       TextEditingController();
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _weightController = TextEditingController();
   List<GoodsDescription> goodsList = [];
   List<GoodsDescription> filteredList = [];
   List<GoodsDescription> selectedDescriptions = [];
@@ -34,20 +36,10 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   @override
   void initState() {
     super.initState();
-    // _initializeDatabase();
+
     _loadDescriptions();
     _searchController.addListener(_filterList);
   }
-
-  // Future<void> _initializeDatabase() async {
-  //   try {
-  //     await widget.dbHelper.ensureGoodsDescriptionTable();
-  //   } catch (e) {
-  //     if (mounted) {
-  //       _showError('Failed to initialize database: $e');
-  //     }
-  //   }
-  // }
 
   void _filterList() {
     setState(() {
@@ -92,6 +84,8 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   Future<void> _addNewDescription() async {
     final descriptionEn = _newDescriptionEnController.text.trim();
     final descriptionAr = _newDescriptionArController.text.trim();
+    final weight =
+        double.tryParse(_weightController.text) ?? 0.0; // Add this line
 
     if (descriptionEn.isEmpty || descriptionAr.isEmpty) {
       _showError('Both English and Arabic descriptions are required');
@@ -104,12 +98,16 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
     });
 
     try {
-      await widget.dbHelper
-          .insertGoodsDescription(descriptionEn, descriptionAr);
+      await widget.dbHelper.insertGoodsDescription(
+        descriptionEn,
+        descriptionAr,
+        weight, // Add this line
+      );
 
       setState(() {
         _newDescriptionEnController.clear();
         _newDescriptionArController.clear();
+        _weightController.clear(); // Clear the weight field
         isLoading = false;
       });
 
@@ -129,6 +127,8 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
 
     final descriptionEn = _newDescriptionEnController.text.trim();
     final descriptionAr = _newDescriptionArController.text.trim();
+    final weight =
+        double.tryParse(_weightController.text) ?? 0.0; // Add this line
 
     if (descriptionEn.isEmpty || descriptionAr.isEmpty) {
       _showError('Both English and Arabic descriptions are required');
@@ -146,10 +146,12 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
           id: selectedForEdit!.id,
           descriptionEn: descriptionEn,
           descriptionAr: descriptionAr,
+          weight: weight, // Add this line
         ),
       );
       _newDescriptionEnController.clear();
       _newDescriptionArController.clear();
+      _weightController.clear(); // Clear the weight field
       selectedForEdit = null;
       await _loadDescriptions();
       _showSuccess('Description updated successfully');
@@ -297,6 +299,25 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                               },
                             ),
                           ),
+                        SizedBox(width: 8.w),
+                        if (item.isSelected) // Add spacing
+                          SizedBox(
+                            width: 80,
+                            child: TextFormField(
+                              initialValue: item.weight.toString(),
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Weight',
+                                contentPadding:
+                                    EdgeInsets.symmetric(horizontal: 8),
+                              ),
+                              onChanged: (value) {
+                                setState(() {
+                                  item.weight = double.tryParse(value) ?? 0.0;
+                                });
+                              },
+                            ),
+                          ),
                         IconButton(
                           icon: const Icon(Icons.edit),
                           onPressed: () => _editItem(item),
@@ -330,8 +351,8 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                   onPressed: () {
                     widget.onDescriptionsSelected(selectedDescriptions);
                     String descriptions = selectedDescriptions
-                        .map(
-                            (desc) => '${desc.descriptionEn} *${desc.quantity}')
+                        .map((desc) =>
+                            '${desc.descriptionEn} *${desc.quantity} (${desc.weight} KG)')
                         .join('\t - ');
                     widget.controller.text = descriptions;
                     Navigator.pop(context);

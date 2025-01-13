@@ -14,7 +14,7 @@ import 'package:app/helper/send_db_helper.dart';
 import 'package:app/helper/sql_helper.dart';
 import 'package:app/pages/admin_pages/cities/cities_page.dart';
 import 'package:app/pages/main_pages/admin_page.dart';
-import 'package:app/pages/main_pages/invoice_pdf/invoice_print.dart';
+
 import 'package:app/pages/main_pages/login_page.dart';
 import 'package:app/pages/main_pages/main_page.dart';
 import 'package:app/pages/main_pages/report_page.dart';
@@ -205,7 +205,6 @@ class MyApp extends StatelessWidget {
             ReportPage.id: (context) => const ReportPage(),
             SettingPage.id: (context) => const SettingPage(),
             MainLayout.id: (context) => const MainLayout(),
-            InvoicePrintA4.id: (context) => const InvoicePrintA4(),
             CitiesPage.id: (context) => const CitiesPage(),
           },
           // Add navigation observer for analytics or logging

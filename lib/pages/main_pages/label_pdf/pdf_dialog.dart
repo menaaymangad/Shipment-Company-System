@@ -1,14 +1,15 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 
-class PDFPreviewDialog extends StatelessWidget {
+class LabelPDFPreviewDialog extends StatelessWidget {
   final File pdfFile;
   final String title;
 
-  const PDFPreviewDialog({
+  const LabelPDFPreviewDialog({
     super.key,
     required this.pdfFile,
     this.title = 'PDF Preview',
@@ -20,24 +21,40 @@ class PDFPreviewDialog extends StatelessWidget {
       child: Column(
         children: [
           AppBar(
+            elevation: 1,
+            iconTheme: const IconThemeData(color: Colors.black),
+            backgroundColor: Colors.white,
+            titleTextStyle: TextStyle(
+                color: Colors.black,
+                fontSize: 36.sp,
+                fontWeight: FontWeight.bold),
             title: Text(title),
             actions: [
               IconButton(
-                icon: const Icon(Icons.print),
+                icon: const Icon(
+                  Icons.print,
+                  color: Colors.black,
+                ),
                 onPressed: () async {
                   await _safePrintDocument(context);
-                  
+
                   Navigator.of(context).pop('print'); // Return 'print' result
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.download),
+                icon: const Icon(
+                  Icons.download,
+                  color: Colors.black,
+                ),
                 onPressed: () async {
                   Navigator.of(context).pop('save'); // Return 'save' result
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(
+                  Icons.close,
+                  color: Colors.black,
+                ),
                 onPressed: () {
                   Navigator.of(context).pop();
                 },

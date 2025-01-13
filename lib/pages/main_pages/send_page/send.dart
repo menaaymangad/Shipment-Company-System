@@ -19,6 +19,7 @@ import 'package:app/models/send_model.dart';
 import 'package:app/pages/main_pages/invoice_pdf/invoice_pdf.dart';
 import 'package:app/pages/main_pages/invoice_pdf/pdf_preview_dialog.dart';
 import 'package:app/pages/main_pages/label_pdf/label_pdf.dart';
+import 'package:app/pages/main_pages/label_pdf/pdf_dialog.dart';
 import 'package:app/pages/main_pages/send_page/good_description.dart';
 import 'package:app/pages/main_pages/send_page/id_type_selector.dart';
 import 'package:app/pages/main_pages/send_page/send_page_logic.dart';
@@ -1346,7 +1347,6 @@ class _SendScreenState extends State<SendScreen> {
     );
   }
 
-// Add this method to calculate the result
   void _calculateResult() {
     final length = double.tryParse(
             _controllers[ControllerKeys.lengthController]?.text ?? '0') ??
@@ -2168,7 +2168,6 @@ class _SendScreenState extends State<SendScreen> {
     );
   }
 
-// Enhanced invoice generation
   Future<void> generateInvoicePdf() async {
     try {
       final shipment = ShipmentDetails(
@@ -2249,7 +2248,7 @@ class _SendScreenState extends State<SendScreen> {
       if (mounted) {
         final result = await showDialog(
           context: context,
-          builder: (context) => PDFPreviewDialog(
+          builder: (context) => InvoicePDFPreviewDialog(
             pdfFile: invoice,
             title: 'Invoice Preview',
           ),
@@ -2348,7 +2347,7 @@ class _SendScreenState extends State<SendScreen> {
             // Show the preview dialog for the current label
             final result = await showDialog(
               context: context,
-              builder: (context) => PDFPreviewDialog(pdfFile: file),
+              builder: (context) => LabelPDFPreviewDialog(pdfFile: file),
             );
 
             // Wait for the user to take action (Save or Print)
@@ -2359,7 +2358,6 @@ class _SendScreenState extends State<SendScreen> {
             }
           }
         },
-        language: labelLanguage,
       );
     }
   }

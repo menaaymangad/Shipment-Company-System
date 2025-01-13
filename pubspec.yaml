@@ -30,12 +30,12 @@ environment:
 dependencies:
   auto_size_text: ^3.0.0
   crypto: ^3.0.6
+  csv: ^6.0.0
   cupertino_icons: ^1.0.8
   data_table_2: ^2.5.16
   equatable: ^2.0.7
   excel: ^4.0.6
   file_picker: ^8.1.4
-  
   flutter:
     sdk: flutter
   flutter_bloc: ^8.1.6
@@ -49,7 +49,7 @@ dependencies:
   printing: ^5.13.4
   shared_preferences: ^2.3.3
   sqflite_common_ffi: ^2.3.4
-  
+
 dev_dependencies:
   flutter_lints: ^4.0.0
   flutter_test:
