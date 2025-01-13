@@ -33,10 +33,10 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   GoodsDescription? selectedForEdit;
   bool isLoading = false;
   String? errorMessage;
+
   @override
   void initState() {
     super.initState();
-
     _loadDescriptions();
     _searchController.addListener(_filterList);
   }
@@ -85,7 +85,7 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
     final descriptionEn = _newDescriptionEnController.text.trim();
     final descriptionAr = _newDescriptionArController.text.trim();
     final weight =
-        double.tryParse(_weightController.text) ?? 0.0; // Add this line
+        double.tryParse(_weightController.text) ?? 0.0; // Parse weight
 
     if (descriptionEn.isEmpty || descriptionAr.isEmpty) {
       _showError('Both English and Arabic descriptions are required');
@@ -98,11 +98,15 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
     });
 
     try {
-      await widget.dbHelper.insertGoodsDescription(
-        descriptionEn,
-        descriptionAr,
-        weight, // Add this line
+      // Create a new GoodsDescription object
+      final newDescription = GoodsDescription(
+        descriptionEn: descriptionEn,
+        descriptionAr: descriptionAr,
+        weight: weight, // Include weight
       );
+
+      // Insert the new description into the database
+      await widget.dbHelper.insertGoodsDescription(newDescription);
 
       setState(() {
         _newDescriptionEnController.clear();
@@ -111,7 +115,8 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
         isLoading = false;
       });
 
-      await _loadDescriptions(); // Refresh the list after adding
+      // Refresh the list after adding
+      await _loadDescriptions();
       _showSuccess('Description added successfully');
     } catch (e) {
       setState(() {
@@ -119,6 +124,7 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
         errorMessage = e.toString();
       });
       _showError(e.toString());
+      print('Failed to add description: $e');
     }
   }
 
@@ -191,6 +197,7 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
       ),
     );
   }
+  // Other methods (e.g., _updateDescription, _deleteDescription, etc.) remain unchanged...
 
   @override
   Widget build(BuildContext context) {
@@ -300,7 +307,7 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                             ),
                           ),
                         SizedBox(width: 8.w),
-                        if (item.isSelected) // Add spacing
+                        if (item.isSelected)
                           SizedBox(
                             width: 80,
                             child: TextFormField(

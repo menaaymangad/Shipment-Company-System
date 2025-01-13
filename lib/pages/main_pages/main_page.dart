@@ -6,7 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'admin_page.dart';
 import 'report_page.dart';
 import 'send_page/send.dart';
-import 'setting_page.dart';
+import 'setting/setting_page.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});

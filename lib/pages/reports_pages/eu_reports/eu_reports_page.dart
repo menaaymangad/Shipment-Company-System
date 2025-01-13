@@ -6,6 +6,7 @@ import 'package:app/pages/reports_pages/reports_utils.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
 import 'package:pdf/widgets.dart' as pw;
@@ -92,8 +93,10 @@ class _EUReportScreenState extends State<EUReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
+    return Container(
+      height: 1.sh,
+      width: 1.sw,
+      padding: EdgeInsets.all(24.w),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -111,6 +114,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 16.h), // Added spacing
                 CustomDropdown(
                   label: 'Truck No.',
                   value: selectedTruck,
@@ -121,6 +125,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 16.h), // Added spacing
                 CustomDropdown(
                   label: 'EU Country',
                   value: selectedEUCountry,
@@ -131,6 +136,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 16.h), // Added spacing
                 CustomDropdown(
                   label: 'Agent City',
                   value: selectedAgentCity,
@@ -141,6 +147,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 16.h), // Added spacing
                 CustomDatePicker(
                   label: 'Date',
                   selectedDate: selectedDate,
@@ -150,6 +157,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
                     });
                   },
                 ),
+                const Spacer(), // Added spacing
                 ButtonRow(
                   buttons: [
                     CustomButton(
@@ -166,6 +174,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
                         await exportToExcel(records);
                       },
                     ),
+                    SizedBox(width: 16.w), // Added spacing
                     CustomButton(
                       text: 'PDF Report',
                       color: Colors.blue,
@@ -185,7 +194,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 24.w), // Increased spacing
           Expanded(
             child: ReportCard(
               title: 'EU Report Data Per Truck',
@@ -199,6 +208,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 16.h), // Added spacing
                 CheckboxListTile(
                   title: const Text('Get All Agents Accounts'),
                   value: getAllAgentsAccounts,
@@ -208,6 +218,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 16.h), // Added spacing
                 CheckboxListTile(
                   title: const Text('Make Complete Shipment'),
                   value: makeCompleteShipment,
@@ -217,6 +228,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 16.h), // Added spacing
                 CheckboxListTile(
                   title: const Text('Print Preview'),
                   value: printPreview,
@@ -226,10 +238,12 @@ class _EUReportScreenState extends State<EUReportScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 16.h), // Added spacing
                 CustomTextField(
                   label: 'EU Truck No.',
                   controller: truckNoController,
                 ),
+                SizedBox(height: 16.h), // Added spacing
                 CustomDatePicker(
                   label: 'Dep. Date KU',
                   selectedDate: depDateKU,
@@ -239,6 +253,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 16.h), // Added spacing
                 CustomDatePicker(
                   label: 'Arrival Date NL',
                   selectedDate: arrivalDateNL,
@@ -248,6 +263,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
                     });
                   },
                 ),
+                const Spacer(), // Added spacing
                 ButtonRow(
                   buttons: [
                     CustomButton(
@@ -258,6 +274,7 @@ class _EUReportScreenState extends State<EUReportScreen> {
                         await exportToExcel(records);
                       },
                     ),
+                    SizedBox(width: 16.w), // Added spacing
                     CustomButton(
                       text: 'PDF Report',
                       color: Colors.blue,

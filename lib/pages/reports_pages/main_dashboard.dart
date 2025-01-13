@@ -4,6 +4,7 @@ import 'package:app/pages/reports_pages/overview_page.dart';
 import 'package:app/pages/reports_pages/reports_page.dart';
 import 'package:app/pages/reports_pages/reports_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -26,7 +27,7 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       body: Column(
         children: [
-             CustomAppBar(
+          CustomAppBar(
             currentIndex: _selectedIndex, // Updated parameter name
             onTabSelected: (index) {
               setState(() {
@@ -34,6 +35,7 @@ class _MainScreenState extends State<MainScreen> {
               });
             },
           ),
+          SizedBox(height: 16.h), // Added spacing
           Expanded(
             child: _screens[_selectedIndex],
           ),

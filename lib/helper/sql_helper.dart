@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:app/models/country_model.dart';
+import 'package:app/models/currency_model.dart';
 import 'package:app/models/user_model.dart';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -321,12 +321,12 @@ class DatabaseHelper {
     }
   }
 
-Future<void> _insertDefaultAdminUser(Database db) async {
+  Future<void> _insertDefaultAdminUser(Database db) async {
     try {
       await db.insert('users', {
         'userName': 'admin',
         'password': 'admin', // Store plain text password
-        'branchName': 'Main Branch',
+        // 'branchName': 'Main Branch',
         'authorization': 'Admin',
         'allowLogin': 1
       });
@@ -348,9 +348,7 @@ Future<void> _insertDefaultAdminUser(Database db) async {
       rethrow;
     }
   }
-  
-  
-  
+
   static Future<void> closeDatabase() async {
     if (_database != null) {
       await _database!.close();
@@ -392,5 +390,36 @@ Future<void> _insertDefaultAdminUser(Database db) async {
     }
 
     return null;
+  }
+
+  Future<List<Country>> getAllCountries() async {
+    final db = await database;
+    final result = await db.query('countries');
+    return result.map((map) => Country.fromMap(map)).toList();
+  }
+
+  // Add this method to fetch all currencies
+  Future<List<Currency>> getAllCurrencies() async {
+    final db = await database;
+    final result = await db.query('currencies');
+    return result.map((map) => Currency.fromMap(map)).toList();
+  }
+
+  Future<int> insertCurrency(Currency currency) async {
+    final db = await database;
+    return await db.insert(
+      'currencies',
+      currency.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<int> insertCountry(Country country) async {
+    final db = await database;
+    return await db.insert(
+      'countries',
+      country.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 }

@@ -2279,20 +2279,7 @@ class _SendScreenState extends State<SendScreen> {
             _controllers[ControllerKeys.palletNumberController]?.text ?? '1') ??
         1;
 
-    // Map the selected language to the ShippingLabelLanguage enum
-    ShippingLabelLanguage labelLanguage;
-    switch (_selectedLanguage?.toLowerCase()) {
-      case 'arabic':
-        labelLanguage = ShippingLabelLanguage.arabic;
-        break;
-      case 'kurdish':
-        labelLanguage = ShippingLabelLanguage.kurdish;
-        break;
-      default:
-        labelLanguage = ShippingLabelLanguage.english;
-        break;
-    }
-
+    
     // Loop through each pallet and generate a label
     for (int currentLabelIndex = 1;
         currentLabelIndex <= palletNumber;

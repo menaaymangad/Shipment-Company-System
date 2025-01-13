@@ -84,7 +84,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
     return Container(
       width: 1.sw,
       height: 1.sh,
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(24.w), // Increased padding
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -102,6 +102,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 24.h), // Added spacing
                 CustomDropdown(
                   label: 'Truck No.',
                   value: selectedTruck,
@@ -112,6 +113,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 24.h), // Added spacing
                 CustomDropdown(
                   label: 'EU Country',
                   value: selectedEUCountry,
@@ -122,6 +124,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 24.h), // Added spacing
                 CustomDropdown(
                   label: 'Agent City',
                   value: selectedAgentCity,
@@ -132,6 +135,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 24.h), // Added spacing
                 CustomDatePicker(
                   label: 'Date',
                   selectedDate: selectedDate,
@@ -158,6 +162,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                         await exportToExcel(records);
                       },
                     ),
+                    SizedBox(width: 16.w), // Added spacing
                     CustomButton(
                       text: 'PDF Report',
                       color: Colors.purple,
@@ -177,7 +182,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
               ],
             ),
           ),
-          SizedBox(width: 16.w),
+          SizedBox(width: 24.w), // Increased spacing
           Expanded(
             child: ReportCard(
               title: 'Daily Report',
@@ -192,24 +197,31 @@ class _OverviewScreenState extends State<OverviewScreen> {
                     });
                   },
                 ),
+                SizedBox(height: 16.h), // Added spacing
+                // Added spacing
                 const CustomTextField(
                   label: 'Daily Codes',
                 ),
+                // Added spacing
                 const CustomTextField(
                   label: 'Daily Pallet',
                 ),
                 const CustomTextField(
                   label: 'Daily Boxes',
                 ),
+                // Added spacing
                 const CustomTextField(
                   label: 'Daily KG',
                 ),
+                // Added spacing
                 const CustomTextField(
                   label: 'Daily Cash in',
                 ),
+                // Added spacing
                 const CustomTextField(
                   label: 'Daily Commission',
                 ),
+                // Added spacing
                 CustomDatePicker(
                   label: 'Date',
                   selectedDate: selectedDate,
@@ -230,6 +242,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                         await exportToExcel(records);
                       },
                     ),
+                    SizedBox(width: 16.w), // Added spacing
                     CustomButton(
                       text: 'PDF Report',
                       color: Colors.purple,

@@ -6,28 +6,14 @@ import 'sql_helper.dart';
 extension GoodsDescriptionDatabaseHelper on DatabaseHelper {
 
 
-Future<int> insertGoodsDescription(
-      String descriptionEn, String descriptionAr,double weight) async {
-    try {
-      final db = await database;
-      final descriptionMap = {
-        'descriptionEn': descriptionEn.trim(),
-        'descriptionAr': descriptionAr.trim(),
-        'weight': weight, 
-      };
-      return await db.insert(
-        'goods_descriptions',
-        descriptionMap,
-        conflictAlgorithm: ConflictAlgorithm.abort,
-      );
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error inserting goods description: $e');
-      }
-      rethrow;
-    }
+Future<int> insertGoodsDescription(GoodsDescription goodsDescription) async {
+    final db = await database;
+    return await db.insert(
+      'goods_descriptions',
+      goodsDescription.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
-
 
 
 Future<List<GoodsDescription>> getAllGoodsDescriptions() async {

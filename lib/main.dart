@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:app/cubits/agent_cubit/agent_cubit.dart';
-import 'package:app/cubits/agent_cubit/agent_state.dart';
 import 'package:app/cubits/brach_cubit/branch_cubit.dart';
 import 'package:app/cubits/cities_cubit/cities_cubit.dart';
 import 'package:app/cubits/countries_cubit/countries_cubit.dart';
@@ -19,12 +17,14 @@ import 'package:app/pages/main_pages/login_page.dart';
 import 'package:app/pages/main_pages/main_page.dart';
 import 'package:app/pages/main_pages/report_page.dart';
 import 'package:app/pages/main_pages/send_page/send.dart';
-import 'package:app/pages/main_pages/setting_page.dart';
+import 'package:app/pages/main_pages/setting/setting_page.dart';
+import 'package:app/widgets/theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path/path.dart';
+import 'package:provider/provider.dart';
 
 void main() {
   // Add more robust error handling and logging
@@ -168,9 +168,6 @@ class MyApp extends StatelessWidget {
           BlocProvider<UserCubit>(
             create: (context) => UserCubit(),
           ),
-          BlocProvider<AgentCubit>(
-            create: (context) => AgentCubit(AgentRepository(DatabaseHelper())),
-          ),
           BlocProvider<AuthCubit>(
             create: (context) => AuthCubit(UserCubit(), DatabaseHelper()),
           ),
@@ -178,39 +175,59 @@ class MyApp extends StatelessWidget {
             create: (context) => SendRecordCubit(SendRecordDatabaseHelper()),
           ),
         ],
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          title: 'Transport Company',
-          theme: ThemeData(
-            fontFamily: 'Poppins',
-            // Add more theme customizations
-            primarySwatch: Colors.blue,
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-            ),
-            elevatedButtonTheme: ElevatedButtonThemeData(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-            ),
+        child: ChangeNotifierProvider(
+          create: (_) => ThemeProvider(), // Add ThemeProvider
+          child: Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return MaterialApp(
+                debugShowCheckedModeBanner: false,
+                title: 'Transport Company',
+                theme: ThemeData(
+                  fontFamily: 'Poppins',
+                  // Add more theme customizations
+                  primarySwatch: Colors.blue,
+                  appBarTheme: const AppBarTheme(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                  elevatedButtonTheme: ElevatedButtonThemeData(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                darkTheme: ThemeData.dark().copyWith(
+                  appBarTheme: const AppBarTheme(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                  ),
+                  elevatedButtonTheme: ElevatedButtonThemeData(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                themeMode: themeProvider.themeMode,
+                // Add home property for more reliable routing
+                home: const LoginPage(),
+                routes: {
+                  LoginPage.id: (context) => const LoginPage(),
+                  SendScreen.id: (context) => const SendScreen(),
+                  AdminPage.id: (context) => const AdminPage(),
+                  ReportPage.id: (context) => const ReportPage(),
+                  SettingPage.id: (context) => const SettingPage(),
+                  MainLayout.id: (context) => const MainLayout(),
+                  CitiesPage.id: (context) => const CitiesPage(),
+                },
+                // Add navigation observer for analytics or logging
+                navigatorObservers: [
+                  RouteObserver(),
+                ],
+              );
+            },
           ),
-          // Add home property for more reliable routing
-          home: const LoginPage(),
-          routes: {
-            LoginPage.id: (context) => const LoginPage(),
-            SendScreen.id: (context) => const SendScreen(),
-            AdminPage.id: (context) => const AdminPage(),
-            ReportPage.id: (context) => const ReportPage(),
-            SettingPage.id: (context) => const SettingPage(),
-            MainLayout.id: (context) => const MainLayout(),
-            CitiesPage.id: (context) => const CitiesPage(),
-          },
-          // Add navigation observer for analytics or logging
-          navigatorObservers: [
-            RouteObserver(),
-          ],
         ),
       ),
     );

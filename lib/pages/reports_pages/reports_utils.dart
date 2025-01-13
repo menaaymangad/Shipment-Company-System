@@ -33,9 +33,9 @@ class CustomAppBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _buildTabButton('Overview', 0),
-          SizedBox(width: 16.w),
+          SizedBox(width: 24.w), // Increased spacing
           _buildTabButton('Reports', 1),
-          SizedBox(width: 16.w),
+          SizedBox(width: 24.w), // Increased spacing
           _buildTabButton('EU Report', 2),
         ],
       ),
@@ -137,7 +137,7 @@ class StatsCard extends StatelessWidget {
                 color: Colors.white,
               ),
             ),
-            SizedBox(height: 8.h),
+            SizedBox(height: 8.h), // Added spacing
             Text(
               label,
               style: TextStyle(
@@ -168,18 +168,21 @@ class ReportCard extends StatelessWidget {
       elevation: 4,
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.all(32.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 28.sp,
-                fontWeight: FontWeight.bold,
+            Center(
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 36.sp,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 32.h), // Added spacing
             ...children,
           ],
         ),
@@ -453,7 +456,7 @@ class _FormField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 24.h),
+      padding: EdgeInsets.only(bottom: 24.h), // Increased spacing
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -465,7 +468,7 @@ class _FormField extends StatelessWidget {
               color: const Color(0xFF2D3748),
             ),
           ),
-          SizedBox(height: 8.h),
+          SizedBox(height: 8.h), // Added spacing
           child,
         ],
       ),
@@ -488,7 +491,7 @@ class ButtonRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 16.h),
+      padding: EdgeInsets.symmetric(vertical: 16.h), // Increased spacing
       child: Row(
         mainAxisAlignment: alignment,
         children: buttons.asMap().entries.map((entry) {
@@ -566,7 +569,7 @@ class CustomButton extends StatelessWidget {
           )
         else if (icon != null) ...[
           Icon(icon, size: 20.sp),
-          SizedBox(width: 8.w),
+          SizedBox(width: 8.w), // Added spacing
         ],
         Text(
           text,
@@ -591,4 +594,3 @@ class CustomButton extends StatelessWidget {
           );
   }
 }
-

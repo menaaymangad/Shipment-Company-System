@@ -231,7 +231,7 @@ Future<int> updateSendRecordFields(int id, String codeNumber) async {
     final List<Map<String, dynamic>> maps = await db.rawQuery(
       'SELECT SUM(boxNumber) as total FROM send_records',
     );
-    return maps.first['total'] as int;
+    return maps.first['total'] as int? ??0;
   }
 
   Future<int> getTotalPallets() async {
@@ -239,7 +239,7 @@ Future<int> updateSendRecordFields(int id, String codeNumber) async {
     final List<Map<String, dynamic>> maps = await db.rawQuery(
       'SELECT SUM(palletNumber) as total FROM send_records',
     );
-    return maps.first['total'] as int;
+    return maps.first['total'] as int? ??0;
   }
 
   Future<double> getTotalKG() async {
@@ -247,7 +247,7 @@ Future<int> updateSendRecordFields(int id, String codeNumber) async {
     final List<Map<String, dynamic>> maps = await db.rawQuery(
       'SELECT SUM(totalWeightKg) as total FROM send_records',
     );
-    return maps.first['total'] as double;
+    return maps.first['total'] as double? ??0.0;
   }
 
   Future<List<String>> getUniqueCountries() async {
@@ -256,7 +256,7 @@ Future<int> updateSendRecordFields(int id, String codeNumber) async {
       'SELECT DISTINCT receiverCountry FROM send_records WHERE receiverCountry IS NOT NULL',
     );
     return List.generate(
-        maps.length, (i) => maps[i]['receiverCountry'] as String);
+        maps.length, (i) => maps[i]['receiverCountry'] as String? ??'');
   }
 
   Future<Map<String, dynamic>> getCountryTotals(String country) async {
