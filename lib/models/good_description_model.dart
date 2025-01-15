@@ -18,19 +18,16 @@ class GoodsDescription {
   factory GoodsDescription.fromMap(Map<String, dynamic> map) {
     return GoodsDescription(
       id: map['id'],
-      descriptionEn: map['descriptionEn'] ?? '',
-      descriptionAr: map['descriptionAr'] ?? '',
-      weight: map['weight'] ?? 0.0, // Add this line
+      descriptionEn: map['description_en'] ?? '',
+      descriptionAr: map['description_ar'] ?? '',
     );
   }
-
   // Add this method to convert the object to a map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'descriptionEn': descriptionEn,
-      'descriptionAr': descriptionAr,
-      'weight': weight, // Add this line
+      'description_en': descriptionEn,
+      'description_ar': descriptionAr,
     };
   }
 }

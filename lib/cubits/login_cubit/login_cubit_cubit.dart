@@ -11,12 +11,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AuthCubit extends Cubit<AuthState> {
   final UserCubit userCubit;
   final DatabaseHelper databaseHelper;
-  String? _selectedBranch; 
+  String? _selectedBranch;
+  String? _userRole;
   // Getter for the selected branch
   String? get selectedBranch => _selectedBranch;
+  String? get userRole => _userRole; // Getter for user role
 
   AuthCubit(this.userCubit, this.databaseHelper) : super(AuthInitial());
-Future<void> login(String branch, String username, String password) async {
+
+  Future<void> login(String branch, String username, String password) async {
     emit(AuthLoading());
 
     try {
@@ -30,61 +33,89 @@ Future<void> login(String branch, String username, String password) async {
           await SharedPrefsService.saveAuthData(
             DateTime.now().toString(),
             authenticatedUser.id ?? 0,
+            authenticatedUser.authorization,
           );
+          _selectedBranch = branch;
+          _userRole = authenticatedUser.authorization;
           emit(AuthSuccess(authenticatedUser));
           return;
         }
       }
 
+      // Emit AuthFailure if authentication fails
       emit(AuthFailure('Invalid credentials or login not allowed'));
     } catch (e) {
       emit(AuthFailure('Authentication error: ${e.toString()}'));
     }
   }
+
   Future<void> adminLogin(String username, String password) async {
     emit(AuthLoading());
 
     try {
-      // Check login attempt limits
-      if (!LoginAttemptTracker.canAttemptLogin(username)) {
-        emit(AuthFailure('Too many login attempts. Please try again later.'));
-        return;
+      final prefs = await SharedPreferences.getInstance();
+      final adminUsername = prefs.getString('admin_username');
+      final storedPassword = prefs.getString('admin_password');
+
+      // Add debug logging
+      if (kDebugMode) {
+        print('Attempting admin login:');
+        print('Stored password hash: $storedPassword');
+        print('Input username: $username');
       }
 
-      final User? authenticatedUser =
-          await databaseHelper.authenticateUser(username, password);
+      if (username == adminUsername && password == storedPassword) {
+        await SharedPrefsService.saveAuthData(
+          DateTime.now().toString(),
+          0,
+          'Admin',
+        );
+        _userRole = 'Admin';
 
-      if (authenticatedUser != null) {
-        // Add explicit admin authorization check
-        if (authenticatedUser.authorization == 'Admin' &&
-            authenticatedUser.allowLogin) {
-          // Reset failed attempts on successful login
-          LoginAttemptTracker.resetAttempts(username);
-
-          // Save auth data
-          await SharedPrefsService.saveAuthData(
-              DateTime.now().toString(), authenticatedUser.id ?? 0);
-
-          // Separately save admin status
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('isAdmin', true);
-
-          emit(AuthSuccess(authenticatedUser));
-          return;
+        if (kDebugMode) {
+          print('Admin login successful');
+          print('User role set to: $_userRole');
         }
-      }
 
-      // Record failed attempt
-      LoginAttemptTracker.recordFailedAttempt(username);
-      emit(AuthFailure('Invalid admin credentials or login not allowed'));
+        emit(AuthSuccess(User(
+          userName: 'admin',
+          branchName: 'Admin',
+          authorization: 'Admin',
+          allowLogin: true,
+          password: password,
+        )));
+      } else {
+        if (kDebugMode) {
+          print('Admin login failed: Invalid credentials');
+        }
+        emit(AuthFailure('Invalid admin credentials'));
+      }
     } catch (e) {
+      if (kDebugMode) {
+        print('Admin login error: ${e.toString()}');
+      }
       emit(AuthFailure('Admin authentication error: ${e.toString()}'));
     }
+  }
+
+  // Add methods to check user role
+  bool isAdmin() => _userRole == 'Admin';
+  bool isManager() => _userRole == 'Manager';
+  bool isUser() => _userRole == 'User';
+  Future<String?> getStoredUserRole() async {
+    return await SharedPrefsService.getUserRole();
+  }
+
+// In AuthCubit class
+  Future<void> resetState() async {
+    emit(AuthInitial());
   }
 
   Future<void> logout() async {
     try {
       await SharedPrefsService.clearAuthData();
+      _userRole = null; // Clear the user role on logout
+
       emit(AuthInitial());
     } catch (e) {
       if (kDebugMode) {

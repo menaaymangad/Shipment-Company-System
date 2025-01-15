@@ -138,7 +138,9 @@ class _SendScreenState extends State<SendScreen> {
     // Retrieve the selected branch from AuthCubit
     final authCubit = context.read<AuthCubit>();
     _selectedBranch = authCubit.selectedBranch;
-
+    if (kDebugMode) {
+      print('Selected Branch: $_selectedBranch');
+    }
     // Fetch the branch details and set the Agent and Code Number fields
     if (_selectedBranch != null) {
       _fetchBranchAndSetAgentAndCode(_selectedBranch!);
@@ -317,132 +319,147 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   Future<void> _saveRecordWithCode() async {
-    try {
-      final currentTruckNumber =
-          _controllers[ControllerKeys.truckNumberController]?.text;
+    if (_formKey.currentState?.validate() ?? false) {
+      try {
+        final currentTruckNumber =
+            _controllers[ControllerKeys.truckNumberController]?.text;
 
-      if (currentTruckNumber == null || currentTruckNumber.isEmpty) {
-        throw Exception('Truck number is required');
+        if (currentTruckNumber == null || currentTruckNumber.isEmpty) {
+          throw Exception('Truck number is required');
+        }
+
+        if (_selectedBranch == null || _selectedBranch!.isEmpty) {
+          throw Exception('Branch is required');
+        }
+
+        // Generate the next code number for this truck and branch
+        final nextCodeNumber =
+            await _getNextCodeNumber(currentTruckNumber, _selectedBranch!);
+
+        // Update the Code Number field in the UI
+        setState(() {
+          _controllers[ControllerKeys.codeNumberController]?.text =
+              nextCodeNumber;
+        });
+        // Create a new SendRecord
+        final record = SendRecord(
+          // Shipment Info
+          date: _controllers[ControllerKeys.dateController]?.text,
+          truckNumber: currentTruckNumber,
+          codeNumber: nextCodeNumber,
+          boxNumber: int.tryParse(
+              _controllers[ControllerKeys.boxNumberController]?.text ?? ''),
+          palletNumber: int.tryParse(
+              _controllers[ControllerKeys.palletNumberController]?.text ?? ''),
+          realWeightKg: double.tryParse(
+              _controllers[ControllerKeys.weightController]?.text ?? ''),
+          length: double.tryParse(
+              _controllers[ControllerKeys.lengthController]?.text ?? ''),
+          width: double.tryParse(
+              _controllers[ControllerKeys.widthController]?.text ?? ''),
+          height: double.tryParse(
+              _controllers[ControllerKeys.heightController]?.text ?? ''),
+          isDimensionCalculated: areDimensionsEnabled,
+          additionalKg: double.tryParse(
+              _controllers[ControllerKeys.additionalKGController]?.text ?? ''),
+          totalWeightKg: double.tryParse(
+              _controllers[ControllerKeys.totalWeightController]?.text ?? ''),
+
+          // Sender Info
+          senderName: _controllers[ControllerKeys.senderNameController]?.text,
+          senderPhone: _controllers[ControllerKeys.senderPhoneController]?.text,
+          senderIdNumber: _controllers[ControllerKeys.senderIdController]?.text,
+          goodsDescription:
+              _controllers[ControllerKeys.goodsDescriptionController]?.text,
+
+          // Agent Info
+          agentName: _selectedAgent,
+          branchName: _selectedBranch,
+
+          // Receiver Info
+          receiverName:
+              _controllers[ControllerKeys.receiverNameController]?.text,
+          receiverPhone:
+              _controllers[ControllerKeys.receiverPhoneController]?.text,
+          receiverCountry: _selectedCountry,
+          receiverCity: _selectedCity,
+
+          // All other fields as per your model...
+          streetName: _controllers[ControllerKeys.streetController]?.text,
+          apartmentNumber:
+              _controllers[ControllerKeys.apartmentController]?.text,
+          zipCode: _controllers[ControllerKeys.zipCodeController]?.text,
+          insurancePercent: double.tryParse(
+              _controllers[ControllerKeys.insurancePercentController]?.text ??
+                  ''),
+          goodsValue: double.tryParse(
+              _controllers[ControllerKeys.goodsValueController]?.text ?? ''),
+
+          // Costs
+          doorToDoorPrice: double.tryParse(
+              _controllers[ControllerKeys.doorToDoorPriceController]?.text ??
+                  ''),
+          pricePerKg: double.tryParse(
+              _controllers[ControllerKeys.pricePerKgController]?.text ?? ''),
+          minimumPrice: double.tryParse(
+              _controllers[ControllerKeys.minimumPriceController]?.text ?? ''),
+          insuranceAmount: double.tryParse(
+              _controllers[ControllerKeys.insuranceAmountController]?.text ??
+                  ''),
+          customsCost: double.tryParse(
+              _controllers[ControllerKeys.customsCostController]?.text ?? ''),
+          exportDocCost: double.tryParse(
+              _controllers[ControllerKeys.exportDocCostController]?.text ?? ''),
+          boxPackingCost: double.tryParse(
+              _controllers[ControllerKeys.boxPackingCostController]?.text ??
+                  ''),
+          doorToDoorCost: double.tryParse(
+              _controllers[ControllerKeys.doorToDoorCostController]?.text ??
+                  ''),
+          postSubCost: double.tryParse(
+              _controllers[ControllerKeys.postSubCostController]?.text ?? ''),
+          discountAmount: double.tryParse(
+              _controllers[ControllerKeys.discountAmountController]?.text ??
+                  ''),
+          totalPostCost: double.tryParse(
+              _controllers[ControllerKeys.totalPostCostController]?.text ?? ''),
+          totalPostCostPaid: double.tryParse(
+              _controllers[ControllerKeys.totalPostCostPaidController]?.text ??
+                  ''),
+          unpaidAmount: double.tryParse(
+              _controllers[ControllerKeys.unpaidAmountController]?.text ?? ''),
+          totalCostEuroCurrency: double.tryParse(
+              _controllers[ControllerKeys.totalCostEurController]?.text ?? ''),
+          unpaidAmountEuro: double.tryParse(
+              _controllers[ControllerKeys.unpaidEurCostController]?.text ?? ''),
+        );
+
+        // Save the record
+        if (mounted) {
+          await context.read<SendRecordCubit>().createSendRecord(record);
+        }
+        // Clear the form (except date, truck number, code number, agent, and branch)
+        _clearForm();
+        // Ensure the widget is still mounted before showing the SnackBar
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Record saved successfully')),
+          );
+        }
+      } catch (e) {
+        // Ensure the widget is still mounted before showing the error
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error saving record: ${e.toString()}')),
+          );
+        }
       }
-
-      if (_selectedBranch == null || _selectedBranch!.isEmpty) {
-        throw Exception('Branch is required');
-      }
-
-      // Generate the next code number for this truck and branch
-      final nextCodeNumber =
-          await _getNextCodeNumber(currentTruckNumber, _selectedBranch!);
-
-      // Update the Code Number field in the UI
-      setState(() {
-        _controllers[ControllerKeys.codeNumberController]?.text =
-            nextCodeNumber;
-      });
-      // Create a new SendRecord
-      final record = SendRecord(
-        // Shipment Info
-        date: _controllers[ControllerKeys.dateController]?.text,
-        truckNumber: currentTruckNumber,
-        codeNumber: nextCodeNumber,
-        boxNumber: int.tryParse(
-            _controllers[ControllerKeys.boxNumberController]?.text ?? ''),
-        palletNumber: int.tryParse(
-            _controllers[ControllerKeys.palletNumberController]?.text ?? ''),
-        realWeightKg: double.tryParse(
-            _controllers[ControllerKeys.weightController]?.text ?? ''),
-        length: double.tryParse(
-            _controllers[ControllerKeys.lengthController]?.text ?? ''),
-        width: double.tryParse(
-            _controllers[ControllerKeys.widthController]?.text ?? ''),
-        height: double.tryParse(
-            _controllers[ControllerKeys.heightController]?.text ?? ''),
-        isDimensionCalculated: areDimensionsEnabled,
-        additionalKg: double.tryParse(
-            _controllers[ControllerKeys.additionalKGController]?.text ?? ''),
-        totalWeightKg: double.tryParse(
-            _controllers[ControllerKeys.totalWeightController]?.text ?? ''),
-
-        // Sender Info
-        senderName: _controllers[ControllerKeys.senderNameController]?.text,
-        senderPhone: _controllers[ControllerKeys.senderPhoneController]?.text,
-        senderIdNumber: _controllers[ControllerKeys.senderIdController]?.text,
-        goodsDescription:
-            _controllers[ControllerKeys.goodsDescriptionController]?.text,
-
-        // Agent Info
-        agentName: _selectedAgent,
-        branchName: _selectedBranch,
-
-        // Receiver Info
-        receiverName: _controllers[ControllerKeys.receiverNameController]?.text,
-        receiverPhone:
-            _controllers[ControllerKeys.receiverPhoneController]?.text,
-        receiverCountry: _selectedCountry,
-        receiverCity: _selectedCity,
-
-        // All other fields as per your model...
-        streetName: _controllers[ControllerKeys.streetController]?.text,
-        apartmentNumber: _controllers[ControllerKeys.apartmentController]?.text,
-        zipCode: _controllers[ControllerKeys.zipCodeController]?.text,
-        insurancePercent: double.tryParse(
-            _controllers[ControllerKeys.insurancePercentController]?.text ??
-                ''),
-        goodsValue: double.tryParse(
-            _controllers[ControllerKeys.goodsValueController]?.text ?? ''),
-
-        // Costs
-        doorToDoorPrice: double.tryParse(
-            _controllers[ControllerKeys.doorToDoorPriceController]?.text ?? ''),
-        pricePerKg: double.tryParse(
-            _controllers[ControllerKeys.pricePerKgController]?.text ?? ''),
-        minimumPrice: double.tryParse(
-            _controllers[ControllerKeys.minimumPriceController]?.text ?? ''),
-        insuranceAmount: double.tryParse(
-            _controllers[ControllerKeys.insuranceAmountController]?.text ?? ''),
-        customsCost: double.tryParse(
-            _controllers[ControllerKeys.customsCostController]?.text ?? ''),
-        exportDocCost: double.tryParse(
-            _controllers[ControllerKeys.exportDocCostController]?.text ?? ''),
-        boxPackingCost: double.tryParse(
-            _controllers[ControllerKeys.boxPackingCostController]?.text ?? ''),
-        doorToDoorCost: double.tryParse(
-            _controllers[ControllerKeys.doorToDoorCostController]?.text ?? ''),
-        postSubCost: double.tryParse(
-            _controllers[ControllerKeys.postSubCostController]?.text ?? ''),
-        discountAmount: double.tryParse(
-            _controllers[ControllerKeys.discountAmountController]?.text ?? ''),
-        totalPostCost: double.tryParse(
-            _controllers[ControllerKeys.totalPostCostController]?.text ?? ''),
-        totalPostCostPaid: double.tryParse(
-            _controllers[ControllerKeys.totalPostCostPaidController]?.text ??
-                ''),
-        unpaidAmount: double.tryParse(
-            _controllers[ControllerKeys.unpaidAmountController]?.text ?? ''),
-        totalCostEuroCurrency: double.tryParse(
-            _controllers[ControllerKeys.totalCostEurController]?.text ?? ''),
-        unpaidAmountEuro: double.tryParse(
-            _controllers[ControllerKeys.unpaidEurCostController]?.text ?? ''),
+    } else {
+      // If the form is not valid, show a snackbar with an error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Please fix validation errors before saving')),
       );
-
-      // Save the record
-      if (mounted) {
-        await context.read<SendRecordCubit>().createSendRecord(record);
-      }
-      // Clear the form (except date, truck number, code number, agent, and branch)
-      _clearForm();
-      // Ensure the widget is still mounted before showing the SnackBar
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Record saved successfully')),
-        );
-      }
-    } catch (e) {
-      // Ensure the widget is still mounted before showing the error
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving record: ${e.toString()}')),
-        );
-      }
     }
   }
 
@@ -597,6 +614,14 @@ class _SendScreenState extends State<SendScreen> {
     });
   }
 
+  String? conditionalValidator(
+      bool condition, String? value, String errorMessage) {
+    if (condition && (value == null || value.isEmpty)) {
+      return errorMessage; // Return the error message if the field is required and empty
+    }
+    return null; // Return null if the field is valid or not required
+  }
+
   // Custom card wrapper for consistent styling
   Widget _buildCard({required Widget child}) {
     return SizedBox(
@@ -607,6 +632,12 @@ class _SendScreenState extends State<SendScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authCubit = context.read<AuthCubit>();
+    if (!authCubit.isUser() && !authCubit.isManager()) {
+      return const Center(
+        child: Text('You are not authorized to access the Send page.'),
+      );
+    }
     return Shortcuts(
       shortcuts: {
         // Define the shortcut (Ctrl + F)
@@ -905,16 +936,13 @@ class _SendScreenState extends State<SendScreen> {
           SendUtils.buildInputRow(
             icon: Icons.person_outline,
             child: SendUtils.buildTextField(
-              controller: _controllers[ControllerKeys.senderPhoneController] ??
+              controller: _controllers[ControllerKeys.senderNameController] ??
                   TextEditingController(),
               hint: 'Sender Name',
-              keyboardType: TextInputType.phone,
+
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Sender Name is required';
-                }
-                if (!RegExp(r'^[A-Z]+$').hasMatch(value)) {
-                  return 'Sender name must contain only characters';
                 }
 
                 return null;
@@ -1381,13 +1409,14 @@ class _SendScreenState extends State<SendScreen> {
                       _controllers[ControllerKeys.insurancePercentController] ??
                           TextEditingController(),
                   hint: 'Insurance Amount',
-                  enabled: isInsuranceEnabled, // Ensure the field is enabled
+                  enabled:
+                      isInsuranceEnabled, // Enable/disable based on checkbox
                   validator: (value) {
-                    if (isInsuranceEnabled &&
-                        (value == null || value.isEmpty)) {
-                      return 'Insurance Amount is required';
-                    }
-                    return null;
+                    return conditionalValidator(
+                      isInsuranceEnabled, // Condition: Is insurance enabled?
+                      value, // Field value
+                      'Insurance Amount is required', // Error message
+                    );
                   },
                   context: context,
                 ),
@@ -1397,16 +1426,9 @@ class _SendScreenState extends State<SendScreen> {
                 onChanged: (value) {
                   setState(() {
                     isInsuranceEnabled = value ?? false;
-                    if (!isInsuranceEnabled) {
-                      _controllers[ControllerKeys.insurancePercentController]
-                          ?.clear();
-                    }
-                    SendPageLogic.updateCalculations(
-                      controllers: _controllers,
-                      isInsuranceEnabled: isInsuranceEnabled,
-                      euroRate: _selectedCurrencyAgainstIQD,
-                    );
                   });
+                  // Re-validate the form when the checkbox state changes
+                  _formKey.currentState?.validate();
                 },
               ),
             ],
@@ -1417,7 +1439,7 @@ class _SendScreenState extends State<SendScreen> {
             enabled: true,
             controller: _controllers[ControllerKeys.goodsValueController] ??
                 TextEditingController(),
-            optional: true,
+            optional: true, // This field is optional
           ),
           SizedBox(height: 12.h),
           // Replace the static container with a TextField for notes
@@ -2279,7 +2301,6 @@ class _SendScreenState extends State<SendScreen> {
             _controllers[ControllerKeys.palletNumberController]?.text ?? '1') ??
         1;
 
-    
     // Loop through each pallet and generate a label
     for (int currentLabelIndex = 1;
         currentLabelIndex <= palletNumber;

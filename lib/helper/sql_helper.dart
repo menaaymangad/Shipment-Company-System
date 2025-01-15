@@ -7,6 +7,7 @@ import 'package:app/models/currency_model.dart';
 import 'package:app/models/user_model.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class DatabaseHelper {
@@ -300,7 +301,7 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         description_en TEXT NOT NULL,
         description_ar TEXT NOT NULL,
-        weight REAL NOT NULL DEFAULT 0.0,
+        
         UNIQUE(description_en, description_ar)
       )
     ''');
@@ -321,31 +322,12 @@ class DatabaseHelper {
     }
   }
 
-  Future<void> _insertDefaultAdminUser(Database db) async {
-    try {
-      await db.insert('users', {
-        'userName': 'admin',
-        'password': 'admin', // Store plain text password
-        // 'branchName': 'Main Branch',
-        'authorization': 'Admin',
-        'allowLogin': 1
-      });
-
-      if (kDebugMode) {
-        print("Default admin user inserted successfully");
-      }
-
-      // Verify insertion
-      final verifyAdmin =
-          await db.query('users', where: 'userName = ?', whereArgs: ['admin']);
-      if (kDebugMode) {
-        print('Verification after insertion: $verifyAdmin');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print("Error inserting default admin user: $e");
-      }
-      rethrow;
+Future<void> _insertDefaultAdminUser(Database db) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('admin_username', 'admin');
+    await prefs.setString('admin_password', 'admin'); // Default password
+    if (kDebugMode) {
+      print('Admin credentials saved to SharedPreferences');
     }
   }
 

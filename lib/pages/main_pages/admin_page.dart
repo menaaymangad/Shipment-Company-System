@@ -1,4 +1,8 @@
+import 'package:app/cubits/login_cubit/login_cubit_cubit.dart';
 import 'package:app/helper/shared_prefs_service.dart';
+import 'package:flutter/foundation.dart';
+
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -19,23 +23,31 @@ class AdminPage extends StatefulWidget {
 class _AdminPageState extends State<AdminPage> {
   int _selectedIndex = 0;
 
-  bool _isAdmin = false;
+  // bool _isAdmin = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _checkAdminStatus();
-  }
+ @override
+void initState() {
+  super.initState();
+  _checkUserRole();
+}
 
-  Future<void> _checkAdminStatus() async {
-    try {
-      _isAdmin = await SharedPrefsService.isUserAdmin();
-      debugPrint('Admin status: $_isAdmin');
-      setState(() {});
-    } catch (e) {
-      debugPrint('Error checking admin status: $e');
-    }
+Future<void> _checkUserRole() async {
+  final authCubit = context.read<AuthCubit>();
+  final storedRole = await authCubit.getStoredUserRole();
+  if (kDebugMode) {
+    print('Stored user role: $storedRole');
   }
+}
+
+  // Future<void> _checkAdminStatus() async {
+  //   try {
+  //     _isAdmin = await SharedPrefsService.isUserAdmin();
+  //     debugPrint('Admin status: $_isAdmin');
+  //     setState(() {});
+  //   } catch (e) {
+  //     debugPrint('Error checking admin status: $e');
+  //   }
+  // }
 
   final List<String> _tabs = [
     'Branches',
@@ -47,11 +59,15 @@ class _AdminPageState extends State<AdminPage> {
 
   @override
   Widget build(BuildContext context) {
-    // if (!_isAdmin) {
-    //   return const Center(
-    //     child: Text('You are not authorized to access the Admin page.'),
-    //   );
-    // }
+   final authCubit = context.read<AuthCubit>();
+    if (kDebugMode) {
+      print('Current user role: ${authCubit.userRole}');
+    }
+    if (!authCubit.isAdmin()) {
+      return const Center(
+        child: Text('You are not authorized to access the Admin page.'),
+      );
+    }
     return Column(
       children: [
         // Top Navigation

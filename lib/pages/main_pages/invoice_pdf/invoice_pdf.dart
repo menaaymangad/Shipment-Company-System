@@ -138,7 +138,10 @@ class PDFGenerator {
               : pw.Alignment.centerLeft,
           child: pw.Column(
             mainAxisSize: pw.MainAxisSize.max,
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            crossAxisAlignment:
+                translations.textDirection == pw.TextDirection.rtl
+                    ? pw.CrossAxisAlignment.end
+                    : pw.CrossAxisAlignment.start,
             children: [
               buildHeader(
                   euknetLogo, stersLogo, boldFont, receiver, translations),
@@ -349,21 +352,21 @@ class PDFGenerator {
 
                 // Info Rows
                 buildTableRow(translations.translations['sender_name']!,
-                    sender.name, regularFont),
+                    sender.name, regularFont, translations.textDirection),
                 buildTableRow(translations.translations['sender_phone']!,
-                    sender.phone, regularFont),
+                    sender.phone, regularFont, translations.textDirection),
                 buildTableRow(translations.translations['receiver_name']!,
-                    receiver.name, regularFont),
+                    receiver.name, regularFont, translations.textDirection),
                 buildTableRow(translations.translations['receiver_phone']!,
-                    receiver.phone, regularFont),
+                    receiver.phone, regularFont, translations.textDirection),
                 buildTableRow(translations.translations['address']!,
-                    receiver.street, regularFont),
+                    receiver.street, regularFont, translations.textDirection),
                 buildTableRow(translations.translations['postal_code']!,
-                    receiver.zipCode, regularFont),
+                    receiver.zipCode, regularFont, translations.textDirection),
                 buildTableRow(translations.translations['city']!, receiver.city,
-                    regularFont),
+                    regularFont, translations.textDirection),
                 buildTableRow(translations.translations['country']!,
-                    receiver.country, regularFont),
+                    receiver.country, regularFont, translations.textDirection),
 
                 // Agent Info Header
                 pw.Container(
@@ -423,25 +426,34 @@ class PDFGenerator {
                 ),
 
                 // Cost Rows
-                buildCostTableRow(translations.translations['shipping_cost']!,
-                    costs.shippingCost, regularFont),
+                buildCostTableRow(
+                    translations.translations['shipping_cost']!,
+                    costs.shippingCost,
+                    regularFont,
+                    translations.textDirection),
                 buildCostTableRow(translations.translations['empty_box_cost']!,
-                    '', regularFont),
+                    '', regularFont, translations.textDirection),
                 buildCostTableRow(translations.translations['customs_admin']!,
-                    '', regularFont),
+                    '', regularFont, translations.textDirection),
                 buildCostTableRow(translations.translations['delivery_cost']!,
-                    '', regularFont),
-                buildCostTableRow(translations.translations['insurance_cost']!,
-                    costs.insuranceAmount, regularFont),
+                    '', regularFont, translations.textDirection),
+                buildCostTableRow(
+                    translations.translations['insurance_cost']!,
+                    costs.insuranceAmount,
+                    regularFont,
+                    translations.textDirection),
                 buildCostTableRow(translations.translations['total_cost']!,
-                    costs.totalCost, regularFont),
-                buildCostTableRow(translations.translations['amount_paid']!,
-                    costs.amountPaid, regularFont,
-                    highlighted: true),
+                    costs.totalCost, regularFont, translations.textDirection),
+                buildCostTableRow(
+                    translations.translations['amount_paid']!,
+                    costs.amountPaid,
+                    regularFont,
+                    highlighted: true,
+                    translations.textDirection),
                 buildCostTableRow(translations.translations['amount_due']!,
-                    costs.amountDue, regularFont),
+                    costs.amountDue, regularFont, translations.textDirection),
                 buildCostTableRow(translations.translations['amount_due_eur']!,
-                    '', regularFont),
+                    '', regularFont, translations.textDirection),
 
                 // Insurance Section
                 pw.Container(
@@ -450,13 +462,13 @@ class PDFGenerator {
                     mainAxisAlignment: pw.MainAxisAlignment.end,
                     children: [
                       pw.Expanded(
-                        child: buildCheckbox(
-                            translations.translations['no']!, regularFont),
+                        child: buildCheckbox(translations.translations['no']!,
+                            regularFont, translations.textDirection),
                       ),
                       pw.SizedBox(width: 20.w),
                       pw.Expanded(
-                        child: buildCheckbox(
-                            translations.translations['yes']!, regularFont),
+                        child: buildCheckbox(translations.translations['yes']!,
+                            regularFont, translations.textDirection),
                       ),
                       pw.SizedBox(width: 40.w),
                       pw.Expanded(
@@ -511,24 +523,35 @@ class PDFGenerator {
   }
   // Update these methods in your PDFGenerator class
 
-  static pw.Widget buildTableRow(String label, String value, pw.Font font) {
+  static pw.Widget buildTableRow(
+    String label,
+    String value,
+    pw.Font font,
+    pw.TextDirection textDirection,
+  ) {
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border(
-            bottom: pw.BorderSide(color: PdfColors.black, width: 0.5.w)),
+          bottom: pw.BorderSide(color: PdfColors.black, width: 0.5.w),
+        ),
       ),
       padding: pw.EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
       child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.end, // Right to left alignment
+        mainAxisAlignment: textDirection == pw.TextDirection.rtl
+            ? pw.MainAxisAlignment.end
+            : pw.MainAxisAlignment.start,
         children: [
           pw.Expanded(
             flex: 3,
             child: pw.Padding(
-              padding: pw.EdgeInsets.only(right: 8.w),
+              padding: pw.EdgeInsets.only(
+                right: textDirection == pw.TextDirection.rtl ? 0 : 8.w,
+                left: textDirection == pw.TextDirection.rtl ? 8.w : 0,
+              ),
               child: pw.Text(
                 value,
                 style: getTextStyle(baseFont: font, fontSize: 20.sp),
-                textDirection: pw.TextDirection.rtl,
+                textDirection: textDirection,
               ),
             ),
           ),
@@ -538,8 +561,10 @@ class PDFGenerator {
             child: pw.Text(
               label,
               style: getTextStyle(baseFont: font, fontSize: 20.sp),
-              textAlign: pw.TextAlign.right,
-              textDirection: pw.TextDirection.rtl,
+              textAlign: textDirection == pw.TextDirection.rtl
+                  ? pw.TextAlign.right
+                  : pw.TextAlign.left,
+              textDirection: textDirection,
             ),
           ),
         ],
@@ -547,35 +572,48 @@ class PDFGenerator {
     );
   }
 
-  static pw.Widget buildCostTableRow(String label, String value, pw.Font font,
-      {bool highlighted = false}) {
+  static pw.Widget buildCostTableRow(
+    String label,
+    String value,
+    pw.Font font,
+    pw.TextDirection textDirection, {
+    bool highlighted = false,
+  }) {
     return pw.Container(
       decoration: pw.BoxDecoration(
         color: highlighted ? PdfColor.fromHex('#FFB99B') : null,
         border: pw.Border(
-            bottom: pw.BorderSide(color: PdfColors.black, width: 0.5.w)),
+          bottom: pw.BorderSide(color: PdfColors.black, width: 0.5.w),
+        ),
       ),
       padding: pw.EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
       child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.end, // Right to left alignment
+        mainAxisAlignment: textDirection == pw.TextDirection.rtl
+            ? pw.MainAxisAlignment.end
+            : pw.MainAxisAlignment.start,
         children: [
           pw.Expanded(
             child: pw.Center(
               child: pw.Text(
                 'دينار عراقي',
                 style: getTextStyle(baseFont: font, fontSize: 20.sp),
-                textAlign: pw.TextAlign.right,
-                textDirection: pw.TextDirection.rtl,
+                textAlign: textDirection == pw.TextDirection.rtl
+                    ? pw.TextAlign.right
+                    : pw.TextAlign.left,
+                textDirection: textDirection,
               ),
             ),
           ),
           pw.Expanded(
             child: pw.Padding(
-              padding: pw.EdgeInsets.only(right: 8.w),
+              padding: pw.EdgeInsets.only(
+                right: textDirection == pw.TextDirection.rtl ? 0 : 8.w,
+                left: textDirection == pw.TextDirection.rtl ? 8.w : 0,
+              ),
               child: pw.Text(
                 value,
                 style: getTextStyle(baseFont: font, fontSize: 20.sp),
-                textDirection: pw.TextDirection.rtl,
+                textDirection: textDirection,
               ),
             ),
           ),
@@ -585,8 +623,10 @@ class PDFGenerator {
             child: pw.Text(
               label,
               style: getTextStyle(baseFont: font, fontSize: 20.sp),
-              textAlign: pw.TextAlign.right,
-              textDirection: pw.TextDirection.rtl,
+              textAlign: textDirection == pw.TextDirection.rtl
+                  ? pw.TextAlign.right
+                  : pw.TextAlign.left,
+              textDirection: textDirection,
             ),
           ),
         ],
@@ -606,9 +646,21 @@ class PDFGenerator {
     );
   }
 
-  static pw.Widget buildCheckbox(String label, pw.Font font) {
+  static pw.Widget buildCheckbox(
+    String label,
+    pw.Font font,
+    pw.TextDirection textDirection,
+  ) {
     return pw.Row(
       children: [
+        if (textDirection == pw.TextDirection.rtl) ...[
+          pw.Text(
+            label,
+            style: getTextStyle(baseFont: font, fontSize: 16.sp),
+            textDirection: textDirection,
+          ),
+          pw.SizedBox(width: 5.w),
+        ],
         pw.Container(
           width: 20.w,
           height: 20.h,
@@ -616,15 +668,14 @@ class PDFGenerator {
             border: pw.Border.all(color: PdfColors.black),
           ),
         ),
-        pw.SizedBox(width: 5.w),
-        pw.Text(
-          label,
-          style: getTextStyle(
-            baseFont: font,
-            fontSize: 16.sp,
+        if (textDirection == pw.TextDirection.ltr) ...[
+          pw.SizedBox(width: 5.w),
+          pw.Text(
+            label,
+            style: getTextStyle(baseFont: font, fontSize: 16.sp),
+            textDirection: textDirection,
           ),
-          textDirection: pw.TextDirection.rtl,
-        ),
+        ],
       ],
     );
   }
@@ -648,11 +699,15 @@ class PDFGenerator {
         await loadAssetImage('assets/icons/Sters Logo N-BG (1).png'));
 
     return pw.Container(
+      alignment: pw.Alignment.centerLeft,
       decoration: pw.BoxDecoration(
           border: pw.Border.all(color: PdfColors.black, width: 0.5.w)),
       margin: pw.EdgeInsets.only(top: 20.h),
       child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch, // Added this line
+        // crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        crossAxisAlignment: translations.textDirection == pw.TextDirection.rtl
+            ? pw.CrossAxisAlignment.end
+            : pw.CrossAxisAlignment.start, // Added this line
         children: [
           // Title with improved styling
           pw.Container(

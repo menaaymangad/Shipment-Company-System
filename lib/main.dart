@@ -43,8 +43,9 @@ void main() {
 
     try {
       // Initialize database before running the app
+     
       await _initializeDatabase();
-
+     
       runApp(const MyApp());
     } catch (e, stackTrace) {
       if (kDebugMode) {
@@ -143,7 +144,9 @@ class ErrorApp extends StatelessWidget {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+
+
+  const MyApp({super.key,});
 
   @override
   Widget build(BuildContext context) {
@@ -211,7 +214,7 @@ class MyApp extends StatelessWidget {
                 ),
                 themeMode: themeProvider.themeMode,
                 // Add home property for more reliable routing
-                home: const LoginPage(),
+                // home: const LoginPage(),
                 routes: {
                   LoginPage.id: (context) => const LoginPage(),
                   SendScreen.id: (context) => const SendScreen(),
@@ -220,7 +223,9 @@ class MyApp extends StatelessWidget {
                   SettingPage.id: (context) => const SettingPage(),
                   MainLayout.id: (context) => const MainLayout(),
                   CitiesPage.id: (context) => const CitiesPage(),
+                 
                 },
+                initialRoute:   LoginPage.id,
                 // Add navigation observer for analytics or logging
                 navigatorObservers: [
                   RouteObserver(),

@@ -8,7 +8,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class CurrenciesPage extends StatefulWidget {
-  const CurrenciesPage({super.key});
+  const CurrenciesPage({super.key,});
+
 
   @override
   State<CurrenciesPage> createState() => _CurrenciesPageState();

@@ -10,8 +10,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'cities_list.dart';
 
 class CitiesPage extends StatefulWidget {
-  const CitiesPage({super.key});
+  const CitiesPage({super.key,  });
   static String id = 'cities';
+
 
   @override
   State<CitiesPage> createState() => _CitiesPageState();

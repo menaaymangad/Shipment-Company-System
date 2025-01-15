@@ -46,7 +46,10 @@ class _MainLayoutState extends State<MainLayout> {
         ),
       ),
       leading: IconButton(
-        icon: const Icon(Icons.menu, color: Colors.black),
+        icon: const Icon(
+          Icons.menu,
+          color: Color(0xFF2D3748),
+        ),
         onPressed: () {
           setState(() {
             _isExpanded = !_isExpanded;
@@ -144,17 +147,17 @@ class _MainLayoutState extends State<MainLayout> {
         extended: MediaQuery.sizeOf(context).width < 1000 ? false : _isExpanded,
         leading: Padding(
           padding: EdgeInsets.symmetric(vertical: 8.h),
-          child: IconButton(
-            icon: Icon(
-              _isExpanded ? Icons.chevron_left : Icons.chevron_right,
-              color: const Color(0xFF2D3748),
-            ),
-            onPressed: () {
-              setState(() {
-                _isExpanded = !_isExpanded;
-              });
-            },
-          ),
+          // child: IconButton(
+          //   icon: Icon(
+          //     _isExpanded ? Icons.chevron_left : Icons.chevron_right,
+          //     color: const Color(0xFF2D3748),
+          //   ),
+          //   onPressed: () {
+          //     setState(() {
+          //       _isExpanded = !_isExpanded;
+          //     });
+          //   },
+          // ),
         ),
         destinations: _buildNavDestinations(),
       ),
@@ -214,6 +217,24 @@ class _MainLayoutState extends State<MainLayout> {
         return _buildHomePage();
     }
   }
+  // Widget _buildAdminPage() {
+  //   return FutureBuilder<bool>(
+  //     future: DatabaseHelper().isDatabaseEmpty(),
+  //     builder: (context, snapshot) {
+  //       if (snapshot.connectionState == ConnectionState.waiting) {
+  //         return const Center(child: CircularProgressIndicator());
+  //       } else if (snapshot.hasError) {
+  //         return Center(child: Text('Error: ${snapshot.error}'));
+  //       } else if (snapshot.data == true) {
+  //         // // Database is empty, redirect to TourScreen
+  //         // return const TourScreen();
+  //       } else {
+  //         // Database is not empty, show AdminPage
+  //         return const AdminPage();
+  //       }
+  //     },
+  //   );
+  // }
 
   Widget _buildHomePage() {
     return Padding(

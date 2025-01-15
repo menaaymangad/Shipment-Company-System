@@ -56,43 +56,122 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
+    bool isLoading = true;
+
     // Show loading dialog while authenticating
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Center(
-          child: CircularProgressIndicator(),
+      builder: (BuildContext dialogContext) {
+        // Use dialogContext instead of context
+        return WillPopScope(
+          onWillPop: () async => false, // Prevent back button dismissal
+          child: const Center(
+            child: CircularProgressIndicator(),
+          ),
         );
       },
     );
 
+    // Listen for authentication state
+    _authSubscription?.cancel(); // Cancel any existing subscription
+    _authSubscription = context.read<AuthCubit>().stream.listen(
+      (state) {
+        // Only proceed if we're still loading and the widget is mounted
+        if (!isLoading || !mounted) return;
+
+        try {
+          // Safely dismiss the loading dialog if it exists
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+          isLoading = false;
+
+          if (state is AuthSuccess) {
+            // Navigate on success
+            Navigator.pushReplacementNamed(context, MainLayout.id);
+          } else if (state is AuthFailure) {
+            // Show error dialog and reset the page
+            _showAuthErrorDialog(state.message);
+            _resetPage();
+          }
+        } catch (e) {
+          debugPrint('Error handling auth state: $e');
+          // Ensure we still show the error even if dialog dismissal fails
+          _showAuthErrorDialog('Authentication error occurred');
+          _resetPage();
+        }
+      },
+      onError: (error) {
+        debugPrint('Auth stream error: $error');
+        if (mounted && isLoading) {
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+          isLoading = false;
+          _showAuthErrorDialog('Authentication error occurred');
+          _resetPage();
+        }
+      },
+    );
+
+    // Trigger the login
     context.read<AuthCubit>().login(
           selectedBranch!,
           selectedUserName!,
           _passwordController.text,
         );
+  }
 
-    // Listen for authentication state
-    _authSubscription = context.read<AuthCubit>().stream.listen((state) {
-      // Check if the widget is still mounted
-      if (!mounted) return;
+// Update error dialog to be more robust
+  void _showAuthErrorDialog(String message) {
+    if (!mounted) return;
 
-      // Dismiss the loading dialog
-      Navigator.pop(context);
-
-      if (state is AuthSuccess) {
-        // Only navigate on success
-        Navigator.pushReplacementNamed(context, MainLayout.id);
-      } else if (state is AuthFailure) {
-        if (state.message == 'Password mismatch') {
-          // Show password mismatch dialog
-          _showPasswordMismatchDialog();
-        } else {
-          _showAuthErrorDialog(state.message);
-        }
-      }
-    });
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        // Use dialogContext
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red[700]),
+              const SizedBox(width: 10),
+              const Text(
+                'Authentication Error',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            message,
+            style: const TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onPressed: () {
+                if (Navigator.canPop(dialogContext)) {
+                  Navigator.pop(dialogContext);
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showPasswordMismatchDialog() {
@@ -130,12 +209,11 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               onPressed: () {
-                Navigator.of(context).pop();
+                // Dismiss the error dialog
+                Navigator.of(context, rootNavigator: true).pop();
 
-                // Clear the password field only if the widget is still mounted
-                if (mounted) {
-                  _passwordController.clear();
-                }
+                // Reset the page to its default state
+                _resetPage();
               },
             ),
           ],
@@ -144,49 +222,100 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _showAuthErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
+  // void _showAuthErrorDialog(String message) {
+  //   showDialog(
+  //     context: context,
+  //     builder: (BuildContext context) {
+  //       return AlertDialog(
+  //         shape: RoundedRectangleBorder(
+  //           borderRadius: BorderRadius.circular(15),
+  //         ),
+  //         title: Row(
+  //           children: [
+  //             Icon(Icons.error_outline, color: Colors.red[700]),
+  //             const SizedBox(width: 10),
+  //             const Text(
+  //               'Authentication Error',
+  //               style: TextStyle(
+  //                 color: Colors.red,
+  //                 fontWeight: FontWeight.bold,
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //         content: Text(
+  //           message,
+  //           style: const TextStyle(fontSize: 16),
+  //         ),
+  //         actions: [
+  //           TextButton(
+  //             child: const Text(
+  //               'OK',
+  //               style: TextStyle(
+  //                 fontSize: 16,
+  //                 fontWeight: FontWeight.bold,
+  //               ),
+  //             ),
+  //             onPressed: () {
+  //               // Dismiss the error dialog
+  //               Navigator.of(context, rootNavigator: true).pop();
+
+  //               // Reset the page to its default state
+  //               _resetPage();
+  //             },
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  // }
+
+  Future<void> _resetPage() async {
+    try {
+      // Clear the password field
+      _passwordController.clear();
+
+      // Reset selected branch and user
+      setState(() {
+        selectedBranch = null;
+        selectedUserName = null;
+        isPasswordVisible = false; // Reset password visibility
+      });
+
+      // Reset the AuthCubit state - await this operation
+      await context.read<AuthCubit>().resetState();
+
+      // Reset any error messages or UI states
+      if (mounted) {
+        // Check if widget is still mounted
+        ScaffoldMessenger.of(context).clearSnackBars();
+      }
+
+      // Reset focus
+      if (mounted) {
+        // Check if widget is still mounted
+        FocusScope.of(context).unfocus();
+      }
+
+      // Cancel any existing subscriptions
+      await _authSubscription?.cancel();
+
+      // Optionally refresh the UI state if needed
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Error during page reset: $e');
+      // Handle any errors during reset
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error resetting page: $e'),
+            backgroundColor: Colors.red,
           ),
-          title: Row(
-            children: [
-              Icon(Icons.error_outline, color: Colors.red[700]),
-              const SizedBox(width: 10),
-              const Text(
-                'Authentication Error',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            message,
-            style: const TextStyle(fontSize: 16),
-          ),
-          actions: [
-            TextButton(
-              child: const Text(
-                'OK',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-                _passwordController.clear(); // Clear password field
-              },
-            ),
-          ],
         );
-      },
-    );
+      }
+    }
   }
 
   void _showErrorSnackBar(String message) {
@@ -732,62 +861,16 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: TextButton.styleFrom(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: Colors.grey.shade300),
-                    ),
+                // Cancel Button...
+                ElevatedButton(
+                  onPressed: () => _handleAdminLogin(context,
+                      usernameController.text, passwordController.text),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xff236BC9),
                   ),
-                  child: Text(
-                    "Cancel",
-                    style: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                BlocBuilder<AuthCubit, AuthState>(
-                  builder: (context, state) {
-                    return ElevatedButton(
-                      onPressed: state is AuthLoading
-                          ? null
-                          : () => _handleAdminLogin(
-                                context,
-                                usernameController.text,
-                                passwordController.text,
-                              ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xff236BC9),
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 20.w, vertical: 10.h),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: state is AuthLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              "Login",
-                              style: TextStyle(
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                    );
-                  },
+                  child: const Text("Login"),
                 ),
               ],
-              actionsPadding: EdgeInsets.all(20.w),
             );
           },
         );
@@ -795,39 +878,61 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  void _handleAdminLogin(
+  Future<void> _handleAdminLogin(
       BuildContext context, String username, String password) async {
     // Show loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Center(
-          child: CircularProgressIndicator(),
+      builder: (BuildContext dialogContext) {
+        return WillPopScope(
+          onWillPop: () async => false, // Prevent back button dismissal
+          child: const Center(
+            child: CircularProgressIndicator(),
+          ),
         );
       },
     );
 
-    context.read<AuthCubit>().adminLogin(username, password);
+    // Flag to track loading state
+    bool isLoading = true;
+
+    // Cancel any existing subscription
+    _authSubscription?.cancel();
 
     // Listen for authentication state
-    context.read<AuthCubit>().stream.listen((state) {
-      // Always pop the loading dialog first
-      if (mounted) {
-        Navigator.pop(context);
-      }
+    _authSubscription = context.read<AuthCubit>().stream.listen(
+      (state) {
+        // Only proceed if we're still loading and the widget is mounted
+        if (!isLoading || !mounted) return;
 
-      if (state is AuthSuccess) {
-        // Close the admin login dialog and navigate
-        if (mounted) {
+        // Dismiss the loading dialog
+        if (Navigator.canPop(context)) {
           Navigator.pop(context);
-          Navigator.pushReplacementNamed(context, MainLayout.id);
         }
-      } else if (state is AuthFailure) {
-        if (mounted) {
+        isLoading = false;
+
+        if (state is AuthSuccess) {
+          // Navigate to main page on success
+          Navigator.pushReplacementNamed(context, MainLayout.id);
+        } else if (state is AuthFailure) {
+          // Show error dialog on failure
           _showAuthErrorDialog(state.message);
         }
-      }
-    });
+      },
+      onError: (error) {
+        debugPrint('Auth stream error: $error');
+        if (mounted && isLoading) {
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          }
+          isLoading = false;
+          _showAuthErrorDialog('Authentication error occurred');
+        }
+      },
+    );
+
+    // Trigger the admin login
+    context.read<AuthCubit>().adminLogin(username, password);
   }
 }

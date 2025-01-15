@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-@immutable
 class DataGridColumn<T> {
   final String header;
   final String Function(T item) getValue;

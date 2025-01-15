@@ -11,7 +11,8 @@ import '../../../cubits/brach_cubit/branch_states.dart';
 import 'branch_list.dart';
 
 class BranchesPage extends StatefulWidget {
-  const BranchesPage({super.key});
+  const BranchesPage({super.key, });
+ 
 
   @override
   State<BranchesPage> createState() => _BranchesPageState();

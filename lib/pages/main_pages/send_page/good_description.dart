@@ -1,6 +1,7 @@
 import 'package:app/helper/good_description_db_helper.dart';
 import 'package:app/helper/sql_helper.dart';
 import 'package:app/models/good_description_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -124,7 +125,9 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
         errorMessage = e.toString();
       });
       _showError(e.toString());
-      print('Failed to add description: $e');
+      if (kDebugMode) {
+        print('Failed to add description: $e');
+      }
     }
   }
 

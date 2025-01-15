@@ -1,11 +1,10 @@
-
 import 'package:flutter/foundation.dart';
 
 import '../models/user_model.dart';
 import 'sql_helper.dart';
 
 extension UserDatabaseHelper on DatabaseHelper {
-Future<int> insertUser(User user) async {
+  Future<int> insertUser(User user) async {
     final db = await database;
 
     final userMap = {
@@ -33,6 +32,7 @@ Future<int> insertUser(User user) async {
     return await db
         .update('users', userMap, where: 'id = ?', whereArgs: [user.id]);
   }
+
   Future<List<User>> getAllUsers() async {
     final db = await database;
     final result = await db.query('users');
@@ -60,11 +60,15 @@ Future<int> insertUser(User user) async {
       final db = await database;
 
       // Fetch the user by username with case-insensitive comparison
-      final result = await db.query('users',
-          where: 'LOWER(userName) = LOWER(?)', whereArgs: [username]);
+      final result = await db.query(
+        'users',
+        where: 'LOWER(userName) = LOWER(?)',
+        whereArgs: [username],
+      );
 
       if (result.isEmpty) {
-        throw Exception('User  not found');
+        // User not found, return null
+        return null;
       }
 
       // Get the stored password from the database
@@ -72,25 +76,28 @@ Future<int> insertUser(User user) async {
 
       // Compare the passwords directly
       if (storedPassword == password) {
+        // Passwords match, return the user
         return User.fromMap(result.first);
       } else {
-        throw Exception('Password mismatch');
+        // Passwords do not match, return null
+        return null;
       }
     } catch (e, stackTrace) {
       if (kDebugMode) {
         print('Authentication error: $e');
         print('Stack trace: $stackTrace');
       }
+      // Rethrow the exception if it's not related to user not found or password mismatch
       rethrow;
     }
   }
+
   Future<void> trackFailedLoginAttempt(String username) async {
-    // Optionally log failed login attempts to the database
     final db = await database;
     await db.insert('login_attempts', {
       'username': username,
       'attempt_time': DateTime.now().toIso8601String(),
-      'is_success': 0
+      'is_success': 0,
     });
   }
 
