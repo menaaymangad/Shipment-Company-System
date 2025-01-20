@@ -3,11 +3,12 @@ import 'package:app/helper/send_db_helper.dart';
 import 'package:app/models/send_model.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 class SendRecordCubit extends Cubit<SendRecordState> {
   final SendRecordDatabaseHelper databaseHelper;
   SendRecordCubit(this.databaseHelper) : super(SendRecordInitial());
 
- Future<void> createSendRecord(SendRecord record) async {
+  Future<void> createSendRecord(SendRecord record) async {
     try {
       emit(SendRecordLoading());
       final id = await databaseHelper.insertSendRecord(record);
@@ -28,9 +29,9 @@ class SendRecordCubit extends Cubit<SendRecordState> {
       await databaseHelper.updateSendRecord(record);
       emit(SendRecordUpdated(record));
     } catch (e) {
-     if (kDebugMode) {
-       print('Failed to update send record: $e');
-     }
+      if (kDebugMode) {
+        print('Failed to update send record: $e');
+      }
       emit(const SendRecordError(
           'An error occurred while updating the record. Please try again.'));
     }
@@ -72,15 +73,18 @@ class SendRecordCubit extends Cubit<SendRecordState> {
   //   }
   // }
 
- Future<void> deleteSendRecord(int id, String codeNumber) async {
+  Future<void> deleteSendRecord(int id, String codeNumber) async {
     try {
       emit(SendRecordLoading());
       await databaseHelper.updateSendRecordFields(id, codeNumber);
-      emit(SendRecordInitial());
+      final records =
+          await databaseHelper.getAllSendRecords(); // Refetch records
+      emit(SendRecordListLoaded(records)); // Emit the updated list
     } catch (e) {
       emit(SendRecordError('Failed to delete send record: ${e.toString()}'));
     }
   }
+
   // Add a map to store form data
   Map<String, dynamic> _formData = {};
 

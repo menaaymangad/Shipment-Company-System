@@ -25,12 +25,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path/path.dart';
 import 'package:provider/provider.dart';
-
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 void main() {
   // Add more robust error handling and logging
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
-
+    await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_FULLSCREEN);
     // Configure error handling
     FlutterError.onError = (FlutterErrorDetails details) {
       if (kDebugMode) {

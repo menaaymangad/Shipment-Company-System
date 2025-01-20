@@ -149,6 +149,7 @@ class _SendScreenState extends State<SendScreen> {
     // Fetch countries and cities
     context.read<CountryCubit>().fetchCountries();
     context.read<CityCubit>().fetchCities();
+    context.read<SendRecordCubit>().fetchAllSendRecords();
   }
 
   @override
@@ -319,33 +320,107 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   Future<void> _saveRecordWithCode() async {
-    if (_formKey.currentState?.validate() ?? false) {
+    // Validate the form
+    if (_formKey.currentState?.validate() == true) {
+      // Proceed only if the form is valid
       try {
-        final currentTruckNumber =
-            _controllers[ControllerKeys.truckNumberController]?.text;
-
-        if (currentTruckNumber == null || currentTruckNumber.isEmpty) {
-          throw Exception('Truck number is required');
+        // Validate required fields explicitly
+        if (_controllers[ControllerKeys.truckNumberController]?.text == null ||
+            _controllers[ControllerKeys.truckNumberController]!.text.isEmpty) {
+          throw Exception('Truck Number is required');
         }
 
         if (_selectedBranch == null || _selectedBranch!.isEmpty) {
           throw Exception('Branch is required');
         }
 
+        if (_controllers[ControllerKeys.senderNameController]?.text == null ||
+            _controllers[ControllerKeys.senderNameController]!.text.isEmpty) {
+          throw Exception('Sender Name is required');
+        }
+
+        if (_controllers[ControllerKeys.senderPhoneController]?.text == null ||
+            _controllers[ControllerKeys.senderPhoneController]!.text.isEmpty) {
+          throw Exception('Sender Phone is required');
+        }
+
+        if (_controllers[ControllerKeys.receiverNameController]?.text == null ||
+            _controllers[ControllerKeys.receiverNameController]!.text.isEmpty) {
+          throw Exception('Receiver Name is required');
+        }
+
+        if (_controllers[ControllerKeys.receiverPhoneController]?.text ==
+                null ||
+            _controllers[ControllerKeys.receiverPhoneController]!
+                .text
+                .isEmpty) {
+          throw Exception('Receiver Phone is required');
+        }
+
+        if (_selectedCountry.isEmpty) {
+          throw Exception('Country is required');
+        }
+
+        if (_selectedCity.isEmpty) {
+          throw Exception('City is required');
+        }
+
+        if (_controllers[ControllerKeys.weightController]?.text == null ||
+            _controllers[ControllerKeys.weightController]!.text.isEmpty) {
+          throw Exception('Weight is required');
+        }
+        if (_controllers[ControllerKeys.boxNumberController]?.text == null ||
+            _controllers[ControllerKeys.boxNumberController]!.text.isEmpty) {
+          throw Exception('Box Number is required');
+        }
+        if (_controllers[ControllerKeys.weightController]?.text == null ||
+            _controllers[ControllerKeys.weightController]!.text.isEmpty) {
+          throw Exception('Weight is required');
+        }
+
+        if (areDimensionsEnabled) {
+          if (_controllers[ControllerKeys.lengthController]?.text == null ||
+              _controllers[ControllerKeys.lengthController]!.text.isEmpty) {
+            throw Exception('Length is required');
+          }
+
+          if (_controllers[ControllerKeys.widthController]?.text == null ||
+              _controllers[ControllerKeys.widthController]!.text.isEmpty) {
+            throw Exception('Width is required');
+          }
+
+          if (_controllers[ControllerKeys.heightController]?.text == null ||
+              _controllers[ControllerKeys.heightController]!.text.isEmpty) {
+            throw Exception('Height is required');
+          }
+        }
+        if (isInsuranceEnabled) {
+          if (_controllers[ControllerKeys.insuranceAmountController]?.text ==
+                  null ||
+              _controllers[ControllerKeys.insuranceAmountController]!
+                  .text
+                  .isEmpty) {
+            throw Exception('Insurance Amount is required');
+          }
+        }
+
         // Generate the next code number for this truck and branch
-        final nextCodeNumber =
-            await _getNextCodeNumber(currentTruckNumber, _selectedBranch!);
+        final nextCodeNumber = await _getNextCodeNumber(
+          _controllers[ControllerKeys.truckNumberController]!.text,
+          _selectedBranch!,
+        );
 
         // Update the Code Number field in the UI
         setState(() {
           _controllers[ControllerKeys.codeNumberController]?.text =
               nextCodeNumber;
         });
+
         // Create a new SendRecord
         final record = SendRecord(
           // Shipment Info
           date: _controllers[ControllerKeys.dateController]?.text,
-          truckNumber: currentTruckNumber,
+          truckNumber: _controllers[ControllerKeys.truckNumberController]?.text,
           codeNumber: nextCodeNumber,
           boxNumber: int.tryParse(
               _controllers[ControllerKeys.boxNumberController]?.text ?? ''),
@@ -437,15 +512,13 @@ class _SendScreenState extends State<SendScreen> {
         // Save the record
         if (mounted) {
           await context.read<SendRecordCubit>().createSendRecord(record);
-        }
-        // Clear the form (except date, truck number, code number, agent, and branch)
-        _clearForm();
-        // Ensure the widget is still mounted before showing the SnackBar
-        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Record saved successfully')),
           );
         }
+
+        // Clear the form (except date, truck number, code number, agent, and branch)
+        _clearForm();
       } catch (e) {
         // Ensure the widget is still mounted before showing the error
         if (mounted) {
@@ -455,10 +528,218 @@ class _SendScreenState extends State<SendScreen> {
         }
       }
     } else {
-      // If the form is not valid, show a snackbar with an error message
+      // Show an error message if the form is invalid
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Please fix validation errors before saving')),
+          content: Text('Please fix validation errors before saving'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _updateRecord() async {
+    // Validate the form
+    if (_formKey.currentState?.validate() == true) {
+      // Proceed only if the form is valid
+      try {
+        // Validate required fields explicitly
+        if (_controllers[ControllerKeys.truckNumberController]?.text == null ||
+            _controllers[ControllerKeys.truckNumberController]!.text.isEmpty) {
+          throw Exception('Truck Number is required');
+        }
+
+        if (_selectedBranch == null || _selectedBranch!.isEmpty) {
+          throw Exception('Branch is required');
+        }
+
+        if (_controllers[ControllerKeys.senderNameController]?.text == null ||
+            _controllers[ControllerKeys.senderNameController]!.text.isEmpty) {
+          throw Exception('Sender Name is required');
+        }
+
+        if (_controllers[ControllerKeys.senderPhoneController]?.text == null ||
+            _controllers[ControllerKeys.senderPhoneController]!.text.isEmpty) {
+          throw Exception('Sender Phone is required');
+        }
+
+        if (_controllers[ControllerKeys.receiverNameController]?.text == null ||
+            _controllers[ControllerKeys.receiverNameController]!.text.isEmpty) {
+          throw Exception('Receiver Name is required');
+        }
+
+        if (_controllers[ControllerKeys.receiverPhoneController]?.text ==
+                null ||
+            _controllers[ControllerKeys.receiverPhoneController]!
+                .text
+                .isEmpty) {
+          throw Exception('Receiver Phone is required');
+        }
+
+        if (_selectedCountry.isEmpty) {
+          throw Exception('Country is required');
+        }
+
+        if (_selectedCity.isEmpty) {
+          throw Exception('City is required');
+        }
+
+        if (_controllers[ControllerKeys.weightController]?.text == null ||
+            _controllers[ControllerKeys.weightController]!.text.isEmpty) {
+          throw Exception('Weight is required');
+        }
+
+        if (_controllers[ControllerKeys.boxNumberController]?.text == null ||
+            _controllers[ControllerKeys.boxNumberController]!.text.isEmpty) {
+          throw Exception('Box Number is required');
+        }
+
+        if (areDimensionsEnabled) {
+          if (_controllers[ControllerKeys.lengthController]?.text == null ||
+              _controllers[ControllerKeys.lengthController]!.text.isEmpty) {
+            throw Exception('Length is required');
+          }
+
+          if (_controllers[ControllerKeys.widthController]?.text == null ||
+              _controllers[ControllerKeys.widthController]!.text.isEmpty) {
+            throw Exception('Width is required');
+          }
+
+          if (_controllers[ControllerKeys.heightController]?.text == null ||
+              _controllers[ControllerKeys.heightController]!.text.isEmpty) {
+            throw Exception('Height is required');
+          }
+        }
+
+        if (isInsuranceEnabled) {
+          if (_controllers[ControllerKeys.insuranceAmountController]?.text ==
+                  null ||
+              _controllers[ControllerKeys.insuranceAmountController]!
+                  .text
+                  .isEmpty) {
+            throw Exception('Insurance Amount is required');
+          }
+        }
+
+        // Create a new SendRecord with updated values
+        final record = SendRecord(
+          id: currentRecordId, // Use the existing record ID
+          // Shipment Info
+          date: _controllers[ControllerKeys.dateController]?.text,
+          truckNumber: _controllers[ControllerKeys.truckNumberController]?.text,
+          codeNumber: _controllers[ControllerKeys.codeNumberController]?.text,
+          boxNumber: int.tryParse(
+              _controllers[ControllerKeys.boxNumberController]?.text ?? ''),
+          palletNumber: int.tryParse(
+              _controllers[ControllerKeys.palletNumberController]?.text ?? ''),
+          realWeightKg: double.tryParse(
+              _controllers[ControllerKeys.weightController]?.text ?? ''),
+          length: double.tryParse(
+              _controllers[ControllerKeys.lengthController]?.text ?? ''),
+          width: double.tryParse(
+              _controllers[ControllerKeys.widthController]?.text ?? ''),
+          height: double.tryParse(
+              _controllers[ControllerKeys.heightController]?.text ?? ''),
+          isDimensionCalculated: areDimensionsEnabled,
+          additionalKg: double.tryParse(
+              _controllers[ControllerKeys.additionalKGController]?.text ?? ''),
+          totalWeightKg: double.tryParse(
+              _controllers[ControllerKeys.totalWeightController]?.text ?? ''),
+
+          // Sender Info
+          senderName: _controllers[ControllerKeys.senderNameController]?.text,
+          senderPhone: _controllers[ControllerKeys.senderPhoneController]?.text,
+          senderIdNumber: _controllers[ControllerKeys.senderIdController]?.text,
+          goodsDescription:
+              _controllers[ControllerKeys.goodsDescriptionController]?.text,
+
+          // Agent Info
+          agentName: _selectedAgent,
+          branchName: _selectedBranch,
+
+          // Receiver Info
+          receiverName:
+              _controllers[ControllerKeys.receiverNameController]?.text,
+          receiverPhone:
+              _controllers[ControllerKeys.receiverPhoneController]?.text,
+          receiverCountry: _selectedCountry,
+          receiverCity: _selectedCity,
+
+          // All other fields as per your model...
+          streetName: _controllers[ControllerKeys.streetController]?.text,
+          apartmentNumber:
+              _controllers[ControllerKeys.apartmentController]?.text,
+          zipCode: _controllers[ControllerKeys.zipCodeController]?.text,
+          insurancePercent: double.tryParse(
+              _controllers[ControllerKeys.insurancePercentController]?.text ??
+                  ''),
+          goodsValue: double.tryParse(
+              _controllers[ControllerKeys.goodsValueController]?.text ?? ''),
+
+          // Costs
+          doorToDoorPrice: double.tryParse(
+              _controllers[ControllerKeys.doorToDoorPriceController]?.text ??
+                  ''),
+          pricePerKg: double.tryParse(
+              _controllers[ControllerKeys.pricePerKgController]?.text ?? ''),
+          minimumPrice: double.tryParse(
+              _controllers[ControllerKeys.minimumPriceController]?.text ?? ''),
+          insuranceAmount: double.tryParse(
+              _controllers[ControllerKeys.insuranceAmountController]?.text ??
+                  ''),
+          customsCost: double.tryParse(
+              _controllers[ControllerKeys.customsCostController]?.text ?? ''),
+          exportDocCost: double.tryParse(
+              _controllers[ControllerKeys.exportDocCostController]?.text ?? ''),
+          boxPackingCost: double.tryParse(
+              _controllers[ControllerKeys.boxPackingCostController]?.text ??
+                  ''),
+          doorToDoorCost: double.tryParse(
+              _controllers[ControllerKeys.doorToDoorCostController]?.text ??
+                  ''),
+          postSubCost: double.tryParse(
+              _controllers[ControllerKeys.postSubCostController]?.text ?? ''),
+          discountAmount: double.tryParse(
+              _controllers[ControllerKeys.discountAmountController]?.text ??
+                  ''),
+          totalPostCost: double.tryParse(
+              _controllers[ControllerKeys.totalPostCostController]?.text ?? ''),
+          totalPostCostPaid: double.tryParse(
+              _controllers[ControllerKeys.totalPostCostPaidController]?.text ??
+                  ''),
+          unpaidAmount: double.tryParse(
+              _controllers[ControllerKeys.unpaidAmountController]?.text ?? ''),
+          totalCostEuroCurrency: double.tryParse(
+              _controllers[ControllerKeys.totalCostEurController]?.text ?? ''),
+          unpaidAmountEuro: double.tryParse(
+              _controllers[ControllerKeys.unpaidEurCostController]?.text ?? ''),
+        );
+
+        // Update the record
+        if (mounted) {
+          await context.read<SendRecordCubit>().updateSendRecord(record);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Record updated successfully')),
+          );
+        }
+
+        // Clear the form (except date, truck number, code number, agent, and branch)
+        _clearForm();
+      } catch (e) {
+        // Ensure the widget is still mounted before showing the error
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error updating record: ${e.toString()}')),
+          );
+        }
+      }
+    } else {
+      // Show an error message if the form is invalid
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fix validation errors before updating'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -1425,10 +1706,13 @@ class _SendScreenState extends State<SendScreen> {
                 value: isInsuranceEnabled,
                 onChanged: (value) {
                   setState(() {
-                    isInsuranceEnabled = value ?? false;
+                    isInsuranceEnabled = value ?? true;
+                    // Clear the field when checkbox is unchecked
+                    if (!isInsuranceEnabled) {
+                      _controllers[ControllerKeys.insurancePercentController]
+                          ?.clear();
+                    }
                   });
-                  // Re-validate the form when the checkbox state changes
-                  _formKey.currentState?.validate();
                 },
               ),
             ],
@@ -1595,14 +1879,13 @@ class _SendScreenState extends State<SendScreen> {
         }
       },
       builder: (context, state) {
-        // Filter countries to only show those with hasAgent = true
         final countries = state is CountryLoaded
             ? state.countries
-                .where(
-                    (country) => country.hasAgent) // Only countries with agents
+                .where((country) => country.hasAgent)
                 .map((country) => country.countryName)
                 .toList()
             : <String>[];
+
         if (state is CountryLoaded) {
           return SendUtils.buildInputRow(
             icon: Icons.flag,
@@ -1612,16 +1895,12 @@ class _SendScreenState extends State<SendScreen> {
               items: countries,
               value: _selectedCountry,
               height: 65.h,
-              // Add prefix icon
               onChanged: (String? newValue) {
-                setState(() async {
+                // First update the state synchronously
+                setState(() {
                   _selectedCountry = newValue ?? '';
-                  // Clear the selected city when the country changes
                   _selectedCity = '';
-                  // Fetch cities for the selected country and filter by hasAgent
-                  context.read<CityCubit>().fetchCities();
 
-                  // Update the currency against IQD for the selected country
                   final selectedCountry = state.countries.firstWhere(
                     (country) => country.countryName == _selectedCountry,
                     orElse: () => Country(
@@ -1632,33 +1911,19 @@ class _SendScreenState extends State<SendScreen> {
                       zipCodeDigit2: '',
                       zipCodeText: '',
                       currency: '',
-                      currencyAgainstIQD: 1.0, // Default exchange rate
+                      currencyAgainstIQD: 1.0,
                       hasAgent: false,
-                      maxWeightKG: 0, // Default max weight
+                      maxWeightKG: 0,
                       flagBoxLabel: '',
                       postBoxLabel: '',
                     ),
                   );
                   _selectedCurrencyAgainstIQD =
                       selectedCountry.currencyAgainstIQD;
-
-                  // Fetch cities for the selected country
-                  await context.read<CityCubit>().fetchCities();
-
-                  // Check if the selected country has cities
-
-                  final cityState = context.read<CityCubit>().state;
-                  if (cityState is CityLoadedState) {
-                    final cities = cityState.cities
-                        .where((city) => city.country == _selectedCountry)
-                        .toList();
-
-                    if (cities.isEmpty) {
-                      // Reset city-dependent fields
-                      _resetCityDependentFields();
-                    }
-                  }
                 });
+
+                // Then perform async operations outside setState
+                _handleCountryChange(context);
               },
               validator: (value) {
                 if (value == null || value.isEmpty) {
@@ -1673,6 +1938,22 @@ class _SendScreenState extends State<SendScreen> {
         }
       },
     );
+  }
+
+// Separate method to handle async operations
+  Future<void> _handleCountryChange(BuildContext context) async {
+    await context.read<CityCubit>().fetchCities();
+
+    final cityState = context.read<CityCubit>().state;
+    if (cityState is CityLoadedState) {
+      final cities = cityState.cities
+          .where((city) => city.country == _selectedCountry)
+          .toList();
+
+      if (cities.isEmpty) {
+        _resetCityDependentFields();
+      }
+    }
   }
 
   void _resetCityDependentFields() {
@@ -1889,6 +2170,8 @@ class _SendScreenState extends State<SendScreen> {
       builder: (context, state) {
         List<String> codeNumbers = [];
         List<SendRecord> records = [];
+
+        // Check if the state is SendRecordListLoaded
         if (state is SendRecordListLoaded) {
           // Extract code numbers and records
           records = state.sendRecords;
@@ -2093,17 +2376,9 @@ class _SendScreenState extends State<SendScreen> {
             'Add Code',
             Colors.blue,
             () async {
-              if (_formKey.currentState?.validate() ?? false) {
-                try {
-                  await _saveRecordWithCode();
-                  _clearForm();
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: ${e.toString()}')),
-                    );
-                  }
-                }
+              // Validate first before doing anything
+              if ((_formKey.currentState!.validate())) {
+                await _saveRecordWithCode();
               }
             },
           ),
@@ -2119,40 +2394,8 @@ class _SendScreenState extends State<SendScreen> {
                 return;
               }
 
-              if (_formKey.currentState?.validate() ?? false) {
-                try {
-                  final record = SendRecord(
-                    id: currentRecordId,
-                    // Same fields as in _saveRecordWithCode...
-                    date: _controllers[ControllerKeys.dateController]?.text,
-                    truckNumber:
-                        _controllers[ControllerKeys.truckNumberController]
-                            ?.text,
-                    codeNumber:
-                        _controllers[ControllerKeys.codeNumberController]?.text,
-                    // ... (copy all fields from _saveRecordWithCode)
-                  );
-
-                  await context
-                      .read<SendRecordCubit>()
-                      .updateSendRecord(record);
-                  _clearForm();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Record updated successfully')),
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content:
-                              Text('Error updating record: ${e.toString()}')),
-                    );
-                  }
-                }
-              }
+              // Call the update method
+              await _updateRecord();
             },
           ),
           _buildActionButton('Make Label', Colors.green, () {
@@ -2240,10 +2483,16 @@ class _SendScreenState extends State<SendScreen> {
             _controllers[ControllerKeys.unpaidEurCostController]?.text ?? '',
       );
 
+      if (kDebugMode) {
+        print('Shipment Details: $shipment');
+        print('Sender Info: $sender');
+        print('Receiver Info: $receiver');
+        print('Cost Summary: $costs');
+      }
+
       final regularFont = await PDFGenerator.loadCairoFont(isBold: false);
       final boldFont = await PDFGenerator.loadCairoFont(isBold: true);
 
-      // Map the selected language to the InvoiceLanguage enum
       InvoiceLanguage invoiceLanguage;
       switch (_selectedLanguage?.toLowerCase()) {
         case 'arabic':
@@ -2276,7 +2525,6 @@ class _SendScreenState extends State<SendScreen> {
           ),
         );
 
-        // Check if the widget is still mounted before using the context
         if (mounted && result == 'save') {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Invoice saved: ${invoice.path}')),
@@ -2284,7 +2532,6 @@ class _SendScreenState extends State<SendScreen> {
         }
       }
     } catch (e) {
-      // Check if the widget is still mounted before showing the error
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

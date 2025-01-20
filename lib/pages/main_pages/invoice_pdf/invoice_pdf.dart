@@ -35,8 +35,19 @@ class PDFGenerator {
   }
 
   static Future<pw.Font> loadKurdishFont() async {
-    final fontData = await rootBundle.load('fonts/Amiri-Regular.ttf');
-    return pw.Font.ttf(fontData);
+    try {
+      final fontData = await rootBundle.load('fonts/Amiri-Regular.ttf');
+      if (kDebugMode) {
+        print('Kurdish font loaded successfully');
+      }
+      return pw.Font.ttf(fontData);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading Kurdish font: $e');
+      }
+      // Fallback to a Unicode-supported font
+      return pw.Font.timesBold();
+    }
   }
 
   static Future<pw.Font> loadRobotoFont() async {
@@ -112,7 +123,7 @@ class PDFGenerator {
     final pdf = pw.Document();
     await initializeFonts();
 
-    // Load images (keeping the existing image loading code)
+    // Load images
     final euknetLogo = pw.MemoryImage(
         await loadAssetImage('assets/icons/EUKnet Logo Invoice.png'));
     final stersLogo = pw.MemoryImage(
@@ -179,73 +190,114 @@ class PDFGenerator {
       pw.Font boldFont,
       ReceiverInfo receiver,
       InvoiceLocalizations translations) {
+    final textDirection = translations.textDirection;
+    final isRTL = textDirection == pw.TextDirection.ltr;
+
+    // Phone number row with proper ordering
+    final phoneRow = pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.center,
+      children: isRTL
+          ? [
+              pw.Text(
+                translations.translations['phone']!,
+                style: getTextStyle(baseFont: boldFont, fontSize: 20.sp),
+                textDirection: textDirection,
+              ),
+              pw.SizedBox(width: 5.w),
+              pw.Text(
+                '07702961701   -   07721001999',
+                style: getTextStyle(baseFont: boldFont, fontSize: 20.sp),
+              ),
+            ]
+          : [
+              pw.Text(
+                '07702961701   -   07721001999',
+                style: getTextStyle(baseFont: boldFont, fontSize: 20.sp),
+              ),
+              pw.SizedBox(width: 5.w),
+              pw.Text(
+                translations.translations['phone']!,
+                style: getTextStyle(baseFont: boldFont, fontSize: 20.sp),
+                textDirection: textDirection,
+              ),
+            ],
+    );
+
+    // Branch row with proper ordering
+    final branchRow = pw.Row(
+      children: isRTL
+          ? [
+              pw.Text(
+                translations.translations['branch']!,
+                style: getTextStyle(baseFont: boldFont, fontSize: 20.sp),
+                textDirection: textDirection,
+              ),
+              pw.SizedBox(width: 10.w),
+              pw.Text(
+                receiver.branch,
+                style: getTextStyle(baseFont: boldFont, fontSize: 20.sp),
+              ),
+            ]
+          : [
+              pw.Text(
+                receiver.branch,
+                style: getTextStyle(baseFont: boldFont, fontSize: 20.sp),
+              ),
+              pw.SizedBox(width: 10.w),
+              pw.Text(
+                translations.translations['branch']!,
+                style: getTextStyle(baseFont: boldFont, fontSize: 20.sp),
+                textDirection: textDirection,
+              ),
+            ],
+    );
+
+    // Central column content remains the same but with explicit text direction
+    final centralColumn = pw.Column(
+      children: [
+        pw.Text(
+          translations.translations['company_name']!,
+          style: getTextStyle(baseFont: boldFont, fontSize: 24.sp),
+          textDirection: textDirection,
+        ),
+        pw.SizedBox(height: 5.h),
+        pw.Text(
+          translations.translations['company_slogan']!,
+          style: getTextStyle(baseFont: boldFont, fontSize: 20.sp),
+          textDirection: textDirection,
+        ),
+        pw.SizedBox(height: 5.h),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.center,
+          children: [
+            phoneRow,
+            pw.SizedBox(width: 60.w),
+            branchRow,
+          ],
+        ),
+      ],
+    );
+
     return pw.Padding(
       padding: pw.EdgeInsets.symmetric(horizontal: 10.w),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Image(euknetLogo, width: 600.w, height: 60.h),
-          pw.Column(
-            children: [
-              pw.Text(
-                translations.translations['company_name']!,
-                style: getTextStyle(baseFont: boldFont, fontSize: 24.sp),
-                textDirection: translations.textDirection,
-              ),
-              pw.SizedBox(height: 5.h),
-              pw.Text(
-                translations.translations['company_slogan']!,
-                style: getTextStyle(baseFont: boldFont, fontSize: 20.sp),
-                textDirection: translations.textDirection,
-              ),
-              pw.SizedBox(height: 5.h),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.center,
-                children: [
-                  pw.Row(
-                    children: [
-                      pw.Text(
-                        '07702961701\t07721001999',
-                        style:
-                            getTextStyle(baseFont: boldFont, fontSize: 20.sp),
-                      ),
-                      pw.SizedBox(width: 5.w),
-                      pw.Text(
-                        translations.translations['phone']!,
-                        style:
-                            getTextStyle(baseFont: boldFont, fontSize: 20.sp),
-                        textDirection: translations.textDirection,
-                      ),
-                    ],
-                  ),
-                  pw.SizedBox(width: 60.w),
-                  pw.Row(
-                    children: [
-                      pw.Text(
-                        receiver.branch,
-                        style:
-                            getTextStyle(baseFont: boldFont, fontSize: 20.sp),
-                      ),
-                      pw.SizedBox(width: 10.w),
-                      pw.Text(
-                        translations.translations['branch']!,
-                        style:
-                            getTextStyle(baseFont: boldFont, fontSize: 20.sp),
-                        textDirection: translations.textDirection,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-          pw.Image(stersLogo, width: 100.w, height: 60.h),
-        ],
+        children: isRTL
+            ? [
+                pw.Image(stersLogo, width: 100.w, height: 60.h),
+                centralColumn,
+                pw.Image(euknetLogo, width: 600.w, height: 60.h),
+              ]
+            : [
+                pw.Image(euknetLogo, width: 600.w, height: 60.h),
+                centralColumn,
+                pw.Image(stersLogo, width: 100.w, height: 60.h),
+              ],
       ),
     );
   }
 
-// Updated buildTitleBar method to use translations
+  // Updated buildTitleBar method to use translations
   static pw.Widget buildTitleBar(
       pw.Font boldFont, InvoiceLocalizations translations) {
     return pw.Container(
@@ -265,9 +317,11 @@ class PDFGenerator {
     );
   }
 
-// Updated buildCodeSection method to use translations
+  // Updated buildCodeSection method to use translations
   static pw.Widget buildCodeSection(ShipmentDetails shipment,
       pw.Font regularFont, InvoiceLocalizations translations) {
+    final textDirection = _getTextDirection(translations.language);
+
     return pw.Container(
       decoration: pw.BoxDecoration(
         color: PdfColor.fromHex('#FFB99B'),
@@ -280,37 +334,69 @@ class PDFGenerator {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text(
-            'Code:     ${shipment.codeNumber}',
-            style: getTextStyle(baseFont: regularFont, fontSize: 20.sp),
-          ),
-          pw.Row(
-            children: [
-              pw.Text(
-                translations.translations['code']!,
-                style: getTextStyle(baseFont: regularFont, fontSize: 20.sp),
-                textDirection: translations.textDirection,
-              ),
-              pw.SizedBox(width: 10.w),
-              pw.Container(
-                padding: pw.EdgeInsets.only(left: 10.w),
-                decoration: const pw.BoxDecoration(
-                    border: pw.Border(
-                        left: pw.BorderSide(color: PdfColors.black, width: 1))),
-                child: pw.Text(
-                  '${translations.translations['date']!} ${shipment.date}',
-                  style: getTextStyle(baseFont: regularFont, fontSize: 16.sp),
-                  textDirection: translations.textDirection,
+          if (textDirection == pw.TextDirection.ltr) ...[
+            // For English: Code on the left, date on the right
+            pw.Text(
+              'Code:     ${shipment.codeNumber}',
+              style: getTextStyle(baseFont: regularFont, fontSize: 20.sp),
+            ),
+            pw.Row(
+              children: [
+                pw.Text(
+                  translations.translations['code']!,
+                  style: getTextStyle(baseFont: regularFont, fontSize: 20.sp),
+                  textDirection: textDirection,
                 ),
-              ),
-            ],
-          ),
+                pw.SizedBox(width: 10.w),
+                pw.Container(
+                  padding: pw.EdgeInsets.only(left: 10.w),
+                  decoration: const pw.BoxDecoration(
+                      border: pw.Border(
+                          left:
+                              pw.BorderSide(color: PdfColors.black, width: 1))),
+                  child: pw.Text(
+                    '${translations.translations['date']!} ${shipment.date}',
+                    style: getTextStyle(baseFont: regularFont, fontSize: 16.sp),
+                    textDirection: textDirection,
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            // For Arabic and Kurdish: Date on the left, code on the right
+            pw.Row(
+              children: [
+                pw.Container(
+                  padding: pw.EdgeInsets.only(right: 10.w),
+                  decoration: const pw.BoxDecoration(
+                      border: pw.Border(
+                          right:
+                              pw.BorderSide(color: PdfColors.black, width: 1))),
+                  child: pw.Text(
+                    '${translations.translations['date']!} ${shipment.date}',
+                    style: getTextStyle(baseFont: regularFont, fontSize: 16.sp),
+                    textDirection: textDirection,
+                  ),
+                ),
+                pw.SizedBox(width: 10.w),
+                pw.Text(
+                  translations.translations['code']!,
+                  style: getTextStyle(baseFont: regularFont, fontSize: 20.sp),
+                  textDirection: textDirection,
+                ),
+              ],
+            ),
+            pw.Text(
+              'Code:     ${shipment.codeNumber}',
+              style: getTextStyle(baseFont: regularFont, fontSize: 20.sp),
+            ),
+          ],
         ],
       ),
     );
   }
-  // Add these methods to your PDFGenerator class
 
+  // Updated buildSenderReceiverAndCostsSection method
   static pw.Widget buildSenderReceiverAndCostsSection(
     SenderInfo sender,
     ReceiverInfo receiver,
@@ -318,7 +404,7 @@ class PDFGenerator {
     pw.Font regularFont,
     pw.Font boldFont,
     pw.ImageProvider qrCode,
-    InvoiceLocalizations translations, // Add translations parameter
+    InvoiceLocalizations translations,
   ) {
     return pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -342,8 +428,7 @@ class PDFGenerator {
                   ),
                   padding: pw.EdgeInsets.symmetric(vertical: 8.h),
                   child: pw.Text(
-                    translations.translations[
-                        'sender_receiver_info']!, // Localized header
+                    translations.translations['sender_receiver_info']!,
                     style: getTextStyle(baseFont: boldFont, fontSize: 24.sp),
                     textAlign: pw.TextAlign.center,
                     textDirection: translations.textDirection,
@@ -352,21 +437,21 @@ class PDFGenerator {
 
                 // Info Rows
                 buildTableRow(translations.translations['sender_name']!,
-                    sender.name, regularFont, translations.textDirection),
+                    sender.name, regularFont, translations.language),
                 buildTableRow(translations.translations['sender_phone']!,
-                    sender.phone, regularFont, translations.textDirection),
+                    sender.phone, regularFont, translations.language),
                 buildTableRow(translations.translations['receiver_name']!,
-                    receiver.name, regularFont, translations.textDirection),
+                    receiver.name, regularFont, translations.language),
                 buildTableRow(translations.translations['receiver_phone']!,
-                    receiver.phone, regularFont, translations.textDirection),
+                    receiver.phone, regularFont, translations.language),
                 buildTableRow(translations.translations['address']!,
-                    receiver.street, regularFont, translations.textDirection),
+                    receiver.street, regularFont, translations.language),
                 buildTableRow(translations.translations['postal_code']!,
-                    receiver.zipCode, regularFont, translations.textDirection),
+                    receiver.zipCode, regularFont, translations.language),
                 buildTableRow(translations.translations['city']!, receiver.city,
-                    regularFont, translations.textDirection),
+                    regularFont, translations.language),
                 buildTableRow(translations.translations['country']!,
-                    receiver.country, regularFont, translations.textDirection),
+                    receiver.country, regularFont, translations.language),
 
                 // Agent Info Header
                 pw.Container(
@@ -378,8 +463,7 @@ class PDFGenerator {
                   ),
                   padding: pw.EdgeInsets.symmetric(vertical: 8.h),
                   child: pw.Text(
-                    translations
-                        .translations['agent_info']!, // Localized agent info
+                    translations.translations['agent_info']!,
                     style: getTextStyle(baseFont: boldFont, fontSize: 20.sp),
                     textAlign: pw.TextAlign.center,
                     textDirection: translations.textDirection,
@@ -417,8 +501,7 @@ class PDFGenerator {
                   ),
                   padding: pw.EdgeInsets.symmetric(vertical: 8.h),
                   child: pw.Text(
-                    translations
-                        .translations['transport_costs']!, // Localized header
+                    translations.translations['transport_costs']!,
                     style: getTextStyle(baseFont: boldFont, fontSize: 24.sp),
                     textAlign: pw.TextAlign.center,
                     textDirection: translations.textDirection,
@@ -426,34 +509,28 @@ class PDFGenerator {
                 ),
 
                 // Cost Rows
-                buildCostTableRow(
-                    translations.translations['shipping_cost']!,
-                    costs.shippingCost,
-                    regularFont,
-                    translations.textDirection),
+                buildCostTableRow(translations.translations['shipping_cost']!,
+                    costs.shippingCost, regularFont, translations.language),
                 buildCostTableRow(translations.translations['empty_box_cost']!,
-                    '', regularFont, translations.textDirection),
+                    '', regularFont, translations.language),
                 buildCostTableRow(translations.translations['customs_admin']!,
-                    '', regularFont, translations.textDirection),
+                    '', regularFont, translations.language),
                 buildCostTableRow(translations.translations['delivery_cost']!,
-                    '', regularFont, translations.textDirection),
-                buildCostTableRow(
-                    translations.translations['insurance_cost']!,
-                    costs.insuranceAmount,
-                    regularFont,
-                    translations.textDirection),
+                    '', regularFont, translations.language),
+                buildCostTableRow(translations.translations['insurance_cost']!,
+                    costs.insuranceAmount, regularFont, translations.language),
                 buildCostTableRow(translations.translations['total_cost']!,
-                    costs.totalCost, regularFont, translations.textDirection),
+                    costs.totalCost, regularFont, translations.language),
                 buildCostTableRow(
                     translations.translations['amount_paid']!,
                     costs.amountPaid,
                     regularFont,
                     highlighted: true,
-                    translations.textDirection),
+                    translations.language),
                 buildCostTableRow(translations.translations['amount_due']!,
-                    costs.amountDue, regularFont, translations.textDirection),
+                    costs.amountDue, regularFont, translations.language),
                 buildCostTableRow(translations.translations['amount_due_eur']!,
-                    '', regularFont, translations.textDirection),
+                    '', regularFont, translations.language),
 
                 // Insurance Section
                 pw.Container(
@@ -513,7 +590,6 @@ class PDFGenerator {
                     ],
                   ),
                 ),
-                // Bottom Table
               ],
             ),
           ),
@@ -521,14 +597,22 @@ class PDFGenerator {
       ],
     );
   }
-  // Update these methods in your PDFGenerator class
 
+  // Updated buildTableRow method
   static pw.Widget buildTableRow(
     String label,
     String value,
     pw.Font font,
-    pw.TextDirection textDirection,
+    InvoiceLanguage language, // Pass the language here
   ) {
+    final textDirection = _getTextDirection(language); // Get text direction
+    // Add currency suffix based on language
+    String currencyText = '';
+    if (value.isNotEmpty) {
+      currencyText =
+          language == InvoiceLanguage.english ? 'IRQ' : 'دينار عراقي';
+    }
+
     return pw.Container(
       decoration: pw.BoxDecoration(
         border: pw.Border(
@@ -541,44 +625,98 @@ class PDFGenerator {
             ? pw.MainAxisAlignment.end
             : pw.MainAxisAlignment.start,
         children: [
-          pw.Expanded(
-            flex: 3,
-            child: pw.Padding(
-              padding: pw.EdgeInsets.only(
-                right: textDirection == pw.TextDirection.rtl ? 0 : 8.w,
-                left: textDirection == pw.TextDirection.rtl ? 8.w : 0,
-              ),
+          // Reorder elements based on language
+          if (textDirection == pw.TextDirection.ltr) ...[
+            // For English: Label on the left, value on the right
+            pw.Expanded(
+              flex: 2,
               child: pw.Text(
-                value,
+                label,
                 style: getTextStyle(baseFont: font, fontSize: 20.sp),
+                textAlign: pw.TextAlign.left,
                 textDirection: textDirection,
               ),
             ),
-          ),
-          pw.Container(width: 1, color: PdfColors.black, height: 20.h),
-          pw.Expanded(
-            flex: 2,
-            child: pw.Text(
-              label,
-              style: getTextStyle(baseFont: font, fontSize: 20.sp),
-              textAlign: textDirection == pw.TextDirection.rtl
-                  ? pw.TextAlign.right
-                  : pw.TextAlign.left,
-              textDirection: textDirection,
+            pw.SizedBox(width: 10.w),
+            pw.Container(width: 1, color: PdfColors.black, height: 20.h),
+            pw.SizedBox(width: 40.w),
+            pw.Expanded(
+              flex: 3,
+              child: pw.Row(
+                children: [
+                  pw.Text(
+                    value,
+                    style: getTextStyle(baseFont: font, fontSize: 20.sp),
+                    textDirection: textDirection,
+                  ),
+                  if (value.isNotEmpty) ...[
+                    pw.Spacer(), // Spacer between number and currency
+                    pw.Text(
+                      currencyText,
+                      style: getTextStyle(baseFont: font, fontSize: 20.sp),
+                      textDirection: textDirection,
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
+          ] else ...[
+            // For Arabic and Kurdish: Label on the right, value on the left
+            pw.Expanded(
+              flex: 3,
+              child: pw.Row(
+                children: [
+                  pw.Text(
+                    value,
+                    style: getTextStyle(baseFont: font, fontSize: 20.sp),
+                    textDirection: textDirection,
+                  ),
+                  if (value.isNotEmpty) ...[
+                    pw.Spacer(), // Spacer between number and currency
+                    pw.Text(
+                      currencyText,
+                      style: getTextStyle(baseFont: font, fontSize: 20.sp),
+                      textDirection: textDirection,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            pw.SizedBox(width: 10.w),
+            pw.Container(width: 1, color: PdfColors.black, height: 20.h),
+            pw.SizedBox(width: 40.w),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Text(
+                label,
+                style: getTextStyle(baseFont: font, fontSize: 20.sp),
+                textAlign: pw.TextAlign.right,
+                textDirection: textDirection,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
+  // Updated buildCostTableRow method
   static pw.Widget buildCostTableRow(
     String label,
     String value,
     pw.Font font,
-    pw.TextDirection textDirection, {
+    InvoiceLanguage language, {
     bool highlighted = false,
   }) {
+    final textDirection = _getTextDirection(language);
+
+    // Add currency suffix based on language
+    String currencyText = '';
+    if (value.isNotEmpty) {
+      currencyText =
+          language == InvoiceLanguage.english ? 'IRQ' : 'دينار عراقي';
+    }
+
     return pw.Container(
       decoration: pw.BoxDecoration(
         color: highlighted ? PdfColor.fromHex('#FFB99B') : null,
@@ -592,48 +730,81 @@ class PDFGenerator {
             ? pw.MainAxisAlignment.end
             : pw.MainAxisAlignment.start,
         children: [
-          pw.Expanded(
-            child: pw.Center(
+          if (textDirection == pw.TextDirection.ltr) ...[
+            // For English: Label on the left, value + currency on the right
+            pw.Expanded(
+              flex: 2,
               child: pw.Text(
-                'دينار عراقي',
+                label,
                 style: getTextStyle(baseFont: font, fontSize: 20.sp),
-                textAlign: textDirection == pw.TextDirection.rtl
-                    ? pw.TextAlign.right
-                    : pw.TextAlign.left,
+                textAlign: pw.TextAlign.left,
                 textDirection: textDirection,
               ),
             ),
-          ),
-          pw.Expanded(
-            child: pw.Padding(
-              padding: pw.EdgeInsets.only(
-                right: textDirection == pw.TextDirection.rtl ? 0 : 8.w,
-                left: textDirection == pw.TextDirection.rtl ? 8.w : 0,
+            pw.SizedBox(width: 10.w),
+            pw.Container(width: 1, color: PdfColors.black, height: 20.h),
+            pw.SizedBox(width: 40.w),
+            pw.Expanded(
+              flex: 3,
+              child: pw.Row(
+                children: [
+                  pw.Text(
+                    value,
+                    style: getTextStyle(baseFont: font, fontSize: 20.sp),
+                    textDirection: textDirection,
+                  ),
+                  if (value.isNotEmpty) ...[
+                    pw.Spacer(), // Spacer between number and currency
+                    pw.Text(
+                      currencyText,
+                      style: getTextStyle(baseFont: font, fontSize: 20.sp),
+                      textDirection: textDirection,
+                    ),
+                  ],
+                ],
               ),
+            ),
+          ] else ...[
+            // For Arabic and Kurdish: Label on the right, value + currency on the left
+            pw.Expanded(
+              flex: 3,
+              child: pw.Row(
+                children: [
+                  pw.Text(
+                    value,
+                    style: getTextStyle(baseFont: font, fontSize: 20.sp),
+                    textDirection: textDirection,
+                  ),
+                  if (value.isNotEmpty) ...[
+                    pw.Spacer(), // Spacer between number and currency
+                    pw.Text(
+                      currencyText,
+                      style: getTextStyle(baseFont: font, fontSize: 20.sp),
+                      textDirection: textDirection,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            pw.SizedBox(width: 10.w),
+            pw.Container(width: 1, color: PdfColors.black, height: 20.h),
+            pw.SizedBox(width: 40.w),
+            pw.Expanded(
+              flex: 2,
               child: pw.Text(
-                value,
+                label,
                 style: getTextStyle(baseFont: font, fontSize: 20.sp),
+                textAlign: pw.TextAlign.right,
                 textDirection: textDirection,
               ),
             ),
-          ),
-          pw.Container(width: 1, color: PdfColors.black, height: 20.h),
-          pw.Expanded(
-            flex: 3,
-            child: pw.Text(
-              label,
-              style: getTextStyle(baseFont: font, fontSize: 20.sp),
-              textAlign: textDirection == pw.TextDirection.rtl
-                  ? pw.TextAlign.right
-                  : pw.TextAlign.left,
-              textDirection: textDirection,
-            ),
-          ),
+          ],
         ],
       ),
     );
   }
 
+  // Updated buildTableHeader method
   static pw.Widget buildTableHeader(String text, pw.Font font) {
     return pw.Container(
       padding: pw.EdgeInsets.all(5.r),
@@ -646,6 +817,7 @@ class PDFGenerator {
     );
   }
 
+  // Updated buildCheckbox method
   static pw.Widget buildCheckbox(
     String label,
     pw.Font font,
@@ -680,16 +852,15 @@ class PDFGenerator {
     );
   }
 
+  // Updated buildTermsAndConditionsSection method
   static Future<pw.Widget> buildTermsAndConditionsSection(
     pw.Font regularFont,
     pw.Font boldFont,
     InvoiceLocalizations translations,
   ) async {
-    if (kDebugMode) {
-      print('Building Terms and Conditions Section');
-      print('Language: ${translations.language}');
-      print('Terms 1: ${translations.translations['terms_1']}');
-    }
+    final textDirection = _getTextDirection(translations.language);
+    final isRTL = textDirection == pw.TextDirection.ltr;
+
     // Load images
     final prohibitedIconsImage1 =
         pw.MemoryImage(await loadAssetImage('assets/icons/02.png'));
@@ -698,202 +869,265 @@ class PDFGenerator {
     final prohibitedIconsImage3 = pw.MemoryImage(
         await loadAssetImage('assets/icons/Sters Logo N-BG (1).png'));
 
+    // Extract icons section to a separate widget for reusability
+    final iconsSection = pw.Container(
+      width: 200.w,
+      child: pw.Column(
+        children: [
+          pw.Container(
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.black, width: 0.5.w),
+            ),
+            padding: pw.EdgeInsets.all(10.r),
+            child: pw.Column(
+              children: [
+                pw.Image(prohibitedIconsImage1),
+                pw.SizedBox(height: 10.h),
+                pw.Image(prohibitedIconsImage2),
+              ],
+            ),
+          ),
+          pw.Container(
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.black, width: 0.5.w),
+            ),
+            padding: pw.EdgeInsets.all(10.r),
+            height: 200.h,
+            child: pw.Center(
+              child: pw.Image(prohibitedIconsImage3),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    // Extract terms section to a separate widget
+    final termsSection = pw.Expanded(
+      flex: 3,
+      child: pw.Container(
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: PdfColors.black, width: 0.5.w),
+        ),
+        padding: pw.EdgeInsets.all(15.r),
+        child: pw.Column(
+          crossAxisAlignment:
+              isRTL ? pw.CrossAxisAlignment.end : pw.CrossAxisAlignment.start,
+          children: [
+            for (var i = 1; i <= 7; i++)
+              pw.Padding(
+                padding: pw.EdgeInsets.only(bottom: 10.h),
+                child: buildTermItem(
+                  i.toString(),
+                  translations.translations['terms_$i']!,
+                  regularFont,
+                  textDirection,
+                ),
+              ),
+            if (translations.translations.containsKey('terms_3a') &&
+                translations.translations.containsKey('terms_3b'))
+              pw.Padding(
+                padding: pw.EdgeInsets.only(
+                  left: isRTL ? 0 : 20.w,
+                  right: isRTL ? 20.w : 0,
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: isRTL
+                      ? pw.CrossAxisAlignment.end
+                      : pw.CrossAxisAlignment.start,
+                  children: [
+                    buildTermItem(
+                      'أ',
+                      translations.translations['terms_3a']!,
+                      regularFont,
+                      textDirection,
+                    ),
+                    pw.SizedBox(height: 5.h),
+                    buildTermItem(
+                      'ب',
+                      translations.translations['terms_3b']!,
+                      regularFont,
+                      textDirection,
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    // Extract footer section to a separate widget
+    final footerSection = pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border(
+          top: pw.BorderSide(color: PdfColors.black, width: 0.5.w),
+        ),
+      ),
+      padding: pw.EdgeInsets.all(15.r),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          if (isRTL) ...[
+            _buildMainOffice(translations, boldFont, textDirection),
+            _buildContactInfo(translations, regularFont, isRTL),
+          ] else ...[
+            _buildContactInfo(translations, regularFont, isRTL),
+            _buildMainOffice(translations, boldFont, textDirection),
+          ],
+        ],
+      ),
+    );
+
     return pw.Container(
       alignment: pw.Alignment.centerLeft,
       decoration: pw.BoxDecoration(
           border: pw.Border.all(color: PdfColors.black, width: 0.5.w)),
       margin: pw.EdgeInsets.only(top: 20.h),
       child: pw.Column(
-        // crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        crossAxisAlignment: translations.textDirection == pw.TextDirection.rtl
-            ? pw.CrossAxisAlignment.end
-            : pw.CrossAxisAlignment.start, // Added this line
+        crossAxisAlignment:
+            isRTL ? pw.CrossAxisAlignment.end : pw.CrossAxisAlignment.start,
         children: [
-          // Title with improved styling
-          pw.Container(
-            width: double.infinity,
-            padding: pw.EdgeInsets.symmetric(vertical: 8.h),
-            decoration: pw.BoxDecoration(
-              border: pw.Border(
-                bottom: pw.BorderSide(color: PdfColors.black, width: 0.5.w),
-              ),
-            ),
-            child: pw.Text(
-              translations.translations['terms_and_conditions_title']!,
-              style: getTextStyle(
-                baseFont: boldFont,
-                fontSize: 24.sp,
-                color: PdfColors.red,
-              ),
-              textAlign: pw.TextAlign.center,
-              textDirection: translations.textDirection,
-            ),
-          ),
-
-          // Main content with improved layout
+          _buildTitle(translations, boldFont, textDirection),
           pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              // Left side - Icons with fixed width
-              pw.Container(
-                width: 200.w, // Fixed width for consistency
-                child: pw.Column(
-                  children: [
-                    pw.Container(
-                      decoration: pw.BoxDecoration(
-                        border:
-                            pw.Border.all(color: PdfColors.black, width: 0.5.w),
-                      ),
-                      padding: pw.EdgeInsets.all(10.r),
-                      child: pw.Column(
-                        children: [
-                          pw.Image(prohibitedIconsImage1),
-                          pw.SizedBox(height: 10.h),
-                          pw.Image(prohibitedIconsImage2),
-                        ],
-                      ),
-                    ),
-                    pw.Container(
-                      decoration: pw.BoxDecoration(
-                        border:
-                            pw.Border.all(color: PdfColors.black, width: 0.5.w),
-                      ),
-                      padding: pw.EdgeInsets.all(10.r),
-                      height: 200.h,
-                      child: pw.Center(
-                        child: pw.Image(prohibitedIconsImage3),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Right side - Terms text with improved spacing
-              pw.Expanded(
-                flex: 3, // Give more space to the terms
-                child: pw.Container(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.black, width: 0.5.w),
-                  ),
-                  padding: pw.EdgeInsets.all(15.r),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      for (var i = 1; i <= 7; i++)
-                        pw.Padding(
-                          padding: pw.EdgeInsets.only(bottom: 10.h),
-                          child: buildTermItem(
-                            i.toString(),
-                            translations.translations['terms_$i']!,
-                            regularFont,
-                          ),
-                        ),
-                      // Sub-items for term 3 with proper indentation
-                      if (translations.translations.containsKey('terms_3a') &&
-                          translations.translations.containsKey('terms_3b'))
-                        pw.Padding(
-                          padding: pw.EdgeInsets.only(right: 20.w),
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.end,
-                            children: [
-                              buildTermItem(
-                                'أ',
-                                translations.translations['terms_3a']!,
-                                regularFont,
-                              ),
-                              pw.SizedBox(height: 5.h),
-                              buildTermItem(
-                                'ب',
-                                translations.translations['terms_3b']!,
-                                regularFont,
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+            children: isRTL
+                ? [termsSection, pw.SizedBox(width: 15.w), iconsSection]
+                : [iconsSection, pw.SizedBox(width: 15.w), termsSection],
           ),
+          footerSection,
+        ],
+      ),
+    );
+  }
 
-          // Footer with improved layout
-          pw.Container(
-            decoration: pw.BoxDecoration(
-              border: pw.Border(
-                top: pw.BorderSide(color: PdfColors.black, width: 0.5.w),
-              ),
-            ),
-            padding: pw.EdgeInsets.all(15.r),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Expanded(
-                  flex: 2,
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        '${translations.translations['email']!} info@euknet.com',
-                        style: getTextStyle(
-                            baseFont: regularFont, fontSize: 20.sp),
-                      ),
-                      pw.Text(
-                        '${translations.translations['website']!} www.euknet.com',
-                        style: getTextStyle(
-                            baseFont: regularFont, fontSize: 20.sp),
-                      ),
-                    ],
-                  ),
-                ),
-                pw.Container(
-                  padding: pw.EdgeInsets.symmetric(horizontal: 20.w),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.symmetric(
-                      vertical:
-                          pw.BorderSide(color: PdfColors.black, width: 0.5.w),
-                    ),
-                  ),
-                  child: pw.Text(
-                    translations.translations['main_office_europe']!,
-                    style: getTextStyle(baseFont: boldFont, fontSize: 20.sp),
-                    textDirection: translations.textDirection,
-                    textAlign: pw.TextAlign.right,
-                  ),
-                ),
-              ],
-            ),
+// Helper methods for building components
+  static pw.Widget _buildTitle(InvoiceLocalizations translations,
+      pw.Font boldFont, pw.TextDirection textDirection) {
+    return pw.Container(
+      width: double.infinity,
+      padding: pw.EdgeInsets.symmetric(vertical: 8.h),
+      decoration: pw.BoxDecoration(
+        border: pw.Border(
+          bottom: pw.BorderSide(color: PdfColors.black, width: 0.5.w),
+        ),
+      ),
+      child: pw.Text(
+        translations.translations['terms_and_conditions_title']!,
+        style: getTextStyle(
+          baseFont: boldFont,
+          fontSize: 24.sp,
+          color: PdfColors.red,
+        ),
+        textAlign: pw.TextAlign.center,
+        textDirection: textDirection,
+      ),
+    );
+  }
+
+  static pw.Widget _buildMainOffice(InvoiceLocalizations translations,
+      pw.Font boldFont, pw.TextDirection textDirection) {
+    return pw.Container(
+      padding: pw.EdgeInsets.symmetric(horizontal: 20.w),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.symmetric(
+          vertical: pw.BorderSide(color: PdfColors.black, width: 0.5.w),
+        ),
+      ),
+      child: pw.Text(
+        translations.translations['main_office_europe']!,
+        style: getTextStyle(baseFont: boldFont, fontSize: 20.sp),
+        textDirection: textDirection,
+        textAlign: textDirection == pw.TextDirection.rtl
+            ? pw.TextAlign.left
+            : pw.TextAlign.right,
+      ),
+    );
+  }
+
+  static pw.Widget _buildContactInfo(
+      InvoiceLocalizations translations, pw.Font regularFont, bool isRTL) {
+    return pw.Expanded(
+      flex: 2,
+      child: pw.Column(
+        crossAxisAlignment:
+            isRTL ? pw.CrossAxisAlignment.end : pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            '${translations.translations['email']!} info@euknet.com',
+            style: getTextStyle(baseFont: regularFont, fontSize: 20.sp),
+          ),
+          pw.Text(
+            '${translations.translations['website']!} www.euknet.com',
+            style: getTextStyle(baseFont: regularFont, fontSize: 20.sp),
           ),
         ],
       ),
     );
   }
 
-  // Improved term item builder
-  static pw.Widget buildTermItem(String number, String text, pw.Font font) {
+  static pw.Widget buildTermItem(String number, String text, pw.Font font,
+      pw.TextDirection textDirection) {
+    final isRTL = textDirection == pw.TextDirection.rtl;
+
     return pw.Container(
       margin: pw.EdgeInsets.only(bottom: 8.h),
-      child: pw.RichText(
-        text: pw.TextSpan(
-          children: [
-            pw.TextSpan(
-              text: '$number - ',
-              style: getTextStyle(
-                baseFont: font,
-                fontSize: 24.sp,
-                fontWeight: pw.FontWeight.bold,
-              ),
-            ),
-            pw.TextSpan(
-              text: text,
-              style: getTextStyle(baseFont: font, fontSize: 16.sp),
-            ),
-          ],
-        ),
-        textDirection: pw.TextDirection.rtl,
-        textAlign: pw.TextAlign.right,
+      child: pw.Row(
+        mainAxisAlignment:
+            isRTL ? pw.MainAxisAlignment.end : pw.MainAxisAlignment.start,
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: isRTL
+            ? [
+                pw.Expanded(
+                  child: pw.Text(
+                    text,
+                    style: getTextStyle(baseFont: font, fontSize: 16.sp),
+                    textDirection: textDirection,
+                    textAlign: pw.TextAlign.right,
+                  ),
+                ),
+                pw.SizedBox(width: 4.w),
+                pw.Text(
+                  '$number - ',
+                  style: getTextStyle(
+                    baseFont: font,
+                    fontSize: 16.sp,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                  textDirection: textDirection,
+                ),
+              ]
+            : [
+                pw.Text(
+                  '$number - ',
+                  style: getTextStyle(
+                    baseFont: font,
+                    fontSize: 16.sp,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                  textDirection: textDirection,
+                ),
+                pw.SizedBox(width: 4.w),
+                pw.Expanded(
+                  child: pw.Text(
+                    text,
+                    style: getTextStyle(baseFont: font, fontSize: 16.sp),
+                    textDirection: textDirection,
+                    textAlign: pw.TextAlign.left,
+                  ),
+                ),
+              ],
       ),
     );
+  }
+
+  static pw.TextDirection _getTextDirection(InvoiceLanguage language) {
+    switch (language) {
+      case InvoiceLanguage.english:
+        return pw.TextDirection.ltr; // Left-to-right for English
+      case InvoiceLanguage.arabic:
+      case InvoiceLanguage.kurdish:
+        return pw.TextDirection.rtl; // Right-to-left for Arabic and Kurdish
+    }
   }
 
   // Optional: Method to preview or print the PDF
@@ -962,6 +1196,7 @@ class ReceiverInfo {
   final String country;
   final String zipCode;
   final String branch;
+
   ReceiverInfo({
     required this.name,
     required this.phone,
@@ -1105,7 +1340,7 @@ class InvoiceLocalizations {
         'terms_1': _getTranslation(
           'شركة ستيرس (EUKnet) تقوم فقط بشحن ونقل البضائع والمواد المسموح بها قانونيا، وفي حال وجود اي مادة مخالفة او غير مسموحة من الناحية القانونية داخل بضاعة المرسل، فان المرسل يتحمل كافة الغرامات المالية والقانونية من الجهات المختصة ولا ترجع للمرسل مبلغ كلفة النقل المدفوعة ل شركة ستيرس . المرسل يتحمل كل المسؤولية القانونية وليست شركة ستيرس (EUKnet)',
           'Sters Company (EUKnet) only ships and transports goods and materials that are legally permitted. If any illegal or prohibited materials are found in the sender\'s shipment, the sender will bear all financial and legal penalties from the relevant authorities, and the shipping cost paid to Sters Company will not be refunded. The sender bears full legal responsibility, not Sters Company (EUKnet).',
-          'کۆمپانیای ستێرس (EUKnet) تەنها کاڵا و маێریاڵە یاساییەکان دەگوازێتەوە. ئەگەر هەر ماددەیەکی نایاسایی یان قەدەغەکراو لە ناو بارەکەی نێردەر بدۆزرێتەوە، نێردەر هەموو تاوانە دارایی و یاساییەکان لەلایەن دەسەڵاتە پەیوەندیدارەکانەوە دەگرێتە ئەستۆ، و نرخی گواستنەوە کە دراوە بە کۆمپانیای ستێرس ناگەڕێتەوە. نێردەر هەموو بەرپرسیاریەتی یاساییەکان دەگرێتە ئەستۆ، نەک کۆمپانیای ستێرس (EUKnet).',
+          'کۆمپانیای ستێرس (EUKnet) تەنها کاڵا و ماددە یاساییەکان دەگوازێتەوە. ئەگەر هەر ماددەیەکی نایاسایی یان قەدەغەکراو لە ناو بارەکەی نێردەر بدۆزرێتەوە، نێردەر هەموو تاوانە دارایی و یاساییەکان لەلایەن دەسەڵاتە پەیوەندیدارەکانەوە دەگرێتە ئەستۆ، و نرخی گواستنەوە کە دراوە بە کۆمپانیای ستێرس ناگەڕێتەوە. نێردەر هەموو بەرپرسیاریەتی یاساییەکان دەگرێتە ئەستۆ، نەک کۆمپانیای ستێرس (EUKnet).',
         ),
         'terms_2': _getTranslation(
           'يجب على المرسل اعطاء العنوان ورقم هاتف المستلم بشكل صحيح وكامل، بخلاف ذلك فان شركة ستیرس (EUKnet) ليست مسؤولة عن اي تأخير او ضياع المواد بسبب عنوان خاطئ او غير كامل.',

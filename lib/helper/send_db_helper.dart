@@ -3,7 +3,6 @@ import 'package:app/models/send_model.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-
 class SendRecordDatabaseHelper {
   static final SendRecordDatabaseHelper _instance =
       SendRecordDatabaseHelper._internal();
@@ -30,7 +29,7 @@ class SendRecordDatabaseHelper {
     );
   }
 
-Future<void> _createTable(Database db, int version) async {
+  Future<void> _createTable(Database db, int version) async {
     await db.execute('''
     CREATE TABLE send_records (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,7 +87,7 @@ Future<void> _createTable(Database db, int version) async {
     await db
         .execute('CREATE INDEX idx_branchName ON send_records (branchName);');
   }
- 
+
   Future<int> insertSendRecord(SendRecord record) async {
     final db = await database;
     return await db.insert('send_records', record.toMap());
@@ -120,10 +119,9 @@ Future<void> _createTable(Database db, int version) async {
     );
   }
 
-Future<int> updateSendRecordFields(int id, String codeNumber) async {
+  Future<int> updateSendRecordFields(int id, String codeNumber) async {
     final db = await database;
     final columns = [
-      'id',
       'date',
       'truckNumber',
       'senderName',
@@ -139,8 +137,6 @@ Future<int> updateSendRecordFields(int id, String codeNumber) async {
       'isDimensionCalculated',
       'additionalKg',
       'totalWeightKg',
-      'agentName',
-      'branchName',
       'agentCode',
       'receiverName',
       'receiverPhone',
@@ -177,7 +173,7 @@ Future<int> updateSendRecordFields(int id, String codeNumber) async {
     WHERE id = ? AND codeNumber = ?
   ''', [id, codeNumber]);
   }
-  
+
   Future<int> deleteSendRecord(int id) async {
     final db = await database;
     return await db.delete(
@@ -186,6 +182,7 @@ Future<int> updateSendRecordFields(int id, String codeNumber) async {
       whereArgs: [id],
     );
   }
+
   Future<List<String>> getUniqueOfficeNames() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.rawQuery(
@@ -218,6 +215,7 @@ Future<int> updateSendRecordFields(int id, String codeNumber) async {
     );
     return List.generate(maps.length, (i) => maps[i]['receiverCity'] as String);
   }
+
   Future<int> getTotalCodes() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.rawQuery(
@@ -231,7 +229,7 @@ Future<int> updateSendRecordFields(int id, String codeNumber) async {
     final List<Map<String, dynamic>> maps = await db.rawQuery(
       'SELECT SUM(boxNumber) as total FROM send_records',
     );
-    return maps.first['total'] as int? ??0;
+    return maps.first['total'] as int? ?? 0;
   }
 
   Future<int> getTotalPallets() async {
@@ -239,7 +237,7 @@ Future<int> updateSendRecordFields(int id, String codeNumber) async {
     final List<Map<String, dynamic>> maps = await db.rawQuery(
       'SELECT SUM(palletNumber) as total FROM send_records',
     );
-    return maps.first['total'] as int? ??0;
+    return maps.first['total'] as int? ?? 0;
   }
 
   Future<double> getTotalKG() async {
@@ -247,7 +245,7 @@ Future<int> updateSendRecordFields(int id, String codeNumber) async {
     final List<Map<String, dynamic>> maps = await db.rawQuery(
       'SELECT SUM(totalWeightKg) as total FROM send_records',
     );
-    return maps.first['total'] as double? ??0.0;
+    return maps.first['total'] as double? ?? 0.0;
   }
 
   Future<List<String>> getUniqueCountries() async {
@@ -256,7 +254,7 @@ Future<int> updateSendRecordFields(int id, String codeNumber) async {
       'SELECT DISTINCT receiverCountry FROM send_records WHERE receiverCountry IS NOT NULL',
     );
     return List.generate(
-        maps.length, (i) => maps[i]['receiverCountry'] as String? ??'');
+        maps.length, (i) => maps[i]['receiverCountry'] as String? ?? '');
   }
 
   Future<Map<String, dynamic>> getCountryTotals(String country) async {

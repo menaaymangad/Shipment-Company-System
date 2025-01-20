@@ -400,12 +400,15 @@ class _RecordsTableDialogState extends State<RecordsTableDialog> {
                                     },
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.delete, size: 20),
-                                    color: Colors.red[600],
-                                    tooltip: 'Delete Record',
-                                    onPressed: () => _showDeleteConfirmation(
-                                        context, record),
-                                  ),
+                                      icon: const Icon(Icons.delete, size: 20),
+                                      color: Colors.red[600],
+                                      tooltip: 'Delete Record',
+                                      onPressed: () {
+                                        setState(() {
+                                          _showDeleteConfirmation(
+                                              context, record);
+                                        });
+                                      })
                                 ],
                               ),
                             ),
@@ -449,7 +452,7 @@ class _RecordsTableDialogState extends State<RecordsTableDialog> {
               backgroundColor: Colors.red[600],
               foregroundColor: Colors.white,
             ),
-            onPressed: () {
+            onPressed: () async {
               context
                   .read<SendRecordCubit>()
                   .deleteSendRecord(record.id!, record.codeNumber!);
