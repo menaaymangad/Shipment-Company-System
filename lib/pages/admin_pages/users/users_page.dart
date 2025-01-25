@@ -11,7 +11,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class UsersPage extends StatefulWidget {
-  const UsersPage({super.key,});
+  const UsersPage({super.key});
 
   @override
   State<UsersPage> createState() => _UsersPageState();
@@ -36,12 +36,44 @@ class _UsersPageState extends State<UsersPage> {
   String _selectedAuthorization = '';
   bool _allowLogin = false;
   User? _selectedUser;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _restoreFormData();
     context.read<BranchCubit>().fetchBranches();
   }
+
+  @override
+  void deactivate() {
+    _saveFormData();
+    super.deactivate();
+  }
+
+  void _saveFormData() {
+    final formData = {
+      'userName': _userNameController.text,
+      'branch': _selectedBranch,
+      'authorization': _selectedAuthorization,
+      'password': _passwordController.text,
+      'allowLogin': _allowLogin,
+    };
+    context.read<UserFormCubit>().saveFormData(formData);
+  }
+
+  void _restoreFormData() {
+    final formData = context.read<UserFormCubit>().state;
+    if (formData.isNotEmpty) {
+      _userNameController.text = formData['userName'] ?? '';
+      _selectedBranch = formData['branch'] ?? '';
+      _selectedAuthorization = formData['authorization'] ?? '';
+      _passwordController.text = formData['password'] ?? '';
+      _allowLogin = formData['allowLogin'] ?? false;
+      setState(() {});
+    }
+  }
+
 
   @override
   void dispose() {
@@ -55,6 +87,7 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   void _resetForm() {
+    context.read<UserFormCubit>().clearFormData();
     setState(() {
       _userIdController.clear();
       _userNameController.clear();
@@ -69,6 +102,10 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   void _populateForm(User user) {
+    final branches = context.read<BranchCubit>().state is BranchLoadedState
+        ? (context.read<BranchCubit>().state as BranchLoadedState).branches
+        : <Branch>[];
+
     setState(() {
       _selectedUser = user;
       _userIdController.text = user.id?.toString() ?? '';
@@ -76,7 +113,10 @@ class _UsersPageState extends State<UsersPage> {
       _passwordController.text = user.password;
       _branchController.text = user.branchName;
       _authorizationController.text = user.authorization;
-      _selectedBranch = user.branchName;
+      _selectedBranch =
+          branches.any((branch) => branch.branchName == user.branchName)
+              ? user.branchName
+              : '';
       _selectedAuthorization = user.authorization;
       _allowLogin = user.allowLogin;
     });
@@ -117,38 +157,40 @@ class _UsersPageState extends State<UsersPage> {
         padding: EdgeInsets.all(16.0.r),
         child: Row(
           children: [
+            _buildGridContent(),
+            _buildFormFields(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGridContent() {
+    return Flexible(
+      flex: 3,
+      child: Card(
+        margin: EdgeInsets.all(16.0.r),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            PageUtils.buildSearchBar(
+                onChanged: (value) => setState(() => _searchQuery = value)),
             Expanded(
-              flex: 3,
-              child: PageUtils.buildCard(
-                child: _buildGridContent(),
-              ),
-            ),
-            SizedBox(width: 16.w),
-            Expanded(
-              flex: 2,
-              child: PageUtils.buildCard(
-                child: SingleChildScrollView(
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildFormFields(),
-                        _buildAllowLoginCheckbox(),
-                        SizedBox(height: 16.h),
-                        PageUtils.buildActionButtons(
-                          onAddPressed:
-                              _selectedUser == null ? _saveUser : null,
-                          onUpdatePressed:
-                              _selectedUser != null ? _saveUser : null,
-                          onDeletePressed:
-                              _selectedUser != null ? _deleteUser : null,
-                          onCancelPressed: _resetForm,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              child: BlocBuilder<UserCubit, UserState>(
+                // Rebuild on UserState changes
+                builder: (context, state) {
+                  if (state is UserLoadingState) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (state is UserLoadedState) {
+                    return UsersList(
+                      onUserSelected: _populateForm,
+                      users: state.users,
+                    );
+                  } else if (state is UserErrorState) {
+                    return Center(child: Text(state.errorMessage));
+                  }
+                  return const Center(child: Text('No data available'));
+                },
               ),
             ),
           ],
@@ -157,75 +199,92 @@ class _UsersPageState extends State<UsersPage> {
     );
   }
 
-  Widget _buildGridContent() {
-    return BlocBuilder<UserCubit, UserState>(
-      builder: (context, state) {
-        if (state is UserLoadingState) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (state is UserLoadedState) {
-          return UsersList(
-            onUserSelected: _populateForm,
-            // users: state.users,
-          );
-        } else if (state is UserErrorState) {
-          return Center(child: Text(state.errorMessage));
-        }
-        return const Center(child: Text('No data available'));
-      },
-    );
-  }
-
   Widget _buildFormFields() {
-    return Column(
-      children: [
-        // User ID Field
-        PageUtils.buildTextField(
-          controller: _userIdController,
-          labelText: 'User ID',
-          enabled: false,
+    return Flexible(
+      flex: 2,
+      child: Card(
+        margin: const EdgeInsets.all(8.0),
+        child: Padding(
+          padding: EdgeInsets.all(16.r),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              spacing: 16.h,
+              children: [
+                // User ID Field
+                PageUtils.buildTextField(
+                  controller: _userIdController,
+                  labelText: 'User ID',
+                  enabled: false,
+                ),
+
+                // User Name Field
+                PageUtils.buildTextField(
+                  controller: _userNameController,
+                  labelText: 'User Name *',
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'User Name is required';
+                    }
+                    return null;
+                  },
+                ),
+
+                // Branch Dropdown
+                _buildBranchDropdown(),
+
+                // Authorization Dropdown
+                _buildAuthorizationDropdown(),
+
+                // Password Field
+                PageUtils.buildTextField(
+                  controller: _passwordController,
+                  labelText: 'Password *',
+                  obscureText: true,
+                  maxLines: 1, // Ensure maxLines is 1 for obscured fields
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Password is required';
+                    }
+                    return null;
+                  },
+                ),
+                _buildAllowLoginCheckbox(),
+                const Spacer(),
+                PageUtils.buildActionButtons(
+                  onAddPressed: _selectedUser == null ? _saveUser : null,
+                  onUpdatePressed: _selectedUser != null ? _saveUser : null,
+                  onDeletePressed: _selectedUser != null ? _deleteUser : null,
+                  onCancelPressed: _resetForm,
+                ),
+              ],
+            ),
+          ),
         ),
-        SizedBox(height: 16.h),
-
-        // User Name Field
-        PageUtils.buildTextField(
-          controller: _userNameController,
-          labelText: 'User Name *',
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'User Name is required';
-            }
-            return null;
-          },
-        ),
-        SizedBox(height: 16.h),
-
-        // Branch Dropdown
-        _buildBranchDropdown(),
-        SizedBox(height: 16.h),
-
-        // Authorization Dropdown
-        _buildAuthorizationDropdown(),
-        SizedBox(height: 16.h),
-
-        // Password Field
-        PageUtils.buildTextField(
-          controller: _passwordController,
-          labelText: 'Password *',
-          obscureText: true,
-          maxLines: 1, // Ensure maxLines is 1 for obscured fields
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Password is required';
-            }
-            return null;
-          },
-        ),
-      ],
+      ),
     );
   }
 
   Widget _buildBranchDropdown() {
-    return BlocBuilder<BranchCubit, BranchState>(
+    return BlocConsumer<BranchCubit, BranchState>(
+      listener: (context, state) {
+        if (state is BranchLoadedState) {
+          // Reset _selectedBranch if it no longer exists in the updated branches
+          if (!state.branches
+              .any((branch) => branch.branchName == _selectedBranch)) {
+            setState(() {
+              _selectedBranch = '';
+            });
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Branches loaded successfully!')),
+          );
+        } else if (state is BranchErrorState) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${state.errorMessage}')),
+          );
+        }
+      },
       builder: (context, state) {
         final branches =
             state is BranchLoadedState ? state.branches : <Branch>[];
@@ -274,4 +333,10 @@ class _UsersPageState extends State<UsersPage> {
       ],
     );
   }
+}
+class UserFormCubit extends Cubit<Map<String, dynamic>> {
+  UserFormCubit() : super({});
+
+  void saveFormData(Map<String, dynamic> formData) => emit(formData);
+  void clearFormData() => emit({});
 }

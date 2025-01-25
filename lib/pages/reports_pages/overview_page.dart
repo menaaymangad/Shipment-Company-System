@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +8,7 @@ import 'package:app/pages/reports_pages/reports_utils.dart';
 import 'package:app/helper/send_db_helper.dart';
 import 'package:app/models/send_model.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class OverviewScreen extends StatefulWidget {
   const OverviewScreen({super.key});
@@ -23,11 +23,18 @@ class _OverviewScreenState extends State<OverviewScreen> {
   String? selectedTruck;
   String? selectedEUCountry;
   String? selectedAgentCity;
-
-  // Date picker values
   DateTime? selectedDate;
 
-  // Lists to hold dropdown options
+  // Daily Report controllers
+  final TextEditingController _dailyCodesController = TextEditingController();
+  final TextEditingController _dailyPalletsController = TextEditingController();
+  final TextEditingController _dailyBoxesController = TextEditingController();
+  final TextEditingController _dailyKGController = TextEditingController();
+  final TextEditingController _dailyCashInController = TextEditingController();
+  final TextEditingController _dailyCommissionController =
+      TextEditingController();
+
+  // Dropdown options
   List<String> officeNames = [];
   List<String> truckNumbers = [];
   List<String> euCountries = [];
@@ -36,7 +43,66 @@ class _OverviewScreenState extends State<OverviewScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _restoreFormData());
     _fetchDropdownData();
+  }
+
+  @override
+  void deactivate() {
+    _saveFormData(); // This calls the method
+    super.deactivate();
+  }
+
+  @override
+  void dispose() {
+    _dailyCodesController.dispose();
+    _dailyPalletsController.dispose();
+    _dailyBoxesController.dispose();
+    _dailyKGController.dispose();
+    _dailyCashInController.dispose();
+    _dailyCommissionController.dispose();
+    super.dispose();
+  }
+
+  void _saveFormData() {
+    context.read<OverviewFormCubit>().saveFormData({
+      // Make Report Card
+      'selectedOffice': selectedOffice,
+      'selectedTruck': selectedTruck,
+      'selectedEUCountry': selectedEUCountry,
+      'selectedAgentCity': selectedAgentCity,
+      'selectedDate': selectedDate?.toIso8601String(),
+
+      // Daily Report Card
+      'dailyCodes': _dailyCodesController.text,
+      'dailyPallets': _dailyPalletsController.text,
+      'dailyBoxes': _dailyBoxesController.text,
+      'dailyKG': _dailyKGController.text,
+      'dailyCashIn': _dailyCashInController.text,
+      'dailyCommission': _dailyCommissionController.text,
+    });
+  }
+
+  void _restoreFormData() {
+    final formData = context.read<OverviewFormCubit>().state;
+    setState(() {
+      // Make Report Card
+      selectedOffice = formData['selectedOffice'];
+      selectedTruck = formData['selectedTruck'];
+      selectedEUCountry = formData['selectedEUCountry'];
+      selectedAgentCity = formData['selectedAgentCity'];
+      selectedDate = formData['selectedDate'] != null
+          ? DateTime.parse(formData['selectedDate'])
+          : null;
+
+      // Daily Report Card
+      _dailyCodesController.text = formData['dailyCodes'] ?? '';
+      _dailyPalletsController.text = formData['dailyPallets'] ?? '';
+      _dailyBoxesController.text = formData['dailyBoxes'] ?? '';
+      _dailyKGController.text = formData['dailyKG'] ?? '';
+      _dailyCashInController.text = formData['dailyCashIn'] ?? '';
+      _dailyCommissionController.text = formData['dailyCommission'] ?? '';
+    });
   }
 
   Future<void> _fetchDropdownData() async {
@@ -84,11 +150,12 @@ class _OverviewScreenState extends State<OverviewScreen> {
     return Container(
       width: 1.sw,
       height: 1.sh,
-      padding: EdgeInsets.all(24.w), // Increased padding
+      padding: EdgeInsets.all(24.w),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
+          // Make Report Card
+          Flexible(
             child: ReportCard(
               title: 'Make Report',
               children: [
@@ -96,54 +163,36 @@ class _OverviewScreenState extends State<OverviewScreen> {
                   label: 'Office Name',
                   value: selectedOffice,
                   items: officeNames,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedOffice = value;
-                    });
-                  },
+                  onChanged: (value) => setState(() => selectedOffice = value),
                 ),
-                SizedBox(height: 24.h), // Added spacing
+                SizedBox(height: 24.h),
                 CustomDropdown(
                   label: 'Truck No.',
                   value: selectedTruck,
                   items: truckNumbers,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedTruck = value;
-                    });
-                  },
+                  onChanged: (value) => setState(() => selectedTruck = value),
                 ),
-                SizedBox(height: 24.h), // Added spacing
+                SizedBox(height: 24.h),
                 CustomDropdown(
                   label: 'EU Country',
                   value: selectedEUCountry,
                   items: euCountries,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedEUCountry = value;
-                    });
-                  },
+                  onChanged: (value) =>
+                      setState(() => selectedEUCountry = value),
                 ),
-                SizedBox(height: 24.h), // Added spacing
+                SizedBox(height: 24.h),
                 CustomDropdown(
                   label: 'Agent City',
                   value: selectedAgentCity,
                   items: agentCities,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedAgentCity = value;
-                    });
-                  },
+                  onChanged: (value) =>
+                      setState(() => selectedAgentCity = value),
                 ),
-                SizedBox(height: 24.h), // Added spacing
+                SizedBox(height: 24.h),
                 CustomDatePicker(
                   label: 'Date',
                   selectedDate: selectedDate,
-                  onDateSelected: (date) {
-                    setState(() {
-                      selectedDate = date;
-                    });
-                  },
+                  onDateSelected: (date) => setState(() => selectedDate = date),
                 ),
                 const Spacer(),
                 ButtonRow(
@@ -162,7 +211,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                         await exportToExcel(records);
                       },
                     ),
-                    SizedBox(width: 16.w), // Added spacing
+                    SizedBox(width: 16.w),
                     CustomButton(
                       text: 'PDF Report',
                       color: Colors.purple,
@@ -182,8 +231,9 @@ class _OverviewScreenState extends State<OverviewScreen> {
               ],
             ),
           ),
-          SizedBox(width: 24.w), // Increased spacing
-          Expanded(
+          SizedBox(width: 24.w),
+          // Daily Report Card
+          Flexible(
             child: ReportCard(
               title: 'Daily Report',
               children: [
@@ -191,45 +241,43 @@ class _OverviewScreenState extends State<OverviewScreen> {
                   label: 'Office Name',
                   value: selectedOffice,
                   items: officeNames,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedOffice = value;
-                    });
-                  },
+                  onChanged: (value) => setState(() => selectedOffice = value),
                 ),
-                SizedBox(height: 16.h), // Added spacing
-                // Added spacing
-                const CustomTextField(
+                SizedBox(height: 16.h),
+                CustomTextField(
                   label: 'Daily Codes',
+                  controller: _dailyCodesController,
                 ),
-                // Added spacing
-                const CustomTextField(
+                SizedBox(height: 16.h),
+                CustomTextField(
                   label: 'Daily Pallet',
+                  controller: _dailyPalletsController,
                 ),
-                const CustomTextField(
+                SizedBox(height: 16.h),
+                CustomTextField(
                   label: 'Daily Boxes',
+                  controller: _dailyBoxesController,
                 ),
-                // Added spacing
-                const CustomTextField(
+                SizedBox(height: 16.h),
+                CustomTextField(
                   label: 'Daily KG',
+                  controller: _dailyKGController,
                 ),
-                // Added spacing
-                const CustomTextField(
+                SizedBox(height: 16.h),
+                CustomTextField(
                   label: 'Daily Cash in',
+                  controller: _dailyCashInController,
                 ),
-                // Added spacing
-                const CustomTextField(
+                SizedBox(height: 16.h),
+                CustomTextField(
                   label: 'Daily Commission',
+                  controller: _dailyCommissionController,
                 ),
-                // Added spacing
+                SizedBox(height: 16.h),
                 CustomDatePicker(
                   label: 'Date',
                   selectedDate: selectedDate,
-                  onDateSelected: (date) {
-                    setState(() {
-                      selectedDate = date;
-                    });
-                  },
+                  onDateSelected: (date) => setState(() => selectedDate = date),
                 ),
                 const Spacer(),
                 ButtonRow(
@@ -242,7 +290,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                         await exportToExcel(records);
                       },
                     ),
-                    SizedBox(width: 16.w), // Added spacing
+                    SizedBox(width: 16.w),
                     CustomButton(
                       text: 'PDF Report',
                       color: Colors.purple,
@@ -377,4 +425,11 @@ class _OverviewScreenState extends State<OverviewScreen> {
       );
     }
   }
+}
+
+class OverviewFormCubit extends Cubit<Map<String, dynamic>> {
+  OverviewFormCubit() : super({});
+
+  void saveFormData(Map<String, dynamic> formData) => emit(formData);
+  void clearFormData() => emit({});
 }

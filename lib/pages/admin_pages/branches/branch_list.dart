@@ -1,81 +1,93 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../models/branches_model.dart';
-import '../../../widgets/data_grid_list.dart';
 
-class BranchDataGridEnhanced extends StatelessWidget {
+class BranchDataTableEnhanced extends StatelessWidget {
   final List<Branch> branches;
   final Function(Branch) onBranchSelected;
   final String searchQuery;
 
-  const BranchDataGridEnhanced({
+  const BranchDataTableEnhanced({
     super.key,
     required this.branches,
     required this.onBranchSelected,
     this.searchQuery = '',
   });
 
-  static final List<DataGridColumn<Branch>> columns = [
-    DataGridColumn<Branch>(
-      header: 'ID',
-      getValue: (branch) => '${branch.id ?? ""}',
-      flex: 1,
-    ),
-    DataGridColumn<Branch>(
-      header: 'Branch Name',
-      getValue: (branch) => branch.branchName,
-      flex: 2,
-    ),
-    DataGridColumn<Branch>(
-      header: 'Contact Person',
-      getValue: (branch) => branch.contactPersonName,
-      flex: 2,
-    ),
-    DataGridColumn<Branch>(
-      header: 'Company',
-      getValue: (branch) => branch.branchCompany,
-      flex: 2,
-    ),
-    DataGridColumn<Branch>(
-      header: 'Phone 1',
-      getValue: (branch) => branch.phoneNo1,
-      flex: 2,
-    ),
-    DataGridColumn<Branch>(
-      header: 'Phone 2',
-      getValue: (branch) => branch.phoneNo2,
-      flex: 2,
-    ),
-    DataGridColumn<Branch>(
-      header: 'Address',
-      getValue: (branch) => branch.address,
-      flex: 2,
-    ),
-  ];
+  List<Branch> _filterBranches(List<Branch> branches, String query) {
+    if (query.isEmpty) return branches;
 
-  bool _searchPredicate(Branch branch, String query) {
-    final searchLower = query.toLowerCase();
-    return branch.branchName.toLowerCase().contains(searchLower) ||
-        branch.contactPersonName.toLowerCase().contains(searchLower) ||
-        branch.branchCompany.toLowerCase().contains(searchLower) ||
-        branch.phoneNo1.toLowerCase().contains(searchLower) ||
-        branch.phoneNo2.toLowerCase().contains(searchLower) ||
-        branch.address.toLowerCase().contains(searchLower);
+    return branches.where((branch) {
+      final searchLower = query.toLowerCase();
+      return branch.branchName.toLowerCase().contains(searchLower) ||
+          branch.contactPersonName.toLowerCase().contains(searchLower) ||
+          branch.branchCompany.toLowerCase().contains(searchLower) ||
+          branch.phoneNo1.toLowerCase().contains(searchLower) ||
+          branch.phoneNo2.toLowerCase().contains(searchLower) ||
+          branch.address.toLowerCase().contains(searchLower);
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    return GenericDataGrid<Branch>(
-      items: branches,
-      columns: columns,
-      onItemSelected: onBranchSelected,
-      searchQuery: searchQuery,
-      searchPredicate: _searchPredicate,
-      cellTextStyle: TextStyle(
-        fontSize: 34.sp,
-        color: Colors.black87,
+    final filteredBranches = _filterBranches(branches, searchQuery);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withAlpha(40),
+            spreadRadius: 2,
+            blurRadius: 5,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      cellPadding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 16.w),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          showCheckboxColumn: false,
+          columnSpacing: 16.w,
+          dataRowMinHeight: 56.h,
+          headingRowColor: WidgetStateProperty.all(Colors.grey[100]),
+          headingTextStyle:
+              TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
+          dataTextStyle: TextStyle(fontSize: 18.sp),
+          columns: [
+            DataColumn(label: Text('ID')),
+            DataColumn(label: Text('Branch Name')),
+            DataColumn(label: Text('Contact Person')),
+            DataColumn(label: Text('Company')),
+            DataColumn(label: Text('Phone 1')),
+            DataColumn(label: Text('Phone 2')),
+            DataColumn(label: Text('Address')),
+          ],
+          rows: filteredBranches.map((branch) {
+            return DataRow(
+              color: WidgetStateProperty.resolveWith<Color?>(
+                  (Set<WidgetState> states) {
+                return states.contains(WidgetState.selected)
+                    ? Colors.grey[300]
+                    : null;
+              }),
+              cells: [
+                DataCell(Text(
+                  '${branch.id ?? ""}',
+                )),
+                DataCell(Text(branch.branchName)),
+                DataCell(Text(branch.contactPersonName)),
+                DataCell(Text(branch.branchCompany)),
+                DataCell(Text(branch.phoneNo1)),
+                DataCell(Text(branch.phoneNo2)),
+                DataCell(Text(branch.address)),
+              ],
+              onSelectChanged: (_) => onBranchSelected(branch),
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
 }

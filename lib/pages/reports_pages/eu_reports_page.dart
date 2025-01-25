@@ -6,6 +6,7 @@ import 'package:app/pages/reports_pages/reports_utils.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
@@ -45,10 +46,60 @@ class _EUReportScreenState extends State<EUReportScreen> {
   List<String> euCountries = [];
   List<String> agentCities = [];
 
+ 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _restoreFormData());
     _fetchDropdownData();
+  }
+
+  @override
+  void deactivate() {
+    _saveFormData();
+    super.deactivate();
+  }
+
+  void _saveFormData() {
+    final formData = {
+      'selectedOffice': selectedOffice,
+      'selectedTruck': selectedTruck,
+      'selectedEUCountry': selectedEUCountry,
+      'selectedAgentCity': selectedAgentCity,
+      'selectedDate': selectedDate?.toIso8601String(),
+      'depDateKU': depDateKU?.toIso8601String(),
+      'arrivalDateNL': arrivalDateNL?.toIso8601String(),
+      'truckNo': truckNoController.text,
+      'getOnlyCountriesAccounts': getOnlyCountriesAccounts,
+      'getAllAgentsAccounts': getAllAgentsAccounts,
+      'makeCompleteShipment': makeCompleteShipment,
+      'printPreview': printPreview,
+    };
+    context.read<EUReportsFormCubit>().saveFormData(formData);
+  }
+
+  void _restoreFormData() {
+    final formData = context.read<EUReportsFormCubit>().state;
+    setState(() {
+      selectedOffice = formData['selectedOffice'];
+      selectedTruck = formData['selectedTruck'];
+      selectedEUCountry = formData['selectedEUCountry'];
+      selectedAgentCity = formData['selectedAgentCity'];
+      selectedDate = formData['selectedDate'] != null
+          ? DateTime.parse(formData['selectedDate'])
+          : null;
+      depDateKU = formData['depDateKU'] != null
+          ? DateTime.parse(formData['depDateKU'])
+          : null;
+      arrivalDateNL = formData['arrivalDateNL'] != null
+          ? DateTime.parse(formData['arrivalDateNL'])
+          : null;
+      truckNoController.text = formData['truckNo'] ?? '';
+      getOnlyCountriesAccounts = formData['getOnlyCountriesAccounts'] ?? true;
+      getAllAgentsAccounts = formData['getAllAgentsAccounts'] ?? false;
+      makeCompleteShipment = formData['makeCompleteShipment'] ?? true;
+      printPreview = formData['printPreview'] ?? true;
+    });
   }
 
   Future<void> _fetchDropdownData() async {
@@ -410,4 +461,10 @@ class _EUReportScreenState extends State<EUReportScreen> {
       );
     }
   }
+}
+class EUReportsFormCubit extends Cubit<Map<String, dynamic>> {
+  EUReportsFormCubit() : super({});
+
+  void saveFormData(Map<String, dynamic> formData) => emit(formData);
+  void clearFormData() => emit({});
 }

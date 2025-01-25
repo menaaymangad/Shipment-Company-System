@@ -9,8 +9,13 @@ import 'package:app/cubits/login_cubit/login_cubit_cubit.dart';
 import 'package:app/cubits/send_cubit/send_cubit.dart';
 import 'package:app/cubits/user_cubit/user_cubit.dart';
 import 'package:app/helper/send_db_helper.dart';
+import 'package:app/helper/shared_prefs_service.dart';
 import 'package:app/helper/sql_helper.dart';
+import 'package:app/pages/admin_pages/branches/branches_page.dart';
 import 'package:app/pages/admin_pages/cities/cities_page.dart';
+import 'package:app/pages/admin_pages/countries/countries_page.dart';
+import 'package:app/pages/admin_pages/currencies/currencies_page.dart';
+import 'package:app/pages/admin_pages/users/users_page.dart';
 import 'package:app/pages/main_pages/admin_page.dart';
 
 import 'package:app/pages/main_pages/login_page.dart';
@@ -18,19 +23,49 @@ import 'package:app/pages/main_pages/main_page.dart';
 import 'package:app/pages/main_pages/report_page.dart';
 import 'package:app/pages/main_pages/send_page/send.dart';
 import 'package:app/pages/main_pages/setting/setting_page.dart';
-import 'package:app/widgets/theme.dart';
+import 'package:app/pages/reports_pages/eu_reports_page.dart';
+import 'package:app/pages/reports_pages/overview_page.dart';
+import 'package:app/pages/reports_pages/reports_page.dart';
+import 'package:app/widgets/custom_scroll_behavior.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path/path.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_windowmanager/flutter_windowmanager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:window_manager/window_manager.dart';
+
 void main() {
   // Add more robust error handling and logging
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
-    await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_FULLSCREEN);
+    await SharedPreferences.getInstance();
+    await SharedPrefsService.initializeAdminCredentials();
+    await windowManager.ensureInitialized();
+    await windowManager.maximize();
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: [SystemUiOverlay.top],
+    );
+    WindowOptions windowOptions = const WindowOptions(
+      size: Size(1280, 720), // Default starting size
+      minimumSize: Size(800, 600),
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.normal,
+    );
+
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+      await windowManager.setMinimumSize(const Size(800, 600));
+      await windowManager.maximize();
+      await windowManager.setAspectRatio(16 / 9);
+    });
+
     // Configure error handling
     FlutterError.onError = (FlutterErrorDetails details) {
       if (kDebugMode) {
@@ -43,10 +78,10 @@ void main() {
 
     try {
       // Initialize database before running the app
-     
+
       await _initializeDatabase();
-     
-      runApp(const MyApp());
+
+      runApp(MyApp());
     } catch (e, stackTrace) {
       if (kDebugMode) {
         print('Critical app initialization error: $e');
@@ -144,14 +179,14 @@ class ErrorApp extends StatelessWidget {
 }
 
 class MyApp extends StatelessWidget {
-
-
-  const MyApp({super.key,});
-
+  MyApp({
+    super.key,
+  });
+  final RouteObserver<ModalRoute> routeObserver = RouteObserver<ModalRoute>();
   @override
   Widget build(BuildContext context) {
     return ScreenUtilInit(
-      designSize: const Size(3072, 1727),
+      designSize: const Size(1920, 1080),
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) => MultiBlocProvider(
@@ -177,62 +212,66 @@ class MyApp extends StatelessWidget {
           BlocProvider<SendRecordCubit>(
             create: (context) => SendRecordCubit(SendRecordDatabaseHelper()),
           ),
-        ],
-        child: ChangeNotifierProvider(
-          create: (_) => ThemeProvider(), // Add ThemeProvider
-          child: Consumer<ThemeProvider>(
-            builder: (context, themeProvider, child) {
-              return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                title: 'Transport Company',
-                theme: ThemeData(
-                  fontFamily: 'Poppins',
-                  // Add more theme customizations
-                  primarySwatch: Colors.blue,
-                  appBarTheme: const AppBarTheme(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                  ),
-                  elevatedButtonTheme: ElevatedButtonThemeData(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                darkTheme: ThemeData.dark().copyWith(
-                  appBarTheme: const AppBarTheme(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                  ),
-                  elevatedButtonTheme: ElevatedButtonThemeData(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                themeMode: themeProvider.themeMode,
-                // Add home property for more reliable routing
-                // home: const LoginPage(),
-                routes: {
-                  LoginPage.id: (context) => const LoginPage(),
-                  SendScreen.id: (context) => const SendScreen(),
-                  AdminPage.id: (context) => const AdminPage(),
-                  ReportPage.id: (context) => const ReportPage(),
-                  SettingPage.id: (context) => const SettingPage(),
-                  MainLayout.id: (context) => const MainLayout(),
-                  CitiesPage.id: (context) => const CitiesPage(),
-                 
-                },
-                initialRoute:   LoginPage.id,
-                // Add navigation observer for analytics or logging
-                navigatorObservers: [
-                  RouteObserver(),
-                ],
-              );
-            },
+          BlocProvider(create: (_) => CityFormCubit()),
+          BlocProvider(create: (_) => CountryFormCubit()),
+          BlocProvider(create: (_) => BranchFormCubit()),
+          BlocProvider(create: (_) => CurrencyFormCubit()),
+          BlocProvider(create: (_) => UserFormCubit()),
+          BlocProvider(create: (_) => OverviewFormCubit()),
+          BlocProvider(create: (_) => ReportsFormCubit()),
+          BlocProvider(create: (_) => EUReportsFormCubit()),
+          BlocProvider(
+            create: (context) => SettingFormCubit(),
           ),
+        ],
+        child: MaterialApp(
+          scrollBehavior: PermanentScrollBehavior(),
+          debugShowCheckedModeBanner: false,
+          title: 'Transport Company',
+          theme: ThemeData(
+            fontFamily: 'Poppins',
+            // Set the default text style to bold
+            textTheme: TextTheme(
+              bodyLarge: TextStyle(fontWeight: FontWeight.bold),
+              bodyMedium: TextStyle(fontWeight: FontWeight.bold),
+              bodySmall: TextStyle(fontWeight: FontWeight.bold),
+              titleLarge: TextStyle(fontWeight: FontWeight.bold),
+              titleMedium: TextStyle(fontWeight: FontWeight.bold),
+              titleSmall: TextStyle(fontWeight: FontWeight.bold),
+              labelLarge: TextStyle(fontWeight: FontWeight.bold),
+              labelMedium: TextStyle(fontWeight: FontWeight.bold),
+              labelSmall: TextStyle(fontWeight: FontWeight.bold),
+              headlineLarge: TextStyle(fontWeight: FontWeight.bold),
+              headlineMedium: TextStyle(fontWeight: FontWeight.bold),
+              headlineSmall: TextStyle(fontWeight: FontWeight.bold),
+              displayLarge: TextStyle(fontWeight: FontWeight.bold),
+              displayMedium: TextStyle(fontWeight: FontWeight.bold),
+              displaySmall: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            primarySwatch: Colors.blue,
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ),
+          routes: {
+            LoginPage.id: (context) => const LoginPage(),
+            SendScreen.id: (context) => const SendScreen(),
+            AdminPage.id: (context) => const AdminPage(),
+            ReportPage.id: (context) => const ReportPage(),
+            SettingPage.id: (context) => const SettingPage(),
+            MainLayout.id: (context) => const MainLayout(),
+            CitiesPage.id: (context) => const CitiesPage(),
+            BranchesPage.id: (context) => const BranchesPage(),
+          },
+          initialRoute: LoginPage.id,
+          navigatorObservers: [routeObserver],
         ),
       ),
     );

@@ -343,6 +343,10 @@ class _RecordsTableDialogState extends State<RecordsTableDialog> {
                       ],
                       rows: filteredRecords.map((record) {
                         return DataRow2(
+                          onTap: () {
+                            widget.onRecordSelected(record);
+                            Navigator.pop(context);
+                          },
                           cells: [
                             DataCell(_buildAutoSizeCell(record.date ?? '')),
                             DataCell(

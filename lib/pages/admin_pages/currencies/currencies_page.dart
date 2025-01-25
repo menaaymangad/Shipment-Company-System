@@ -15,7 +15,7 @@ class CurrenciesPage extends StatefulWidget {
   State<CurrenciesPage> createState() => _CurrenciesPageState();
 }
 
-class _CurrenciesPageState extends State<CurrenciesPage> {
+class _CurrenciesPageState extends State<CurrenciesPage>  {
   final _idController = TextEditingController();
   final _nameController = TextEditingController();
   final _rateController = TextEditingController();
@@ -26,13 +26,38 @@ class _CurrenciesPageState extends State<CurrenciesPage> {
   void initState() {
     super.initState();
     _fetchInitialData();
+    _restoreFormData();
   }
 
+  @override
+  void deactivate() {
+    _saveFormData();
+    super.deactivate();
+  }
+
+  void _saveFormData() {
+    final formData = {
+      'currencyName': _nameController.text,
+      'currencyRate': _rateController.text,
+    };
+    context.read<CurrencyFormCubit>().saveFormData(formData);
+  }
+
+  void _restoreFormData() {
+    final formData = context.read<CurrencyFormCubit>().state;
+    if (formData.isNotEmpty) {
+      _nameController.text = formData['currencyName'] ?? '';
+      _rateController.text = formData['currencyRate'] ?? '';
+    }
+  }
+
+ 
   void _fetchInitialData() {
     context.read<CurrencyCubit>().fetchCurrencies();
   }
 
   void _resetForm() {
+    context.read<CurrencyFormCubit>().clearFormData();
     setState(() {
       _idController.clear();
       _nameController.clear();
@@ -174,4 +199,10 @@ class _CurrenciesPageState extends State<CurrenciesPage> {
       ),
     );
   }
+}
+class CurrencyFormCubit extends Cubit<Map<String, dynamic>> {
+  CurrencyFormCubit() : super({});
+
+  void saveFormData(Map<String, dynamic> formData) => emit(formData);
+  void clearFormData() => emit({});
 }

@@ -4,7 +4,9 @@ import 'package:app/helper/shared_prefs_service.dart';
 import 'package:app/helper/sql_helper.dart';
 import 'package:app/helper/user_db_helper.dart';
 import 'package:app/models/user_model.dart';
+import 'package:app/pages/main_pages/login_page.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -37,6 +39,7 @@ class AuthCubit extends Cubit<AuthState> {
           );
           _selectedBranch = branch;
           _userRole = authenticatedUser.authorization;
+          await SharedPrefsService.saveBranch(branch);
           emit(AuthSuccess(authenticatedUser));
           return;
         }
@@ -57,48 +60,95 @@ class AuthCubit extends Cubit<AuthState> {
       final adminUsername = prefs.getString('admin_username');
       final storedPassword = prefs.getString('admin_password');
 
-      // Add debug logging
-      if (kDebugMode) {
-        print('Attempting admin login:');
-        print('Stored password hash: $storedPassword');
-        print('Input username: $username');
-      }
-
+      // Check if the provided credentials match the stored admin credentials
       if (username == adminUsername && password == storedPassword) {
         await SharedPrefsService.saveAuthData(
           DateTime.now().toString(),
-          0,
-          'Admin',
+          0, // Admin ID (can be 0 or any placeholder)
+          'Admin', // Admin role
         );
         _userRole = 'Admin';
 
-        if (kDebugMode) {
-          print('Admin login successful');
-          print('User role set to: $_userRole');
-        }
+        await SharedPrefsService.saveBranch(
+            'Baghdad'); // Default branch for admin
 
         emit(AuthSuccess(User(
           userName: 'admin',
           branchName: 'Admin',
           authorization: 'Admin',
           allowLogin: true,
-          password: password,
+          password: password, // Use the provided password
         )));
       } else {
-        if (kDebugMode) {
-          print('Admin login failed: Invalid credentials');
-        }
         emit(AuthFailure('Invalid admin credentials'));
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('Admin login error: ${e.toString()}');
-      }
       emit(AuthFailure('Admin authentication error: ${e.toString()}'));
     }
   }
 
-  // Add methods to check user role
+  Future<void> changeAdminPassword(
+    BuildContext context, {
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    // Validate password match
+    if (newPassword != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('New passwords do not match')),
+      );
+      return;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final storedPassword = prefs.getString('admin_password');
+
+      // Verify current password
+      if (currentPassword != storedPassword) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Current password is incorrect')),
+        );
+        return;
+      }
+
+      // Update password in SharedPreferences
+      await prefs.setString('admin_password', newPassword);
+
+      if (kDebugMode) {
+        print('Admin password updated successfully');
+        print('New password stored: ${prefs.getString('admin_password')}');
+      }
+
+      // Show success message
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password updated successfully')),
+        );
+      }
+
+      // Force logout to ensure security
+      if (context.mounted) {
+        final authCubit = context.read<AuthCubit>();
+        await authCubit.logout();
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          LoginPage.id,
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating admin password: $e');
+      }
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating password: $e')),
+        );
+      }
+    }
+  } // Add methods to check user role
+
   bool isAdmin() => _userRole == 'Admin';
   bool isManager() => _userRole == 'Manager';
   bool isUser() => _userRole == 'User';
@@ -118,9 +168,6 @@ class AuthCubit extends Cubit<AuthState> {
 
       emit(AuthInitial());
     } catch (e) {
-      if (kDebugMode) {
-        print('Error during logout: ${e.toString()}');
-      }
       // Still emit AuthInitial even if there's an error clearing preferences
       emit(AuthInitial());
     }

@@ -11,9 +11,11 @@ import '../../../cubits/brach_cubit/branch_states.dart';
 import 'branch_list.dart';
 
 class BranchesPage extends StatefulWidget {
-  const BranchesPage({super.key, });
- 
+  const BranchesPage({
+    super.key,
+  });
 
+  static final String id = 'branches_page';
   @override
   State<BranchesPage> createState() => _BranchesPageState();
 }
@@ -45,8 +47,51 @@ class _BranchesPageState extends State<BranchesPage> {
   void initState() {
     super.initState();
     _setupControllers();
+    _restoreFormData();
   }
 
+  @override
+  void deactivate() {
+    _saveFormData();
+    super.deactivate();
+  }
+
+  void _saveFormData() {
+    final formData = {
+      'branchName': _branchNameController.text,
+      'contactPerson': _contactPersonController.text,
+      'address': _addressController.text,
+      'company': _companyController.text,
+      'phone1': _phone1Controller.text,
+      'phone2': _phone2Controller.text,
+      'charPrefix': _charPrefixController.text,
+      'yearPrefix': _yearPrefixController.text,
+      'digits': _digitsController.text,
+      'selectedCity': _selectedCity,
+      'selectedLanguage': _selectedLanguage,
+    };
+    context.read<BranchFormCubit>().saveFormData(formData);
+  }
+
+  void _restoreFormData() {
+    final formData = context.read<BranchFormCubit>().state;
+    if (formData.isNotEmpty) {
+      _branchNameController.text = formData['branchName'] ?? '';
+      _contactPersonController.text = formData['contactPerson'] ?? '';
+      _addressController.text = formData['address'] ?? '';
+      _companyController.text = formData['company'] ?? '';
+      _phone1Controller.text = formData['phone1'] ?? '';
+      _phone2Controller.text = formData['phone2'] ?? '';
+      _charPrefixController.text = formData['charPrefix'] ?? '';
+      _yearPrefixController.text = formData['yearPrefix'] ?? '';
+      _digitsController.text = formData['digits'] ?? '';
+      _selectedCity = formData['selectedCity'] ?? '';
+      _selectedLanguage = formData['selectedLanguage'] ?? 'Arabic';
+      setState(() {});
+    }
+  }
+
+ 
   void _setupControllers() {
     context.read<BranchCubit>().fetchBranches();
     context.read<CityCubit>().fetchCities();
@@ -120,6 +165,7 @@ class _BranchesPageState extends State<BranchesPage> {
   }
 
   void _clearForm() {
+    context.read<BranchFormCubit>().clearFormData();
     _branchNameController.clear();
     _contactPersonController.clear();
     _addressController.clear();
@@ -225,13 +271,13 @@ class _BranchesPageState extends State<BranchesPage> {
   }
 
   Widget _buildGridContent() {
-    return Flexible(
+    return Expanded(
       child: BlocBuilder<BranchCubit, BranchState>(
         builder: (context, state) {
           if (state is BranchLoadingState) {
             return const Center(child: CircularProgressIndicator());
           } else if (state is BranchLoadedState) {
-            return BranchDataGridEnhanced(
+            return BranchDataTableEnhanced(
               branches: state.branches,
               onBranchSelected: _populateForm,
               searchQuery: _searchQuery,
@@ -371,14 +417,6 @@ class _BranchesPageState extends State<BranchesPage> {
             ),
           ],
         ),
-        // SizedBox(height: 16.h),
-        // ElevatedButton(
-        //   onPressed: validateAndUpdateCode,
-        //   child: Text(
-        //     'Generate Code',
-        //     style: TextStyle(fontSize: 24.sp),
-        //   ),
-        // ),
       ],
     );
   }
@@ -392,7 +430,7 @@ class _BranchesPageState extends State<BranchesPage> {
           padding: EdgeInsets.only(left: 64.w),
           child: Text(
             'Invoice Language',
-            style: TextStyle(fontSize: 38.sp, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 32.sp, fontWeight: FontWeight.bold),
           ),
         ),
         Column(
@@ -400,7 +438,7 @@ class _BranchesPageState extends State<BranchesPage> {
             RadioListTile<String>(
               title: Text(
                 'Arabic Language',
-                style: TextStyle(fontSize: 32.sp),
+                style: TextStyle(fontSize: 24.sp),
               ),
               value: 'Arabic',
               groupValue: _selectedLanguage,
@@ -413,7 +451,7 @@ class _BranchesPageState extends State<BranchesPage> {
             RadioListTile<String>(
               title: Text(
                 'Kurdish Language',
-                style: TextStyle(fontSize: 32.sp),
+                style: TextStyle(fontSize: 24.sp),
               ),
               value: 'Kurdish',
               groupValue: _selectedLanguage,
@@ -426,7 +464,7 @@ class _BranchesPageState extends State<BranchesPage> {
             RadioListTile<String>(
               title: Text(
                 'English Language',
-                style: TextStyle(fontSize: 32.sp),
+                style: TextStyle(fontSize: 24.sp),
               ),
               value: 'English',
               groupValue: _selectedLanguage,
@@ -479,4 +517,10 @@ class _BranchesPageState extends State<BranchesPage> {
       },
     );
   }
+}
+class BranchFormCubit extends Cubit<Map<String, dynamic>> {
+  BranchFormCubit() : super({});
+
+  void saveFormData(Map<String, dynamic> formData) => emit(formData);
+  void clearFormData() => emit({});
 }

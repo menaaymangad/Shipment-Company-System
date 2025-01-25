@@ -1,3 +1,4 @@
+import 'package:app/helper/shared_prefs_service.dart';
 import 'package:app/pages/main_pages/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -36,13 +37,13 @@ class _MainLayoutState extends State<MainLayout> {
 
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
-      toolbarHeight: 120.h,
+      toolbarHeight: 70.h,
       backgroundColor: Colors.white,
       elevation: 4, // Add elevation for a 3D effect
       shadowColor: Colors.black.withAlpha(40), // Shadow color
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(20), // Rounded bottom corners
+          bottom: Radius.circular(10.r), // Rounded bottom corners
         ),
       ),
       leading: IconButton(
@@ -59,7 +60,7 @@ class _MainLayoutState extends State<MainLayout> {
       title: Row(
         children: [
           Container(
-            height: 77.h,
+            height: 60.h,
             padding: const EdgeInsets.symmetric(horizontal: 5),
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -70,7 +71,7 @@ class _MainLayoutState extends State<MainLayout> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(5),
+              borderRadius: BorderRadius.circular(5.r),
             ),
             child: Center(
               child: Text(
@@ -78,7 +79,7 @@ class _MainLayoutState extends State<MainLayout> {
                 style: TextStyle(
                   color: Colors.white, // White text for better contrast
                   fontWeight: FontWeight.bold,
-                  fontSize: 40.sp,
+                  fontSize: 28.sp,
                 ),
               ),
             ),
@@ -88,7 +89,7 @@ class _MainLayoutState extends State<MainLayout> {
             style: TextStyle(
               color: Colors.black,
               fontWeight: FontWeight.bold,
-              fontSize: 40.sp,
+              fontSize: 28.sp,
             ),
           ),
         ],
@@ -98,14 +99,14 @@ class _MainLayoutState extends State<MainLayout> {
           icon: const Icon(Icons.logout, color: Colors.black), // Logout icon
           onPressed: () {
             // Add logout functionality here
-            _logout(context);
+            _logout();
           },
         ),
       ],
     );
   }
 
-  void _logout(BuildContext context) {
+  void _logout() {
     // Show a confirmation dialog before logging out
     showDialog(
       context: context,
@@ -118,11 +119,12 @@ class _MainLayoutState extends State<MainLayout> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              // Perform logout logic here
-              Navigator.pop(context); // Close the dialog
-              // Navigate to the login screen or clear user session
-              Navigator.pushReplacementNamed(context, LoginPage.id); // Example
+            onPressed: () async {
+              await SharedPrefsService.clearAuthData();
+              if (mounted) {
+                Navigator.pop(context);
+                Navigator.pushReplacementNamed(context, LoginPage.id);
+              } // Example
             },
             child: const Text('Logout'),
           ),
@@ -134,32 +136,29 @@ class _MainLayoutState extends State<MainLayout> {
   Widget _buildNavigationRail() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: _isExpanded ? 400.w : 100.w,
-      child: NavigationRail(
-        backgroundColor: const Color(0xFFF5F7FA),
-        selectedIndex: selectedIndex,
-        onDestinationSelected: (int index) {
-          setState(() {
-            selectedIndex = index;
-            customPage = null;
-          });
-        },
-        extended: MediaQuery.sizeOf(context).width < 1000 ? false : _isExpanded,
-        leading: Padding(
-          padding: EdgeInsets.symmetric(vertical: 8.h),
-          // child: IconButton(
-          //   icon: Icon(
-          //     _isExpanded ? Icons.chevron_left : Icons.chevron_right,
-          //     color: const Color(0xFF2D3748),
-          //   ),
-          //   onPressed: () {
-          //     setState(() {
-          //       _isExpanded = !_isExpanded;
-          //     });
-          //   },
-          // ),
+      width: _isExpanded ? 250.w : 80.w,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.of(context).size.height,
         ),
-        destinations: _buildNavDestinations(),
+        child: NavigationRail(
+          backgroundColor: const Color(0xFFF5F7FA),
+          selectedIndex: selectedIndex,
+          onDestinationSelected: (int index) {
+            setState(() {
+              selectedIndex = index;
+              customPage = null;
+            });
+          },
+          extended:
+              MediaQuery.sizeOf(context).width < 1000 ? false : _isExpanded,
+          minWidth: 80.w,
+          useIndicator: true,
+          labelType: _isExpanded
+              ? NavigationRailLabelType.none
+              : NavigationRailLabelType.none,
+          destinations: _buildNavDestinations(),
+        ),
       ),
     );
   }
@@ -176,21 +175,21 @@ class _MainLayoutState extends State<MainLayout> {
 
   NavigationRailDestination _buildNavDestination(IconData icon, String label) {
     return NavigationRailDestination(
-      padding: EdgeInsets.symmetric(vertical: 12.h),
+      padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 12.w),
       icon: Icon(
         icon,
-        size: 50.sp,
+        size: 30.sp,
         color: const Color(0xFF64748B),
       ),
       selectedIcon: Icon(
         icon,
-        size: 50.sp,
+        size: 30.sp,
         color: const Color(0xFF3B82F6),
       ),
       label: Text(
         label,
         style: TextStyle(
-          fontSize: 28.sp,
+          fontSize: 18.sp,
           color: const Color(0xFF2D3748),
         ),
       ),
@@ -217,93 +216,83 @@ class _MainLayoutState extends State<MainLayout> {
         return _buildHomePage();
     }
   }
-  // Widget _buildAdminPage() {
-  //   return FutureBuilder<bool>(
-  //     future: DatabaseHelper().isDatabaseEmpty(),
-  //     builder: (context, snapshot) {
-  //       if (snapshot.connectionState == ConnectionState.waiting) {
-  //         return const Center(child: CircularProgressIndicator());
-  //       } else if (snapshot.hasError) {
-  //         return Center(child: Text('Error: ${snapshot.error}'));
-  //       } else if (snapshot.data == true) {
-  //         // // Database is empty, redirect to TourScreen
-  //         // return const TourScreen();
-  //       } else {
-  //         // Database is not empty, show AdminPage
-  //         return const AdminPage();
-  //       }
-  //     },
-  //   );
-  // }
 
   Widget _buildHomePage() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Spacer(),
-          SvgPicture.asset(
-            'assets/icons/EUKnet Logo (1).svg',
-            width: MediaQuery.sizeOf(context).width * 0.1,
-            height: MediaQuery.sizeOf(context).height * 0.1,
-          ),
-          const Spacer(),
-          Row(
+    return FutureBuilder<String?>(
+      future: SharedPrefsService.getBranch(),
+      builder: (context, snapshot) {
+        final branch = snapshot.data ??
+            'Baghdad'; // Default to 'Baghdad' if no branch is set
+
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                height: 30,
-                margin: const EdgeInsets.only(
-                  left: 10,
-                  right: 10,
-                ),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0xff236bc9),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.only(
-                    left: 5.0,
-                    right: 5,
+              const Spacer(),
+              SvgPicture.asset(
+                'assets/icons/EUKnet Logo (1).svg',
+                width: MediaQuery.sizeOf(context).width * 0.1,
+                height: MediaQuery.sizeOf(context).height * 0.1,
+              ),
+              const Spacer(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    height: 40.h,
+                    margin: EdgeInsets.only(
+                      left: 10.w,
+                      right: 10.w,
+                    ),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xff236bc9),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: 5.0.w,
+                        right: 5.w,
+                      ),
+                      child: Text(
+                        'EUKnet',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 24.sp,
+                        ),
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    'EUKnet',
+                  Text(
+                    ' TRANSPORT COMPANY',
                     style: TextStyle(
                       color: Colors.black,
                       fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                      fontSize: 24.sp,
                     ),
                   ),
-                ),
+                ],
               ),
-              const Text(
-                ' TRANSPORT COMPANY',
+              const Spacer(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: _buildDashboardButtons(),
+              ),
+              const Spacer(),
+              Text(
+                '$branch Office', // Use the retrieved branch name here
                 style: TextStyle(
-                  color: Colors.black,
+                  fontSize: 32.sp,
                   fontWeight: FontWeight.bold,
-                  fontSize: 18,
                 ),
               ),
+              const Spacer(),
             ],
           ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: _buildDashboardButtons(),
-          ),
-          const Spacer(),
-          Text(
-            'Baghdad Office',
-            style: TextStyle(
-              fontSize: 55.sp,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const Spacer(),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -320,8 +309,8 @@ class _MainLayoutState extends State<MainLayout> {
           customPage = null;
         });
       }),
-      _buildDashboardButton('Admin', Icons.admin_panel_settings, Colors.green,
-          () {
+      _buildDashboardButton(
+          'Admin', Icons.admin_panel_settings, Colors.green.shade400, () {
         setState(() {
           selectedIndex = 3;
           customPage = null;
@@ -345,25 +334,25 @@ class _MainLayoutState extends State<MainLayout> {
       child: InkWell(
         onTap: onPressed,
         child: Container(
-          height: 300.h,
-          width: 300.w,
+          height: 200.h,
+          width: 200.w,
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(60).r,
-              bottomRight: const Radius.circular(60).r,
+              topLeft: Radius.circular(20.r),
+              bottomRight: Radius.circular(20.r),
             ),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 80.sp, color: Colors.white),
+              Icon(icon, size: 40.sp, color: Colors.white),
               SizedBox(height: 10.h),
               Text(
                 label,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 40.sp,
+                  fontSize: 32.sp,
                 ),
               ),
             ],

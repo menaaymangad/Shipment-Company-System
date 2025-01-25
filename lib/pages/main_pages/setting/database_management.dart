@@ -18,10 +18,11 @@ import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class DatabaseManagementExcelImport {
   final dbHelper = DatabaseHelper();
- static  Future<void> exportToCsv(BuildContext context) async {
+  static Future<void> exportToCsv(BuildContext context) async {
     final dbHelper = DatabaseHelper();
     List<Branch> branches = await dbHelper.getAllBranches();
     List<City> cities = await dbHelper.getAllCities();
@@ -297,7 +298,7 @@ class DatabaseManagementExcelImport {
     }
   }
 
- static Future<void> exportToExcel(BuildContext context) async {
+  static Future<void> exportToExcel(BuildContext context) async {
     try {
       final dbHelper = DatabaseHelper();
 
@@ -633,8 +634,8 @@ class DatabaseManagementExcelImport {
     }
   }
 
-static  void _exportTableToExcel(Excel excel, String tableName, List<String> headers,
-      List<List<dynamic>> rows) {
+  static void _exportTableToExcel(Excel excel, String tableName,
+      List<String> headers, List<List<dynamic>> rows) {
     // Create a new sheet for the table
     var sheet = excel[tableName];
 
@@ -762,6 +763,7 @@ static  void _exportTableToExcel(Excel excel, String tableName, List<String> hea
   static Future<void> _importBranch(
       List<String> headers, List<String?> rowData) async {
     final dbHelper = DatabaseHelper();
+    final db = await dbHelper.database;
 
     // Map row data to Branch model
     var branch = Branch(
@@ -781,13 +783,23 @@ static  void _exportTableToExcel(Excel excel, String tableName, List<String> hea
       invoiceLanguage: rowData[headers.indexOf('invoiceLanguage')] ?? '',
     );
 
-    // Insert into database
-    await dbHelper.insertBranch(branch);
+    // Insert or replace the branch
+    await db.insert(
+      'branches',
+      branch.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace, // Update if exists
+    );
+
+    if (kDebugMode) {
+      print('Branch with id ${branch.id} imported/updated successfully.');
+    }
   }
 
   static Future<void> _importCity(
       List<String> headers, List<String?> rowData) async {
     final dbHelper = DatabaseHelper();
+    final db = await dbHelper.database;
+
     // Map row data to City model
     var city = City(
       id: int.tryParse(rowData[headers.indexOf('id')] ?? ''),
@@ -807,13 +819,22 @@ static  void _exportTableToExcel(Excel excel, String tableName, List<String> hea
           double.tryParse(rowData[headers.indexOf('boxPrice')] ?? '') ?? 0.0,
     );
 
-    // Insert into database
-    await dbHelper.insertCity(city);
+    // Insert or replace the city
+    await db.insert(
+      'cities',
+      city.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace, // Update if exists
+    );
+
+    if (kDebugMode) {
+      print('City with id ${city.id} imported/updated successfully.');
+    }
   }
 
   static Future<void> _importCountry(
       List<String> headers, List<String?> rowData) async {
     final dbHelper = DatabaseHelper();
+    final db = await dbHelper.database;
 
     // Map row data to Country model
     var country = Country(
@@ -834,13 +855,22 @@ static  void _exportTableToExcel(Excel excel, String tableName, List<String> hea
       postBoxLabel: rowData[headers.indexOf('postBoxLabel')] ?? '',
     );
 
-    // Insert into database
-    await dbHelper.insertCountry(country);
+    // Insert or replace the country
+    await db.insert(
+      'countries',
+      country.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace, // Update if exists
+    );
+
+    if (kDebugMode) {
+      print('Country with id ${country.id} imported/updated successfully.');
+    }
   }
 
   static Future<void> _importCurrency(
       List<String> headers, List<String?> rowData) async {
     final dbHelper = DatabaseHelper();
+    final db = await dbHelper.database;
 
     // Map row data to Currency model
     var currency = Currency(
@@ -851,13 +881,22 @@ static  void _exportTableToExcel(Excel excel, String tableName, List<String> hea
           0.0,
     );
 
-    // Insert into database
-    await dbHelper.insertCurrency(currency);
+    // Insert or replace the currency
+    await db.insert(
+      'currencies',
+      currency.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace, // Update if exists
+    );
+
+    if (kDebugMode) {
+      print('Currency with id ${currency.id} imported/updated successfully.');
+    }
   }
 
   static Future<void> _importGoodsDescription(
       List<String> headers, List<String?> rowData) async {
     final dbHelper = DatabaseHelper();
+    final db = await dbHelper.database;
 
     // Map row data to GoodsDescription model
     var goodsDescription = GoodsDescription(
@@ -867,13 +906,23 @@ static  void _exportTableToExcel(Excel excel, String tableName, List<String> hea
       weight: double.tryParse(rowData[headers.indexOf('weight')] ?? '') ?? 0.0,
     );
 
-    // Insert into database
-    await dbHelper.insertGoodsDescription(goodsDescription);
+    // Insert or replace the goods description
+    await db.insert(
+      'goods_descriptions',
+      goodsDescription.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace, // Update if exists
+    );
+
+    if (kDebugMode) {
+      print(
+          'Goods Description with id ${goodsDescription.id} imported/updated successfully.');
+    }
   }
 
   static Future<void> _importSendRecord(
       List<String> headers, List<String?> rowData) async {
     final dbHelper = SendRecordDatabaseHelper();
+    final db = await dbHelper.database;
 
     // Map row data to SendRecord model
     var sendRecord = SendRecord(
@@ -966,13 +1015,23 @@ static  void _exportTableToExcel(Excel excel, String tableName, List<String> hea
               0.0,
     );
 
-    // Insert into database
-    await dbHelper.insertSendRecord(sendRecord);
+    // Insert or replace the send record
+    await db.insert(
+      'send_records',
+      sendRecord.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace, // Update if exists
+    );
+
+    if (kDebugMode) {
+      print(
+          'Send Record with id ${sendRecord.id} imported/updated successfully.');
+    }
   }
 
   static Future<void> _importUser(
       List<String> headers, List<String?> rowData) async {
     final dbHelper = DatabaseHelper();
+    final db = await dbHelper.database;
 
     // Map row data to User model
     var user = User(
@@ -984,7 +1043,15 @@ static  void _exportTableToExcel(Excel excel, String tableName, List<String> hea
       password: rowData[headers.indexOf('password')] ?? '',
     );
 
-    // Insert into database
-    await dbHelper.insertUser(user);
+    // Insert or replace the user
+    await db.insert(
+      'users',
+      user.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace, // Update if exists
+    );
+
+    if (kDebugMode) {
+      print('User with id ${user.id} imported/updated successfully.');
+    }
   }
 }

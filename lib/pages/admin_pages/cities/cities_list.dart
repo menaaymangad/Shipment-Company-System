@@ -1,5 +1,3 @@
-// cities_list.dart
-import 'package:app/widgets/data_grid_list.dart';
 import 'package:flutter/material.dart';
 import 'package:app/models/city_model.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -16,48 +14,69 @@ class CitiesList extends StatelessWidget {
     this.searchQuery = '',
   });
 
-  static final List<DataGridColumn<City>> columns = [
-    DataGridColumn<City>(
-      header: 'ID',
-      getValue: (city) => city.id?.toString() ?? '',
-      flex: 1,
-    ),
-    DataGridColumn<City>(
-      header: 'City Name',
-      getValue: (city) => city.cityName,
-      flex: 2,
-    ),
-    DataGridColumn<City>(
-      header: 'Country',
-      getValue: (city) => city.country,
-      flex: 2,
-    ),
-    DataGridColumn<City>(
-      header: 'Has Agent',
-      getValue: (city) => city.hasAgent ? '✓' : '✗',
-      flex: 1,
-    ),
-  ];
+  List<City> _filterCities(List<City> cities, String query) {
+    if (query.isEmpty) return cities;
 
-  bool _searchPredicate(City city, String query) {
-    final lowercaseQuery = query.toLowerCase();
-    return city.cityName.toLowerCase().contains(lowercaseQuery) ||
-        city.country.toLowerCase().contains(lowercaseQuery);
+    return cities.where((city) {
+      final searchLower = query.toLowerCase();
+      return city.cityName.toLowerCase().contains(searchLower) ||
+          city.country.toLowerCase().contains(searchLower);
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    return GenericDataGrid<City>(
-      items: cities,
-      columns: columns,
-      onItemSelected: onCitySelected,
-      searchQuery: searchQuery,
-      searchPredicate: _searchPredicate,
-      cellTextStyle: TextStyle(
-        fontSize: 34.sp,
-        color: Colors.black87,
+    final filteredCities = _filterCities(cities, searchQuery);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withAlpha(40),
+            spreadRadius: 2,
+            blurRadius: 5,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      cellPadding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 32.w),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          showCheckboxColumn: false,
+          columnSpacing: 120.w,
+          dataRowMinHeight: 56.h,
+          headingRowColor: WidgetStateProperty.all(Colors.grey[100]),
+          headingTextStyle:
+              TextStyle(fontSize: 32.sp, fontWeight: FontWeight.bold),
+          dataTextStyle: TextStyle(fontSize: 18.sp),
+          columns: [
+            DataColumn(label: Text('ID')),
+            DataColumn(label: Text('City Name')),
+            DataColumn(label: Text('Country')),
+            DataColumn(label: Text('Has Agent')),
+          ],
+          rows: filteredCities.map((city) {
+            return DataRow(
+              color: WidgetStateProperty.resolveWith<Color?>(
+                (Set<WidgetState> states) {
+                  return states.contains(WidgetState.selected)
+                      ? Colors.grey[300]
+                      : null;
+                },
+              ),
+              cells: [
+                DataCell(Text('${city.id ?? ""}')),
+                DataCell(Text(city.cityName)),
+                DataCell(Text(city.country)),
+                DataCell(Text(city.hasAgent ? '✓' : '✗')),
+              ],
+              onSelectChanged: (_) => onCitySelected(city),
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
 }

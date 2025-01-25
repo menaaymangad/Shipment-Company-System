@@ -16,8 +16,8 @@ class CustomAppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: 24.w,
-        vertical: 16.h,
+        horizontal: 12.w,
+        vertical: 8.h,
       ),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -33,9 +33,9 @@ class CustomAppBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _buildTabButton('Overview', 0),
-          SizedBox(width: 24.w), // Increased spacing
+          SizedBox(width: 12.w), // Increased spacing
           _buildTabButton('Reports', 1),
-          SizedBox(width: 24.w), // Increased spacing
+          SizedBox(width: 12.w), // Increased spacing
           _buildTabButton('EU Report', 2),
         ],
       ),
@@ -52,8 +52,8 @@ class CustomAppBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(8.r),
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: 24.w,
-            vertical: 12.h,
+            horizontal: 12.w,
+            vertical: 6.h,
           ),
           decoration: BoxDecoration(
             color: isSelected
@@ -67,7 +67,7 @@ class CustomAppBar extends StatelessWidget {
           child: Text(
             text,
             style: TextStyle(
-              fontSize: 32.sp,
+              fontSize: 24.sp,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               color: isSelected
                   ? const Color(0xFF3B82F6)
@@ -125,14 +125,14 @@ class StatsCard extends StatelessWidget {
     return Card(
       color: color,
       child: Padding(
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.all(8.w),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               value,
               style: TextStyle(
-                fontSize: 24.sp,
+                fontSize: 20.sp,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
@@ -141,7 +141,7 @@ class StatsCard extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 28.sp,
+                fontSize: 20.sp,
                 color: Colors.white,
               ),
             ),
@@ -168,7 +168,7 @@ class ReportCard extends StatelessWidget {
       elevation: 4,
       child: Container(
         width: double.infinity,
-        padding: EdgeInsets.all(32.w),
+        padding: EdgeInsets.all(16.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -177,13 +177,25 @@ class ReportCard extends StatelessWidget {
                 title,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 36.sp,
+                  fontSize: 24.sp,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            SizedBox(height: 32.h), // Added spacing
-            ...children,
+            SizedBox(height: 10.h),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+              itemCount: children.length,
+              itemBuilder: (context, index) {
+                return Padding(
+                  padding: EdgeInsets.only(bottom: 8.h), // Increased spacing
+                  child: children[index],
+                );
+              },
+            ),
+       
+            // ...children,
           ],
         ),
       ),
@@ -230,14 +242,14 @@ class CustomDropdown extends StatelessWidget {
     final validValue = items.contains(value) ? value : null;
 
     return SizedBox(
-      height: height ?? 80.h,
+      height: height ?? 60.h,
       child: DropdownButtonFormField<String>(
         value: validValue,
         decoration: InputDecoration(
           labelText: isRequired ? '$label *' : label,
           labelStyle: labelStyle ??
               TextStyle(
-                fontSize: 24.sp,
+                fontSize: 20.sp,
                 color: enabled ? Colors.grey[700] : Colors.grey[500],
               ),
           contentPadding: EdgeInsets.symmetric(
@@ -257,7 +269,7 @@ class CustomDropdown extends StatelessWidget {
         ),
         style: itemStyle ??
             TextStyle(
-              fontSize: 24.sp,
+              fontSize: 20.sp,
               color: enabled ? _textColor : Colors.grey[600],
             ),
         items: items.map((String item) {
@@ -266,7 +278,7 @@ class CustomDropdown extends StatelessWidget {
             child: Text(
               item,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 24.sp),
+              style: TextStyle(fontSize: 20.sp),
             ),
           );
         }).toList(),
@@ -281,7 +293,7 @@ class CustomDropdown extends StatelessWidget {
         isExpanded: true,
         icon: Icon(
           Icons.keyboard_arrow_down,
-          size: 28.sp,
+          size: 20.sp,
           color: enabled ? _iconColor : Colors.grey[400],
         ),
         dropdownColor: Colors.white,
@@ -324,13 +336,13 @@ class CustomTextField extends StatelessWidget {
     return _FormField(
       label: label,
       child: SizedBox(
-        height: 70.h,
+        height: 60.h,
         child: TextFormField(
           controller: controller,
           keyboardType: keyboardType,
           validator: validator,
           style: TextStyle(
-            fontSize: 26.sp,
+            fontSize: 20.sp,
             color: const Color(0xFF2D3748),
           ),
           decoration: InputDecoration(
@@ -411,7 +423,7 @@ class CustomDatePicker extends StatelessWidget {
           }
         },
         child: Container(
-          height: 70.h,
+          height: 60.h,
           padding: EdgeInsets.symmetric(horizontal: 16.w),
           decoration: BoxDecoration(
             border: Border.all(color: const Color(0xFFE2E8F0)),
@@ -424,7 +436,7 @@ class CustomDatePicker extends StatelessWidget {
                 child: Text(
                   selectedDate?.toString().split(' ')[0] ?? 'Select date',
                   style: TextStyle(
-                    fontSize: 26.sp,
+                    fontSize: 20.sp,
                     color: selectedDate != null
                         ? const Color(0xFF2D3748)
                         : const Color(0xFF94A3B8),
@@ -433,7 +445,7 @@ class CustomDatePicker extends StatelessWidget {
               ),
               Icon(
                 Icons.calendar_today_outlined,
-                size: 24.sp,
+                size: 20.sp,
                 color: const Color(0xFF64748B),
               ),
             ],
@@ -456,14 +468,14 @@ class _FormField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 24.h), // Increased spacing
+      padding: EdgeInsets.only(bottom: 12.h), // Increased spacing
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
             style: TextStyle(
-              fontSize: 28.sp,
+              fontSize: 20.sp,
               fontWeight: FontWeight.w500,
               color: const Color(0xFF2D3748),
             ),
@@ -574,7 +586,7 @@ class CustomButton extends StatelessWidget {
         Text(
           text,
           style: TextStyle(
-            fontSize: 28.sp,
+            fontSize: 24.sp,
             fontWeight: FontWeight.w500,
           ),
         ),

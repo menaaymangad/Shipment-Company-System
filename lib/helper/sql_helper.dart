@@ -59,22 +59,20 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     String dbPath;
-    if (Platform.isWindows) {
-      // Use LOCALAPPDATA for storing app-specific data
-      final appDataPath = Platform.environment['LOCALAPPDATA']!;
-      dbPath =
-          join(appDataPath, 'EuknetTransport', 'data', 'euknet_transport.db');
 
-      // Ensure the data directory exists
-      final directory = Directory(dirname(dbPath));
-      if (!await directory.exists()) {
-        await directory.create(recursive: true);
-      }
-    } else {
-      // Use default documents path for other platforms
-      final documentsPath = await getDatabasesPath();
-      dbPath = join(documentsPath, 'euknet_transport.db');
+    // Get the directory where the application executable is located
+    final exeDir = File(Platform.resolvedExecutable).parent;
+
+    // Define the path for the Database folder within the application directory
+    final dbDir = Directory(join(exeDir.path, 'Database'));
+
+    // Ensure the Database folder exists
+    if (!await dbDir.exists()) {
+      await dbDir.create(recursive: true);
     }
+
+    // Define the path for the database file within the Database folder
+    dbPath = join(dbDir.path, 'euknet_transport.db');
 
     if (kDebugMode) {
       print('Opening database at: $dbPath');
@@ -91,23 +89,29 @@ class DatabaseHelper {
     );
   }
 
-// Add this helper method to DatabaseHelper class
-  // In sql_helper.dart
+  Future<String> getDatabasePath() async {
+    // Get the directory where the application executable is located
+    final exeDir = File(Platform.resolvedExecutable).parent;
+
+    // Define the path for the Database folder within the application directory
+    final dbDir = Directory(join(exeDir.path, 'Database'));
+
+    // Ensure the Database folder exists
+    if (!await dbDir.exists()) {
+      await dbDir.create(recursive: true);
+    }
+
+    // Return the path for the database file within the Database folder
+    return join(dbDir.path, 'euknet_transport.db');
+  }
+
   Future<void> resetDatabase() async {
     try {
       // Close existing connections first
       await DatabaseHelper.closeDatabase();
 
-      // Get correct database path using same logic as _initDatabase()
-      String dbPath;
-      if (Platform.isWindows) {
-        final appDataPath = Platform.environment['LOCALAPPDATA']!;
-        dbPath =
-            join(appDataPath, 'EuknetTransport', 'data', 'euknet_transport.db');
-      } else {
-        final documentsPath = await getDatabasesPath();
-        dbPath = join(documentsPath, 'euknet_transport.db');
-      }
+      // Get the new database path
+      final dbPath = await getDatabasePath();
 
       // Delete existing database file
       final file = File(dbPath);
@@ -322,12 +326,19 @@ class DatabaseHelper {
     }
   }
 
-Future<void> _insertDefaultAdminUser(Database db) async {
+ Future<void> _insertDefaultAdminUser(Database db) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('admin_username', 'admin');
-    await prefs.setString('admin_password', 'admin'); // Default password
-    if (kDebugMode) {
-      print('Admin credentials saved to SharedPreferences');
+
+    // Only set defaults if credentials don't exist
+    final adminUsername = prefs.getString('admin_username');
+    final adminPassword = prefs.getString('admin_password');
+
+    if (adminUsername == null || adminPassword == null) {
+      await prefs.setString('admin_username', 'admin');
+      await prefs.setString('admin_password', 'admin');
+      if (kDebugMode) {
+        print('Default admin credentials initialized');
+      }
     }
   }
 
@@ -339,17 +350,9 @@ Future<void> _insertDefaultAdminUser(Database db) async {
     }
   }
 
-  // Method to check if database exists
   Future<bool> databaseExists() async {
-    String dbPath;
-    if (Platform.isWindows) {
-      final exePath = Platform.resolvedExecutable;
-      final appDir = dirname(exePath);
-      dbPath = join(appDir, 'data', 'euknet_transport.db');
-    } else {
-      final documentsPath = await getDatabasesPath();
-      dbPath = join(documentsPath, 'euknet_transport.db');
-    }
+    // Get the new database path
+    final dbPath = await getDatabasePath();
     return File(dbPath).exists();
   }
 

@@ -10,15 +10,16 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'cities_list.dart';
 
 class CitiesPage extends StatefulWidget {
-  const CitiesPage({super.key,  });
+  const CitiesPage({
+    super.key,
+  });
   static String id = 'cities';
-
 
   @override
   State<CitiesPage> createState() => _CitiesPageState();
 }
 
-class _CitiesPageState extends State<CitiesPage> {
+class _CitiesPageState extends State<CitiesPage> with RouteAware {
   String _searchQuery = '';
   final _formKey = GlobalKey<FormState>();
 
@@ -38,6 +39,42 @@ class _CitiesPageState extends State<CitiesPage> {
     super.initState();
     context.read<CityCubit>().fetchCities();
     context.read<CountryCubit>().fetchCountries();
+    _restoreFormData();
+  }
+
+  @override
+  void deactivate() {
+    _saveFormData(); // Save data when leaving the screen
+    super.deactivate();
+  }
+
+  void _saveFormData() {
+    final formData = {
+      'cityName': _cityNameController.text,
+      'selectedCountry': _selectedCountry,
+      'doorToDoorPrice': _doorToDoorPriceController.text,
+      'priceKg': _priceKgController.text,
+      'minimumPrice': _minimumPriceController.text,
+      'boxPrice': _boxPriceController.text,
+      'hasAgent': _hasAgent,
+      'isPost': _isPost,
+    };
+    context.read<CityFormCubit>().saveFormData(formData);
+  }
+
+  void _restoreFormData() {
+    final formData = context.read<CityFormCubit>().state;
+    if (formData.isNotEmpty) {
+      _cityNameController.text = formData['cityName'] ?? '';
+      _selectedCountry = formData['selectedCountry'] ?? '';
+      _doorToDoorPriceController.text = formData['doorToDoorPrice'] ?? '';
+      _priceKgController.text = formData['priceKg'] ?? '';
+      _minimumPriceController.text = formData['minimumPrice'] ?? '';
+      _boxPriceController.text = formData['boxPrice'] ?? '';
+      _hasAgent = formData['hasAgent'] ?? false;
+      _isPost = formData['isPost'] ?? false;
+      setState(() {});
+    }
   }
 
   @override
@@ -47,10 +84,20 @@ class _CitiesPageState extends State<CitiesPage> {
     _priceKgController.dispose();
     _minimumPriceController.dispose();
     _boxPriceController.dispose();
+    routeObserver.unsubscribe(this);
     super.dispose();
   }
 
+  final RouteObserver<ModalRoute> routeObserver = RouteObserver<ModalRoute>();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
   void _clearForm() {
+    context.read<CityFormCubit>().clearFormData();
     _cityNameController.clear();
     _doorToDoorPriceController.clear();
     _priceKgController.clear();
@@ -310,4 +357,11 @@ class _CitiesPageState extends State<CitiesPage> {
       );
     });
   }
+}
+
+class CityFormCubit extends Cubit<Map<String, dynamic>> {
+  CityFormCubit() : super({});
+
+  void saveFormData(Map<String, dynamic> formData) => emit(formData);
+  void clearFormData() => emit({});
 }

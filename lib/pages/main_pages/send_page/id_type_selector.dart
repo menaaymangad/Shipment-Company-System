@@ -1,14 +1,16 @@
 // Modified SendUtils implementation for ID type selection
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class IdTypeSelector extends StatefulWidget {
   final Function(IdType) onTypeSelected;
   final IdType? currentType;
-
+  final Color? iconColor;
   const IdTypeSelector({
     super.key,
     required this.onTypeSelected,
     this.currentType,
+    this.iconColor,
   });
 
   @override
@@ -19,7 +21,10 @@ class _IdTypeSelectorState extends State<IdTypeSelector> {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      icon: const Icon(Icons.assignment_ind_outlined),
+      padding: EdgeInsets.all(0),
+      iconSize: 24.sp,
+      color: widget.iconColor,
+      icon: Icon(Icons.assignment_ind_outlined),
       onPressed: () {
         showDialog(
           context: context,
@@ -55,6 +60,7 @@ class _IdTypeSelectorState extends State<IdTypeSelector> {
     );
   }
 }
+
 // ID Type enum
 enum IdType {
   drivingLicense,

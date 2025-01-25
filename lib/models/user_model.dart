@@ -15,6 +15,25 @@ class User {
     required this.password,
   });
 
+  // Add the copyWith method
+  User copyWith({
+    int? id,
+    String? userName,
+    String? branchName,
+    String? authorization,
+    bool? allowLogin,
+    String? password,
+  }) {
+    return User(
+      id: id ?? this.id,
+      userName: userName ?? this.userName,
+      branchName: branchName ?? this.branchName,
+      authorization: authorization ?? this.authorization,
+      allowLogin: allowLogin ?? this.allowLogin,
+      password: password ?? this.password,
+    );
+  }
+
   factory User.fromMap(Map<String, dynamic> map) {
     return User(
       id: map['id'],

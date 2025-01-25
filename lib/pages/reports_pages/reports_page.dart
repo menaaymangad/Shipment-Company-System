@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:app/pages/reports_pages/reports_utils.dart';
@@ -38,12 +39,44 @@ class _ReportsScreenState extends State<ReportsScreen> {
   List<String> countries = [];
   Map<String, Map<String, dynamic>> countryTotals = {};
 
-  @override
+
+@override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _restoreFormData());
     _fetchDropdownData();
     _fetchStatsData();
     _fetchCountryData();
+  }
+
+  @override
+  void deactivate() {
+    _saveFormData();
+    super.deactivate();
+  }
+
+  void _saveFormData() {
+    final formData = {
+      'selectedOffice': selectedOffice,
+      'selectedTruck': selectedTruck,
+      'selectedEUCountry': selectedEUCountry,
+      'selectedAgentCity': selectedAgentCity,
+      'selectedDate': selectedDate?.toIso8601String(),
+    };
+    context.read<ReportsFormCubit>().saveFormData(formData);
+  }
+
+  void _restoreFormData() {
+    final formData = context.read<ReportsFormCubit>().state;
+    setState(() {
+      selectedOffice = formData['selectedOffice'];
+      selectedTruck = formData['selectedTruck'];
+      selectedEUCountry = formData['selectedEUCountry'];
+      selectedAgentCity = formData['selectedAgentCity'];
+      selectedDate = formData['selectedDate'] != null
+          ? DateTime.parse(formData['selectedDate'])
+          : null;
+    });
   }
 
   Future<void> _fetchDropdownData() async {
@@ -202,4 +235,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ],
     );
   }
+}
+class ReportsFormCubit extends Cubit<Map<String, dynamic>> {
+  ReportsFormCubit() : super({});
+
+  void saveFormData(Map<String, dynamic> formData) => emit(formData);
+  void clearFormData() => emit({});
 }

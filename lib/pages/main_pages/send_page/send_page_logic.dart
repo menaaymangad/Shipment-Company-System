@@ -42,27 +42,31 @@ class SendPageLogic {
       controllers['insuranceAmountController']!.text = '0.00';
     }
 
-    // Calculate shipping cost
-    double shippingCost = totalWeight * pricePerKg;
-    if (shippingCost < minimumPrice) {
-      shippingCost = minimumPrice;
+    // Calculate post sub cost (realWeight * pricePerKg)
+    double postSubCost = realWeight * pricePerKg;
+
+    // Ensure post sub cost is not less than the minimum price
+    if (postSubCost < minimumPrice) {
+      postSubCost = minimumPrice;
     }
 
-    // Calculate door-to-door cost
-    final doorToDoorCost = (realWeight / 10) * doorToDoorPrice;
+    // Update the post sub cost in the controller
+    controllers['postSubCostController']!.text = postSubCost.toStringAsFixed(2);
+
+    // Round up real weight to the nearest multiple of 10 for door-to-door cost
+    final roundedWeight = (realWeight / 10).ceil() * 10;
+
+    // Calculate door-to-door cost (roundedWeight / 10 * doorToDoorPrice)
+    final doorToDoorCost = (roundedWeight / 10) * doorToDoorPrice;
     controllers['doorToDoorCostController']!.text =
         doorToDoorCost.toStringAsFixed(2);
-
-    // Calculate post sub cost
-    final postSubCost = realWeight * pricePerKg;
-    controllers['postSubCostController']!.text = postSubCost.toStringAsFixed(2);
 
     // Calculate total post cost
     double totalPostCost = insuranceAmount +
         customsCost +
         boxPackingCost +
         doorToDoorCost +
-        postSubCost -
+        postSubCost - // Use the updated post sub cost here
         discountAmount;
     controllers['totalPostCostController']!.text =
         totalPostCost.toStringAsFixed(2);

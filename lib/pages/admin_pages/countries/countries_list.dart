@@ -1,6 +1,6 @@
-import 'package:app/models/country_model.dart';
-import 'package:app/widgets/data_grid_list.dart';
 import 'package:flutter/material.dart';
+import 'package:app/models/country_model.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class CountriesDataGrid extends StatelessWidget {
   final List<Country> countries;
@@ -14,59 +14,75 @@ class CountriesDataGrid extends StatelessWidget {
     this.searchQuery = '',
   });
 
-  static final List<DataGridColumn<Country>> _columns = [
-    DataGridColumn<Country>(
-      header: 'ID',
-      getValue: (country) => '${country.id ?? ''}',
-      flex: 1,
-    ),
-    DataGridColumn<Country>(
-      header: 'Country Name',
-      getValue: (country) => country.countryName,
-      flex: 2,
-    ),
-    DataGridColumn<Country>(
-      header: 'Alpha Code',
-      getValue: (country) => country.alpha2Code,
-      flex: 2,
-    ),
-    DataGridColumn<Country>(
-      header: 'Zip Code Digit 1',
-      getValue: (country) => country.zipCodeDigit1,
-      flex: 2,
-    ),
-    DataGridColumn<Country>(
-      header: 'Zip Code Digit 2',
-      getValue: (country) => country.zipCodeDigit2,
-      flex: 2,
-    ),
-    DataGridColumn<Country>(
-      header: 'Zip Code Text',
-      getValue: (country) => country.zipCodeText,
-      flex: 2,
-    ),
-    DataGridColumn<Country>(
-      header: 'Max Weight (KG)',
-      getValue: (country) => country.maxWeightKG.toString(),
-      flex: 2,
-    ),
-  ];
+  List<Country> _filterCountries(List<Country> countries, String query) {
+    if (query.isEmpty) return countries;
+
+    return countries.where((country) {
+      final searchLower = query.toLowerCase();
+      return country.countryName.toLowerCase().contains(searchLower) ||
+          country.currency.toLowerCase().contains(searchLower) ||
+          country.alpha2Code.toLowerCase().contains(searchLower);
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GenericDataGrid<Country>(
-      items: countries,
-      columns: _columns,
-      onItemSelected: onCountrySelected,
-      searchQuery: searchQuery,
-      searchPredicate: _searchCountry,
-    );
-  }
+    final filteredCountries = _filterCountries(countries, searchQuery);
 
-  static bool _searchCountry(Country country, String query) {
-    final lowercaseQuery = query.toLowerCase();
-    return country.countryName.toLowerCase().contains(lowercaseQuery) ||
-        country.currency.toLowerCase().contains(lowercaseQuery) ||
-        country.alpha2Code.toLowerCase().contains(lowercaseQuery);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withAlpha(40),
+            spreadRadius: 2,
+            blurRadius: 5,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          showCheckboxColumn: false,
+          columnSpacing: 16.w,
+          dataRowMinHeight: 56.h,
+          headingRowColor: WidgetStateProperty.all(Colors.grey[100]),
+          headingTextStyle: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
+          dataTextStyle: TextStyle(fontSize: 18.sp),
+          columns: [
+            DataColumn(label: Text('ID')),
+            DataColumn(label: Text('Country Name')),
+            DataColumn(label: Text('Alpha Code')),
+            DataColumn(label: Text('Zip Code Digit 1')),
+            DataColumn(label: Text('Zip Code Digit 2')),
+            DataColumn(label: Text('Zip Code Text')),
+            DataColumn(label: Text('Max Weight (KG)')),
+          ],
+          rows: filteredCountries.map((country) {
+            return DataRow(
+              color: WidgetStateProperty.resolveWith<Color?>(
+                (Set<WidgetState> states) {
+                  return states.contains(WidgetState.selected)
+                      ? Colors.grey[300]
+                      : null;
+                },
+              ),
+              cells: [
+                DataCell(Text('${country.id ?? ""}')),
+                DataCell(Text(country.countryName)),
+                DataCell(Text(country.alpha2Code)),
+                DataCell(Text(country.zipCodeDigit1)),
+                DataCell(Text(country.zipCodeDigit2)),
+                DataCell(Text(country.zipCodeText)),
+                DataCell(Text(country.maxWeightKG.toString())),
+              ],
+              onSelectChanged: (_) => onCountrySelected(country),
+            );
+          }).toList(),
+        ),
+      ),
+    );
   }
 }

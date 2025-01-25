@@ -29,6 +29,39 @@ class Branch {
     required this.invoiceLanguage,
   });
 
+  // Add the copyWith method
+  Branch copyWith({
+    int? id,
+    String? branchName,
+    String? contactPersonName,
+    String? branchCompany,
+    String? phoneNo1,
+    String? phoneNo2,
+    String? address,
+    String? city,
+    String? charactersPrefix,
+    String? yearPrefix,
+    int? numberOfDigits,
+    String? codeStyle,
+    String? invoiceLanguage,
+  }) {
+    return Branch(
+      id: id ?? this.id,
+      branchName: branchName ?? this.branchName,
+      contactPersonName: contactPersonName ?? this.contactPersonName,
+      branchCompany: branchCompany ?? this.branchCompany,
+      phoneNo1: phoneNo1 ?? this.phoneNo1,
+      phoneNo2: phoneNo2 ?? this.phoneNo2,
+      address: address ?? this.address,
+      city: city ?? this.city,
+      charactersPrefix: charactersPrefix ?? this.charactersPrefix,
+      yearPrefix: yearPrefix ?? this.yearPrefix,
+      numberOfDigits: numberOfDigits ?? this.numberOfDigits,
+      codeStyle: codeStyle ?? this.codeStyle,
+      invoiceLanguage: invoiceLanguage ?? this.invoiceLanguage,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

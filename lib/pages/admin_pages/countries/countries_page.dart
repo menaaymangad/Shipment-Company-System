@@ -13,14 +13,15 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:file_picker/file_picker.dart';
 
 class CountriesPage extends StatefulWidget {
-  const CountriesPage({super.key,});
-
+  const CountriesPage({
+    super.key,
+  });
 
   @override
   State<CountriesPage> createState() => _CountriesPageState();
 }
 
-class _CountriesPageState extends State<CountriesPage> {
+class _CountriesPageState extends State<CountriesPage>  {
   final TextEditingController _searchController = TextEditingController();
   final Map<String, TextEditingController> _controllers = {
     'countryId': TextEditingController(),
@@ -44,7 +45,58 @@ class _CountriesPageState extends State<CountriesPage> {
     super.initState();
     context.read<CountryCubit>().fetchCountries();
     context.read<CurrencyCubit>().fetchCurrencies();
+    _restoreFormData();
   }
+
+
+
+  @override
+  void deactivate() {
+    _saveFormData();
+    super.deactivate();
+  }
+
+  void _saveFormData() {
+    final formData = {
+      'countryName': _controllers['countryName']!.text,
+      'alpha2Code': _controllers['alpha2Code']!.text,
+      'zipCodeDigit1': _controllers['zipCodeDigit1']!.text,
+      'zipCodeDigit2': _controllers['zipCodeDigit2']!.text,
+      'zipCodeText': _controllers['zipCodeText']!.text,
+      'currencyRate': _controllers['currencyRate']!.text,
+      'maximumKg': _controllers['maximumKg']!.text,
+      'hasAgent': _hasAgent,
+      'circularImage': _selectedCircularImage,
+      'squareImage': _selectedSquareImage,
+      'selectedCurrency': _selectedCurrency,
+    };
+    context.read<CountryFormCubit>().saveFormData(formData);
+  }
+
+  void _restoreFormData() {
+    final formData = context.read<CountryFormCubit>().state;
+    if (formData.isNotEmpty) {
+      _controllers['countryName']!.text = formData['countryName'] ?? '';
+      _controllers['alpha2Code']!.text = formData['alpha2Code'] ?? '';
+      _controllers['zipCodeDigit1']!.text = formData['zipCodeDigit1'] ?? '';
+      _controllers['zipCodeDigit2']!.text = formData['zipCodeDigit2'] ?? '';
+      _controllers['zipCodeText']!.text = formData['zipCodeText'] ?? '';
+      _controllers['currencyRate']!.text = formData['currencyRate'] ?? '';
+      _controllers['maximumKg']!.text = formData['maximumKg'] ?? '';
+      _hasAgent = formData['hasAgent'] ?? false;
+      _selectedCircularImage = formData['circularImage'] ?? '';
+      _selectedSquareImage = formData['squareImage'] ?? '';
+      _selectedCurrency = formData['selectedCurrency'] ?? '';
+      setState(() {});
+    }
+  }
+
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +114,7 @@ class _CountriesPageState extends State<CountriesPage> {
                   onChanged: (query) => _filterCountries(query),
                   labelText: 'Search Countries',
                 ),
-    
+
                 // Countries Data Grid
                 Expanded(
                   child: BlocBuilder<CountryCubit, CountryState>(
@@ -88,7 +140,7 @@ class _CountriesPageState extends State<CountriesPage> {
             ),
           ),
         ),
-    
+
         // Form Section
         Flexible(
           flex: 2,
@@ -299,6 +351,8 @@ class _CountriesPageState extends State<CountriesPage> {
   }
 
   void _clearFields() {
+    context.read<CountryFormCubit>().clearFormData();
+    
     _controllers.forEach((_, controller) => controller.clear());
     setState(() {
       _selectedCountry = null;
@@ -628,7 +682,8 @@ class _CountriesPageState extends State<CountriesPage> {
       contentPadding: EdgeInsets.zero,
     );
   }
-Widget _buildCurrencyDropdown() {
+
+  Widget _buildCurrencyDropdown() {
     return BlocBuilder<CurrencyCubit, CurrencyState>(
       builder: (context, state) {
         if (state is CurrencyLoaded) {
@@ -670,7 +725,8 @@ Widget _buildCurrencyDropdown() {
       },
     );
   }
- void _populateFormFields(Country country) {
+
+  void _populateFormFields(Country country) {
     _controllers['countryId']?.text = country.id.toString();
     _controllers['countryName']?.text = country.countryName;
     _controllers['alpha2Code']?.text = country.alpha2Code;
@@ -687,6 +743,7 @@ Widget _buildCurrencyDropdown() {
       _selectedSquareImage = country.flagBoxLabel;
     });
   }
+
   bool _validateForm() {
     // Add your validation logic here
     if (_controllers['countryName']!.text.isEmpty ||
@@ -717,4 +774,10 @@ Widget _buildCurrencyDropdown() {
       flagBoxLabel: _selectedSquareImage,
     );
   }
+}
+class CountryFormCubit extends Cubit<Map<String, dynamic>> {
+  CountryFormCubit() : super({});
+
+  void saveFormData(Map<String, dynamic> formData) => emit(formData);
+  void clearFormData() => emit({});
 }

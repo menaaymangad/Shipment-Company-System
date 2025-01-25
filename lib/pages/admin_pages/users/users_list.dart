@@ -1,96 +1,84 @@
-import 'package:app/cubits/user_cubit/user_cubit.dart';
-import 'package:app/cubits/user_cubit/user_state.dart';
-import 'package:app/models/user_model.dart';
-import 'package:app/widgets/data_grid_list.dart';
-import 'package:app/widgets/page_utils.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:app/models/user_model.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-class UsersList extends StatefulWidget {
+class UsersList extends StatelessWidget {
+  final List<User> users;
   final Function(User) onUserSelected;
+  final String searchQuery;
 
-  const UsersList({super.key, required this.onUserSelected});
+  const UsersList({
+    super.key,
+    required this.users,
+    required this.onUserSelected,
+    this.searchQuery = '',
+  });
 
-  @override
-  State<UsersList> createState() => _UsersListState();
-}
+  List<User> _filterUsers(List<User> users, String query) {
+    if (query.isEmpty) return users;
 
-class _UsersListState extends State<UsersList> {
-  String _searchQuery = '';
-
-  // Grid columns definition
-  List<DataGridColumn<User>> get _userColumns => [
-        DataGridColumn<User>(
-          header: 'ID',
-          getValue: (user) => user.id?.toString() ?? '',
-          flex: 1,
-        ),
-        DataGridColumn<User>(
-          header: 'User Name',
-          getValue: (user) => user.userName,
-          flex: 2,
-        ),
-        DataGridColumn<User>(
-          header: 'Branch',
-          getValue: (user) => user.branchName,
-          flex: 2,
-        ),
-        DataGridColumn<User>(
-          header: 'Authorization',
-          getValue: (user) => user.authorization,
-          flex: 2,
-        ),
-        DataGridColumn<User>(
-          header: 'Allow Login',
-          getValue: (user) => user.allowLogin ? 'Yes' : 'No',
-          flex: 1,
-        ),
-      ];
-
-  // Search predicate for filtering users
-  bool _searchUsers(User user, String query) {
-    query = query.toLowerCase();
-    return user.userName.toLowerCase().contains(query) ||
-        user.branchName.toLowerCase().contains(query);
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    context.read<UserCubit>().fetchUsers();
+    return users.where((user) {
+      final searchLower = query.toLowerCase();
+      return user.userName.toLowerCase().contains(searchLower) ||
+          user.branchName.toLowerCase().contains(searchLower);
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        PageUtils.buildSearchBar(
-          onChanged: (value) => setState(() => _searchQuery = value),
-        ),
-        SizedBox(height: 16.h),
-        Expanded(
-          child: BlocBuilder<UserCubit, UserState>(
-            builder: (context, state) {
-              if (state is UserLoadingState) {
-                return const Center(child: CircularProgressIndicator());
-              }
+    final filteredUsers = _filterUsers(users, searchQuery);
 
-              if (state is UserLoadedState) {
-                return GenericDataGrid<User>(
-                  items: state.users,
-                  columns: _userColumns,
-                  onItemSelected: widget.onUserSelected,
-                  searchQuery: _searchQuery,
-                  searchPredicate: _searchUsers,
-                );
-              }
-
-              return const Center(child: Text('No data available'));
-            },
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withAlpha(40),
+            spreadRadius: 2,
+            blurRadius: 5,
+            offset: const Offset(0, 3),
           ),
+        ],
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          showCheckboxColumn: false,
+          columnSpacing: 48.w,
+          dataRowMinHeight: 56.h,
+          headingRowColor: WidgetStateProperty.all(Colors.grey[100]),
+          headingTextStyle:
+              TextStyle(fontSize: 30.sp, fontWeight: FontWeight.bold),
+          dataTextStyle: TextStyle(fontSize: 18.sp),
+          columns: [
+            DataColumn(label: Text('ID')),
+            DataColumn(label: Text('User Name')),
+            DataColumn(label: Text('Branch')),
+            DataColumn(label: Text('Authorization')),
+            DataColumn(label: Text('Allow Login')),
+          ],
+          rows: filteredUsers.map((user) {
+            return DataRow(
+              color: WidgetStateProperty.resolveWith<Color?>(
+                (Set<WidgetState> states) {
+                  return states.contains(WidgetState.selected)
+                      ? Colors.grey[300]
+                      : null;
+                },
+              ),
+              cells: [
+                DataCell(Text('${user.id ?? ""}')),
+                DataCell(Text(user.userName)),
+                DataCell(Text(user.branchName)),
+                DataCell(Text(user.authorization)),
+                DataCell(Text(user.allowLogin ? 'Yes' : 'No')),
+              ],
+              onSelectChanged: (_) => onUserSelected(user),
+            );
+          }).toList(),
         ),
-      ],
+      ),
     );
   }
 }

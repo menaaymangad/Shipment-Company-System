@@ -9,12 +9,15 @@ class GoodsDescriptionPopup extends StatefulWidget {
   final TextEditingController controller;
   final Function(List<GoodsDescription>) onDescriptionsSelected;
   final DatabaseHelper dbHelper;
-
+  final List<GoodsDescription> initialSelectedDescriptions;
+  final bool hasExistingValue;
   const GoodsDescriptionPopup({
     super.key,
     required this.controller,
     required this.onDescriptionsSelected,
     required this.dbHelper,
+    this.initialSelectedDescriptions = const [],
+    required this.hasExistingValue,
   });
 
   @override
@@ -38,8 +41,39 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   @override
   void initState() {
     super.initState();
-    _loadDescriptions();
+    selectedDescriptions = widget.initialSelectedDescriptions;
+    _loadDescriptions(); // Load goodsList
     _searchController.addListener(_filterList);
+  }
+
+  Future<void> _loadDescriptions() async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final descriptions = await widget.dbHelper.getAllGoodsDescriptions();
+      // Sync selectedDescriptions with fresh data
+      final validSelected = selectedDescriptions
+          .map((selected) => descriptions.firstWhere(
+                (desc) => desc.id == selected.id,
+                orElse: () => selected,
+              ))
+          .toList();
+      setState(() {
+        goodsList = descriptions;
+        filteredList = descriptions;
+        selectedDescriptions = validSelected; // Update selectedDescriptions
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+        errorMessage = 'Failed to load descriptions: $e';
+      });
+      _showError('Failed to load descriptions');
+    }
   }
 
   void _filterList() {
@@ -58,28 +92,6 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
             .toList();
       }
     });
-  }
-
-  Future<void> _loadDescriptions() async {
-    setState(() {
-      isLoading = true;
-      errorMessage = null;
-    });
-
-    try {
-      final descriptions = await widget.dbHelper.getAllGoodsDescriptions();
-      setState(() {
-        goodsList = descriptions;
-        filteredList = descriptions;
-        isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        isLoading = false;
-        errorMessage = 'Failed to load descriptions: $e';
-      });
-      _showError('Failed to load descriptions');
-    }
   }
 
   Future<void> _addNewDescription() async {
@@ -176,7 +188,11 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   Future<void> _deleteDescription(GoodsDescription description) async {
     try {
       await widget.dbHelper.deleteGoodsDescription(description.id!);
-      await _loadDescriptions();
+      await _loadDescriptions(); // Reload the list after deletion
+      setState(() {
+        selectedDescriptions.removeWhere(
+            (desc) => desc.id == description.id); // Remove from selected
+      });
       _showSuccess('Description deleted successfully');
     } catch (e) {
       _showError('Failed to delete description');
@@ -208,7 +224,7 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
       child: Container(
         width: MediaQuery.of(context).size.width * 0.9,
         height: MediaQuery.of(context).size.height * 0.8,
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16.r),
         child: Column(
           children: [
             Text(
@@ -217,7 +233,7 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                   : 'Edit Description',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             Row(
               children: [
                 Expanded(
@@ -230,7 +246,7 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.w),
                 Expanded(
                   child: TextField(
                     controller: _newDescriptionArController,
@@ -241,7 +257,7 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.w),
                 ElevatedButton(
                   onPressed: () {
                     if (_newDescriptionEnController.text.isEmpty ||
@@ -258,7 +274,7 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             TextField(
               controller: _searchController,
               decoration: const InputDecoration(
@@ -266,22 +282,24 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                 prefixIcon: Icon(Icons.search),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             Expanded(
               child: ListView.builder(
                 itemCount: filteredList.length,
                 itemBuilder: (context, index) {
                   final item = filteredList[index];
+                  final isSelected = selectedDescriptions.contains(item);
                   return ListTile(
                     leading: Checkbox(
-                      value: item.isSelected,
+                      value: selectedDescriptions
+                          .any((desc) => desc.id == item.id),
                       onChanged: (bool? value) {
                         setState(() {
-                          item.isSelected = value ?? false;
-                          if (item.isSelected) {
-                            selectedDescriptions.add(item);
+                          if (value ?? false) {
+                            selectedDescriptions.add(item); // Add to selected
                           } else {
-                            selectedDescriptions.remove(item);
+                            selectedDescriptions.removeWhere((desc) =>
+                                desc.id == item.id); // Remove from selected
                           }
                         });
                       },
@@ -291,16 +309,16 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (item.isSelected)
+                        if (isSelected)
                           SizedBox(
-                            width: 60,
+                            width: 60.w,
                             child: TextFormField(
                               initialValue: item.quantity.toString(),
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Qty',
                                 contentPadding:
-                                    EdgeInsets.symmetric(horizontal: 8),
+                                    EdgeInsets.symmetric(horizontal: 8.w),
                               ),
                               onChanged: (value) {
                                 setState(() {
@@ -310,16 +328,16 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                             ),
                           ),
                         SizedBox(width: 8.w),
-                        if (item.isSelected)
+                        if (isSelected)
                           SizedBox(
-                            width: 80,
+                            width: 80.w,
                             child: TextFormField(
                               initialValue: item.weight.toString(),
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Weight',
                                 contentPadding:
-                                    EdgeInsets.symmetric(horizontal: 8),
+                                    EdgeInsets.symmetric(horizontal: 8.w),
                               ),
                               onChanged: (value) {
                                 setState(() {
@@ -342,7 +360,8 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                 },
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
+            // Inside the build method of _GoodsDescriptionPopupState
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -359,15 +378,17 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                   ),
                 TextButton(
                   onPressed: () {
-                    widget.onDescriptionsSelected(selectedDescriptions);
+                    widget.onDescriptionsSelected(
+                        selectedDescriptions); // Pass updated selections
                     String descriptions = selectedDescriptions
-                        .map((desc) =>
-                            '${desc.descriptionEn} *${desc.quantity} (${desc.weight} KG)')
-                        .join('\t - ');
-                    widget.controller.text = descriptions;
+                        .map((desc) => '${desc.id} - ${desc.descriptionEn}')
+                        .join('\t \t \t');
+                    widget.controller.text =
+                        descriptions; // Update the controller text
                     Navigator.pop(context);
                   },
-                  child: const Text('Confirm Selection'),
+                  child: Text(
+                      widget.hasExistingValue ? 'Update' : 'Confirm Selection'),
                 ),
               ],
             ),

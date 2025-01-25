@@ -30,4 +30,13 @@ class GoodsDescription {
       'description_ar': descriptionAr,
     };
   }
+    @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GoodsDescription &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }

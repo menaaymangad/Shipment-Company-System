@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:app/cubits/login_cubit/login_cubit_cubit.dart';
 import 'package:app/cubits/login_cubit/login_cubit_state.dart';
@@ -6,12 +7,17 @@ import 'package:app/cubits/user_cubit/user_cubit.dart';
 import 'package:app/cubits/user_cubit/user_state.dart';
 import 'package:app/cubits/brach_cubit/branch_cubit.dart';
 import 'package:app/cubits/brach_cubit/branch_states.dart';
+import 'package:app/helper/shared_prefs_service.dart';
+import 'package:app/models/branches_model.dart';
 import 'package:app/pages/main_pages/main_page.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:window_manager/window_manager.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -21,7 +27,8 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginPage> with WindowListener {
+  final FocusNode _passwordFocusNode = FocusNode();
   String? selectedBranch;
   String? selectedUserName;
   bool isPasswordVisible = false;
@@ -30,19 +37,40 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
+    windowManager.addListener(this);
     context.read<BranchCubit>().fetchBranches();
     context.read<UserCubit>().fetchUsers();
+    _loadLastUserData();
+  }
+
+  Future<void> _loadLastUserData() async {
+    final lastLoginInfo = await SharedPrefsService.getLastLoginInfo();
+
+    if (lastLoginInfo['branch'] != null && lastLoginInfo['username'] != null) {
+      setState(() {
+        selectedBranch = lastLoginInfo['branch'];
+        selectedUserName = lastLoginInfo['username'];
+      });
+    }
   }
 
   @override
   void dispose() {
+    windowManager.removeListener(this);
     // Cancel the stream subscription when the widget is disposed
     _authSubscription?.cancel();
-
+    _passwordFocusNode.dispose();
     // Dispose the TextEditingController
     _passwordController.dispose();
 
     super.dispose();
+  }
+
+  @override
+  void onWindowFocus() {
+    // Make sure to call once.
+    setState(() {});
+    // do something
   }
 
   void _handleLogin() {
@@ -55,6 +83,7 @@ class _LoginPageState extends State<LoginPage> {
       _showErrorSnackBar('Please enter password');
       return;
     }
+    SharedPrefsService.saveLastLoginInfo(selectedBranch!, selectedUserName!);
 
     bool isLoading = true;
 
@@ -76,7 +105,7 @@ class _LoginPageState extends State<LoginPage> {
     // Listen for authentication state
     _authSubscription?.cancel(); // Cancel any existing subscription
     _authSubscription = context.read<AuthCubit>().stream.listen(
-      (state) {
+      (state) async {
         // Only proceed if we're still loading and the widget is mounted
         if (!isLoading || !mounted) return;
 
@@ -88,6 +117,13 @@ class _LoginPageState extends State<LoginPage> {
           isLoading = false;
 
           if (state is AuthSuccess) {
+            // Save the last logged-in user's data (except password)
+            if (selectedUserName != 'admin') {
+              final prefs = await SharedPreferences.getInstance();
+
+              await prefs.setString('last_branch', selectedBranch!);
+              await prefs.setString('last_username', selectedUserName!);
+            }
             // Navigate on success
             Navigator.pushReplacementNamed(context, MainLayout.id);
           } else if (state is AuthFailure) {
@@ -174,9 +210,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-
-
-
   Future<void> _resetPage() async {
     try {
       // Clear the password field
@@ -246,6 +279,11 @@ class _LoginPageState extends State<LoginPage> {
     final bool isCompact = windowSize.width < 1200;
 
     return Scaffold(
+      // appBar: const CustomWindowAppBar(
+      //   backgroundColor: Colors.white,
+      //   title: Text('Euknet Company'), // Optional
+      //   height: 30, showWindowControls: true,
+      // ),
       body: Row(
         children: [
           // Left Panel - Collapsible based on window size
@@ -416,40 +454,29 @@ class _LoginPageState extends State<LoginPage> {
     return BlocBuilder<BranchCubit, BranchState>(
       builder: (context, state) {
         if (state is BranchLoadedState) {
+          // Check if selectedBranch exists in current branch list
+          final isValidSelection =
+              state.branches.any((b) => b.branchName == selectedBranch);
+          if (!isValidSelection) {
+            // Reset selection if invalid
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() => selectedBranch = null);
+              }
+            });
+          }
+
           return DropdownButtonFormField<String>(
-            value: selectedBranch,
-            items: state.branches
-                .map((branch) => DropdownMenuItem<String>(
-                      value: branch.branchName,
-                      child: Text(branch.branchName),
-                    ))
-                .toList(),
+            value: isValidSelection ? selectedBranch : null,
+            items: _buildBranchItems(state.branches),
             onChanged: (value) {
               setState(() {
                 selectedBranch = value;
                 selectedUserName = null;
               });
             },
-            decoration: InputDecoration(
-              prefixIcon:
-                  const Icon(Icons.location_city, color: Color(0xff236BC9)),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xff236BC9)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xff236BC9)),
-              ),
-              labelText: 'Select Branch',
-              labelStyle: TextStyle(color: Colors.grey.shade600),
-              filled: true,
-              fillColor: Colors.grey.shade50,
-            ),
+            decoration:
+                _buildDropdownDecoration('Select Branch', Icons.location_city),
           );
         } else if (state is BranchErrorState) {
           return Text(state.errorMessage,
@@ -457,6 +484,47 @@ class _LoginPageState extends State<LoginPage> {
         }
         return const Center(child: CircularProgressIndicator());
       },
+    );
+  }
+
+  List<DropdownMenuItem<String>> _buildBranchItems(List<Branch> branches) {
+    // Create a LinkedHashSet to ensure uniqueness
+    final branchSet = LinkedHashSet<Branch>(
+      equals: (a, b) => a.branchName == b.branchName,
+      hashCode: (b) => b.branchName.hashCode,
+    );
+
+    // Add branches to the set (modifies the set in-place)
+    branchSet.addAll(branches);
+
+    // Convert the set back to a list of DropdownMenuItem
+    return branchSet
+        .map((branch) => DropdownMenuItem<String>(
+              value: branch.branchName,
+              child: Text(branch.branchName),
+            ))
+        .toList();
+  }
+
+  InputDecoration _buildDropdownDecoration(String label, IconData icon) {
+    return InputDecoration(
+      prefixIcon: Icon(icon, color: const Color(0xff236BC9)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xff236BC9)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0xff236BC9)),
+      ),
+      labelText: label,
+      labelStyle: TextStyle(color: Colors.grey.shade600),
+      filled: true,
+      fillColor: Colors.grey.shade50,
     );
   }
 
@@ -469,38 +537,27 @@ class _LoginPageState extends State<LoginPage> {
                   user.branchName == selectedBranch && user.allowLogin)
               .toList();
 
+          // Check if selected user exists in current user list
+          final isValidSelection =
+              users.any((u) => u.userName == selectedUserName);
+          if (!isValidSelection) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() => selectedUserName = null);
+              }
+            });
+          }
+
           return DropdownButtonFormField<String>(
-            value: selectedUserName,
+            value: isValidSelection ? selectedUserName : null,
             items: users
                 .map((user) => DropdownMenuItem<String>(
                       value: user.userName,
                       child: Text('${user.userName} (${user.authorization})'),
                     ))
                 .toList(),
-            onChanged: (value) {
-              setState(() {
-                selectedUserName = value;
-              });
-            },
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.person, color: Color(0xff236BC9)),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xff236BC9)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.grey.shade300),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xff236BC9)),
-              ),
-              labelText: 'Select User',
-              labelStyle: TextStyle(color: Colors.grey.shade600),
-              filled: true,
-              fillColor: Colors.grey.shade50,
-            ),
+            onChanged: (value) => setState(() => selectedUserName = value),
+            decoration: _buildDropdownDecoration('Select User', Icons.person),
           );
         } else if (state is UserErrorState) {
           return Text(state.errorMessage,
@@ -515,6 +572,7 @@ class _LoginPageState extends State<LoginPage> {
     return TextFormField(
       controller: _passwordController,
       obscureText: !isPasswordVisible,
+      focusNode: _passwordFocusNode,
       decoration: InputDecoration(
         prefixIcon: const Icon(Icons.lock, color: Color(0xff236BC9)),
         suffixIcon: IconButton(
@@ -545,99 +603,110 @@ class _LoginPageState extends State<LoginPage> {
         filled: true,
         fillColor: Colors.grey.shade50,
       ),
+      onFieldSubmitted: (value) {
+        _handleLogin(); // Trigger login on Enter key press
+      },
     );
   }
 
   Widget _buildButtons() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Primary Login Button with hover effect
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            child: BlocListener<AuthCubit, AuthState>(
-              listener: (context, state) {
-                if (state is AuthSuccess) {
-                  Navigator.pushReplacementNamed(context, MainLayout.id);
-                } else if (state is AuthFailure) {
-                  _showAuthErrorDialog(state.message);
-                }
-              },
-              child: ElevatedButton(
-                onPressed: _handleLogin,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1565C0),
-                  foregroundColor: Colors.white,
+    return KeyboardListener(
+      focusNode: FocusNode(),
+      onKeyEvent: (KeyEvent event) {
+        if (event.logicalKey == LogicalKeyboardKey.enter) {
+          _handleLogin();
+        }
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Primary Login Button with hover effect
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              child: BlocListener<AuthCubit, AuthState>(
+                listener: (context, state) {
+                  if (state is AuthSuccess) {
+                    Navigator.pushReplacementNamed(context, MainLayout.id);
+                  } else if (state is AuthFailure) {
+                    _showAuthErrorDialog(state.message);
+                  }
+                },
+                child: ElevatedButton(
+                  onPressed: _handleLogin,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1565C0),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ).copyWith(
+                    overlayColor: WidgetStateProperty.resolveWith<Color?>(
+                      (Set<WidgetState> states) {
+                        if (states.contains(WidgetState.hovered)) {
+                          return const Color(0xFF1976D2);
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  child: const Text(
+                    'Login',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Secondary Cancel Button with hover effect
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              child: OutlinedButton(
+                onPressed: () {
+                  _passwordController.clear();
+                  setState(() {
+                    selectedBranch = null;
+                    selectedUserName = null;
+                  });
+                },
+                style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
+                  side: BorderSide(color: Colors.grey.shade300),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  elevation: 2,
                 ).copyWith(
                   overlayColor: WidgetStateProperty.resolveWith<Color?>(
                     (Set<WidgetState> states) {
                       if (states.contains(WidgetState.hovered)) {
-                        return const Color(0xFF1976D2);
+                        return Colors.grey.shade100;
                       }
                       return null;
                     },
                   ),
                 ),
-                child: const Text(
-                  'Login',
+                child: Text(
+                  'Cancel',
                   style: TextStyle(
+                    color: Colors.grey[700],
                     fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        // Secondary Cancel Button with hover effect
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            child: OutlinedButton(
-              onPressed: () {
-                _passwordController.clear();
-                setState(() {
-                  selectedBranch = null;
-                  selectedUserName = null;
-                });
-              },
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                side: BorderSide(color: Colors.grey.shade300),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ).copyWith(
-                overlayColor: WidgetStateProperty.resolveWith<Color?>(
-                  (Set<WidgetState> states) {
-                    if (states.contains(WidgetState.hovered)) {
-                      return Colors.grey.shade100;
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: Colors.grey[700],
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -683,6 +752,12 @@ class _LoginPageState extends State<LoginPage> {
     final passwordController = TextEditingController();
     bool isPasswordVisible = false;
 
+    // FocusNode for the password field
+    final FocusNode _passwordFocusNode = FocusNode();
+
+    // Form key for validation
+    final _formKey = GlobalKey<FormState>();
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -702,76 +777,118 @@ class _LoginPageState extends State<LoginPage> {
               content: Container(
                 width: 400.w,
                 padding: EdgeInsets.all(20.w),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: usernameController,
-                      decoration: InputDecoration(
-                        prefixIcon:
-                            const Icon(Icons.person, color: Color(0xff236BC9)),
-                        labelText: "Username",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide:
-                              const BorderSide(color: Color(0xff236BC9)),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                      ),
-                    ),
-                    SizedBox(height: 20.h),
-                    TextField(
-                      controller: passwordController,
-                      obscureText: !isPasswordVisible,
-                      decoration: InputDecoration(
-                        prefixIcon:
-                            const Icon(Icons.lock, color: Color(0xff236BC9)),
-                        labelText: "Password",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide:
-                              const BorderSide(color: Color(0xff236BC9)),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            isPasswordVisible
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            color: const Color(0xff236BC9),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: usernameController,
+                        decoration: InputDecoration(
+                          prefixIcon: const Icon(Icons.person,
+                              color: Color(0xff236BC9)),
+                          labelText: "Username",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          onPressed: () {
-                            setState(() {
-                              isPasswordVisible = !isPasswordVisible;
-                            });
-                          },
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: Color(0xff236BC9)),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
                         ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Username is required';
+                          }
+                          return null;
+                        },
+                        onFieldSubmitted: (value) {
+                          // Move focus to the password field when Enter is pressed
+                          FocusScope.of(context)
+                              .requestFocus(_passwordFocusNode);
+                        },
                       ),
-                    ),
-                  ],
+                      SizedBox(height: 20.h),
+                      TextFormField(
+                        controller: passwordController,
+                        obscureText: !isPasswordVisible,
+                        focusNode: _passwordFocusNode,
+                        decoration: InputDecoration(
+                          prefixIcon:
+                              const Icon(Icons.lock, color: Color(0xff236BC9)),
+                          labelText: "Password",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: Color(0xff236BC9)),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              isPasswordVisible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                              color: const Color(0xff236BC9),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                isPasswordVisible = !isPasswordVisible;
+                              });
+                            },
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Password is required';
+                          }
+                          return null;
+                        },
+                        onFieldSubmitted: (value) {
+                          // Trigger login when Enter is pressed in the password field
+                          if (_formKey.currentState!.validate()) {
+                            _handleAdminLogin(context, usernameController.text,
+                                passwordController.text);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
               actions: [
-                // Cancel Button...
+                // Cancel Button
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context); // Close the dialog
+                  },
+                  child: const Text(
+                    "Cancel",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                // Login Button
                 ElevatedButton(
-                  onPressed: () => _handleAdminLogin(context,
-                      usernameController.text, passwordController.text),
+                  onPressed: () {
+                    if (_formKey.currentState!.validate()) {
+                      _handleAdminLogin(context, usernameController.text,
+                          passwordController.text);
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xff236BC9),
                   ),

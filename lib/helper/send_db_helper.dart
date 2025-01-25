@@ -1,6 +1,9 @@
 // send_record_database_helper.dart
+import 'dart:io';
+
 import 'package:app/models/send_model.dart';
-import 'package:path/path.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class SendRecordDatabaseHelper {
@@ -18,17 +21,72 @@ class SendRecordDatabaseHelper {
     return _database!;
   }
 
-  Future<Database> _initDatabase() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'send_records.db');
+  Future<String> getDatabasePath() async {
+    // Get the application directory
+    final appDir = await getApplicationDocumentsDirectory();
 
+    // Create a 'Database' folder in the application directory
+    final dbDir = Directory(path.join(appDir.path, 'Database'));
+    if (!await dbDir.exists()) {
+      await dbDir.create(recursive: true);
+    }
+
+    // Return the full path for the database file
+    return path.join(dbDir.path, 'send_records.db');
+  }
+
+  Future<Database> _initDatabase() async {
+    final dbPath = await getDatabasePath();
     return await openDatabase(
-      path,
+      dbPath,
       version: 1,
       onCreate: _createTable,
     );
   }
 
+ // In SendRecordDatabaseHelper class
+
+  /// Delete all records for a specific year
+  Future<int> deleteRecordsByYear(String year) async {
+    final db = await database;
+    return await db.delete(
+      'send_records',
+      where: "strftime('%Y', date) = ?",
+      whereArgs: [year],
+    );
+  }
+
+  /// Delete a specific shipment by truck number within a year
+  Future<int> deleteSpecificShipment(String year, String truckNumber) async {
+    final db = await database;
+    return await db.delete(
+      'send_records',
+      where: "strftime('%Y', date) = ? AND truckNumber = ?",
+      whereArgs: [year, truckNumber],
+    );
+  }
+
+  /// Get all truck numbers for a specific year
+  Future<List<String>> getTruckNumbersByYear(String year) async {
+    final db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery(
+      "SELECT DISTINCT truckNumber FROM send_records WHERE strftime('%Y', date) = ?",
+      [year],
+    );
+    return result.map((e) => e['truckNumber']?.toString() ?? '').toList()
+      ..removeWhere((truckNumber) => truckNumber.isEmpty);
+  }
+  // In send_db_helper.dart
+  Future<List<String>> getAvailableYears() async {
+    final db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery(
+      "SELECT DISTINCT strftime('%Y', date) as year FROM send_records ORDER BY year DESC",
+    );
+    return result.map((e) => e['year']?.toString() ?? '').toList()
+      ..removeWhere((year) => year.isEmpty);
+  }
+
+ 
   Future<void> _createTable(Database db, int version) async {
     await db.execute('''
     CREATE TABLE send_records (

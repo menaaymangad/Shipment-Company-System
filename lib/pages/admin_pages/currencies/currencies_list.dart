@@ -1,7 +1,6 @@
-// currency_data_grid.dart
-import 'package:app/widgets/data_grid_list.dart';
 import 'package:flutter/material.dart';
-import '../../../models/currency_model.dart';
+import 'package:app/models/currency_model.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class CurrencyDataGrid extends StatelessWidget {
   final List<Currency> currencies;
@@ -15,37 +14,67 @@ class CurrencyDataGrid extends StatelessWidget {
     this.searchQuery = '',
   });
 
+  List<Currency> _filterCurrencies(List<Currency> currencies, String query) {
+    if (query.isEmpty) return currencies;
+
+    return currencies.where((currency) {
+      final searchLower = query.toLowerCase();
+      return currency.currencyName.toLowerCase().contains(searchLower) ||
+          currency.currencyAgainst1IraqiDinar.toString().contains(searchLower);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GenericDataGrid<Currency>(
-      items: currencies,
-      onItemSelected: onCurrencySelected,
-      searchQuery: searchQuery,
-      searchPredicate: (currency, query) {
-        final lowercaseQuery = query.toLowerCase();
-        return currency.currencyName.toLowerCase().contains(lowercaseQuery) ||
-            currency.currencyAgainst1IraqiDinar
-                .toString()
-                .contains(lowercaseQuery);
-      },
-      columns: [
-        DataGridColumn<Currency>(
-          header: 'ID',
-          getValue: (currency) => '${currency.id ?? ''}',
-          flex: 1,
+    final filteredCurrencies = _filterCurrencies(currencies, searchQuery);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withAlpha(40),
+            spreadRadius: 2,
+            blurRadius: 5,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          showCheckboxColumn: false,
+          columnSpacing: 100.w,
+          dataRowMinHeight: 56.h,
+          headingRowColor: WidgetStateProperty.all(Colors.grey[100]),
+          headingTextStyle:
+              TextStyle(fontSize: 32.sp, fontWeight: FontWeight.bold),
+          dataTextStyle: TextStyle(fontSize: 18.sp),
+          columns: [
+            DataColumn(label: Text('ID')),
+            DataColumn(label: Text('Currency Name')),
+            DataColumn(label: Text('Rate Against 1 Iraqi Dinar')),
+          ],
+          rows: filteredCurrencies.map((currency) {
+            return DataRow(
+              color: WidgetStateProperty.resolveWith<Color?>(
+                (Set<WidgetState> states) {
+                  return states.contains(WidgetState.selected)
+                      ? Colors.grey[300]
+                      : null;
+                },
+              ),
+              cells: [
+                DataCell(Text('${currency.id ?? ""}')),
+                DataCell(Text(currency.currencyName)),
+                DataCell(Text(currency.currencyAgainst1IraqiDinar.toString())),
+              ],
+              onSelectChanged: (_) => onCurrencySelected(currency),
+            );
+          }).toList(),
         ),
-        DataGridColumn<Currency>(
-          header: 'Currency Name',
-          getValue: (currency) => currency.currencyName,
-          flex: 2,
-        ),
-        DataGridColumn<Currency>(
-          header: 'Rate Against 1 Iraqi Dinar',
-          getValue: (currency) =>
-              currency.currencyAgainst1IraqiDinar.toString(),
-          flex: 2,
-        ),
-      ],
+      ),
     );
   }
 }
