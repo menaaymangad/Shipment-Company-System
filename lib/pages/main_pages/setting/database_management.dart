@@ -13,7 +13,6 @@ import 'package:app/models/currency_model.dart';
 import 'package:app/models/good_description_model.dart';
 import 'package:app/models/send_model.dart';
 import 'package:app/models/user_model.dart';
-import 'package:csv/csv.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -22,281 +21,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class DatabaseManagementExcelImport {
   final dbHelper = DatabaseHelper();
-  static Future<void> exportToCsv(BuildContext context) async {
-    final dbHelper = DatabaseHelper();
-    List<Branch> branches = await dbHelper.getAllBranches();
-    List<City> cities = await dbHelper.getAllCities();
-    List<Country> countries = await dbHelper.getAllCountries();
-    List<Currency> currencies = await dbHelper.getAllCurrencies();
-    List<GoodsDescription> goodsDescriptions =
-        await dbHelper.getAllGoodsDescriptions();
-    List<SendRecord> sendRecords =
-        await SendRecordDatabaseHelper().getAllSendRecords();
-    List<User> users = await dbHelper.getAllUsers();
-
-    List<List<dynamic>> rows = [];
-
-    // Export Branches
-    rows.add(['Branches']);
-    rows.add([
-      'id',
-      'branchName',
-      'contactPersonName',
-      'branchCompany',
-      'phoneNo1',
-      'phoneNo2',
-      'address',
-      'city',
-      'charactersPrefix',
-      'yearPrefix',
-      'numberOfDigits',
-      'codeStyle',
-      'invoiceLanguage'
-    ]);
-    for (var branch in branches) {
-      rows.add([
-        branch.id,
-        branch.branchName,
-        branch.contactPersonName,
-        branch.branchCompany,
-        branch.phoneNo1,
-        branch.phoneNo2,
-        branch.address,
-        branch.city,
-        branch.charactersPrefix,
-        branch.yearPrefix,
-        branch.numberOfDigits,
-        branch.codeStyle,
-        branch.invoiceLanguage
-      ]);
-    }
-    rows.add([]); // Add an empty row after the table
-
-    // Export Cities
-    rows.add(['Cities']);
-    rows.add([
-      'id',
-      'cityName',
-      'country',
-      'hasAgent',
-      'isPost',
-      'doorToDoorPrice',
-      'priceKg',
-      'minimumPrice',
-      'boxPrice'
-    ]);
-    for (var city in cities) {
-      rows.add([
-        city.id,
-        city.cityName,
-        city.country,
-        city.hasAgent,
-        city.isPost,
-        city.doorToDoorPrice,
-        city.priceKg,
-        city.minimumPrice,
-        city.boxPrice
-      ]);
-    }
-    rows.add([]); // Add an empty row after the table
-
-    // Export Countries
-    rows.add(['Countries']);
-    rows.add([
-      'id',
-      'countryName',
-      'alpha2Code',
-      'zipCodeDigit1',
-      'zipCodeDigit2',
-      'zipCodeText',
-      'currency',
-      'currencyAgainstIQD',
-      'hasAgent',
-      'maxWeightKG',
-      'flagBoxLabel',
-      'postBoxLabel'
-    ]);
-    for (var country in countries) {
-      rows.add([
-        country.id,
-        country.countryName,
-        country.alpha2Code,
-        country.zipCodeDigit1,
-        country.zipCodeDigit2,
-        country.zipCodeText,
-        country.currency,
-        country.currencyAgainstIQD,
-        country.hasAgent,
-        country.maxWeightKG,
-        country.flagBoxLabel,
-        country.postBoxLabel
-      ]);
-    }
-    rows.add([]); // Add an empty row after the table
-
-    // Export Currencies
-    rows.add(['Currencies']);
-    rows.add(['id', 'currencyName', 'currencyAgainst1IraqiDinar']);
-    for (var currency in currencies) {
-      rows.add([
-        currency.id,
-        currency.currencyName,
-        currency.currencyAgainst1IraqiDinar
-      ]);
-    }
-    rows.add([]); // Add an empty row after the table
-
-    // Export Goods Descriptions
-    rows.add(['Goods Descriptions']);
-    rows.add(['id', 'descriptionEn', 'descriptionAr', 'weight']);
-    for (var goods in goodsDescriptions) {
-      rows.add(
-          [goods.id, goods.descriptionEn, goods.descriptionAr, goods.weight]);
-    }
-    rows.add([]); // Add an empty row after the table
-
-    // Export Send Records
-    rows.add(['Send Records']);
-    rows.add([
-      'id',
-      'date',
-      'truckNumber',
-      'codeNumber',
-      'senderName',
-      'senderPhone',
-      'senderIdNumber',
-      'goodsDescription',
-      'boxNumber',
-      'palletNumber',
-      'realWeightKg',
-      'length',
-      'width',
-      'height',
-      'isDimensionCalculated',
-      'additionalKg',
-      'totalWeightKg',
-      'agentName',
-      'branchName',
-      'agentCode',
-      'receiverName',
-      'receiverPhone',
-      'receiverCountry',
-      'receiverCity',
-      'streetName',
-      'apartmentNumber',
-      'zipCode',
-      'postalCity',
-      'postalCountry',
-      'doorToDoorPrice',
-      'pricePerKg',
-      'minimumPrice',
-      'insurancePercent',
-      'goodsValue',
-      'agentCommission',
-      'insuranceAmount',
-      'customsCost',
-      'exportDocCost',
-      'boxPackingCost',
-      'doorToDoorCost',
-      'postSubCost',
-      'discountAmount',
-      'totalPostCost',
-      'totalPostCostPaid',
-      'unpaidAmount',
-      'totalCostEuroCurrency',
-      'unpaidAmountEuro'
-    ]);
-    for (var record in sendRecords) {
-      rows.add([
-        record.id,
-        record.date,
-        record.truckNumber,
-        record.codeNumber,
-        record.senderName,
-        record.senderPhone,
-        record.senderIdNumber,
-        record.goodsDescription,
-        record.boxNumber,
-        record.palletNumber,
-        record.realWeightKg,
-        record.length,
-        record.width,
-        record.height,
-        record.isDimensionCalculated,
-        record.additionalKg,
-        record.totalWeightKg,
-        record.agentName,
-        record.branchName,
-        record.agentCode,
-        record.receiverName,
-        record.receiverPhone,
-        record.receiverCountry,
-        record.receiverCity,
-        record.streetName,
-        record.apartmentNumber,
-        record.zipCode,
-        record.postalCity,
-        record.postalCountry,
-        record.doorToDoorPrice,
-        record.pricePerKg,
-        record.minimumPrice,
-        record.insurancePercent,
-        record.goodsValue,
-        record.agentCommission,
-        record.insuranceAmount,
-        record.customsCost,
-        record.exportDocCost,
-        record.boxPackingCost,
-        record.doorToDoorCost,
-        record.postSubCost,
-        record.discountAmount,
-        record.totalPostCost,
-        record.totalPostCostPaid,
-        record.unpaidAmount,
-        record.totalCostEuroCurrency,
-        record.unpaidAmountEuro
-      ]);
-    }
-    rows.add([]); // Add an empty row after the table
-
-    // Export Users
-    rows.add(['Users']);
-    rows.add([
-      'id',
-      'userName',
-      'branchName',
-      'authorization',
-      'allowLogin',
-      'password'
-    ]);
-    for (var user in users) {
-      rows.add([
-        user.id,
-        user.userName,
-        user.branchName,
-        user.authorization,
-        user.allowLogin,
-        user.password
-      ]);
-    }
-
-    // Convert rows to CSV
-    String csv = const ListToCsvConverter().convert(rows);
-
-    // Let the user choose where to save the file
-    String? outputFilePath = await FilePicker.platform.saveFile(
-      dialogTitle: 'Save CSV File',
-      fileName: 'export.csv',
-      allowedExtensions: ['csv'],
-    );
-
-    if (outputFilePath != null) {
-      await File(outputFilePath).writeAsString(csv);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Data exported to $outputFilePath')),
-      );
-    }
-  }
+ 
 
   static Future<void> exportToExcel(BuildContext context) async {
     try {
@@ -529,25 +254,24 @@ class DatabaseManagementExcelImport {
                     record.totalWeightKg,
                     record.agentName,
                     record.branchName,
-                    record.agentCode,
+            
                     record.receiverName,
                     record.receiverPhone,
                     record.receiverCountry,
                     record.receiverCity,
                     record.streetName,
-                    record.apartmentNumber,
+                
                     record.zipCode,
-                    record.postalCity,
-                    record.postalCountry,
+                
                     record.doorToDoorPrice,
                     record.pricePerKg,
                     record.minimumPrice,
                     record.insurancePercent,
                     record.goodsValue,
-                    record.agentCommission,
+                
                     record.insuranceAmount,
                     record.customsCost,
-                    record.exportDocCost,
+                
                     record.boxPackingCost,
                     record.doorToDoorCost,
                     record.postSubCost,
@@ -598,33 +322,27 @@ class DatabaseManagementExcelImport {
         allowedExtensions: ['xlsx'],
       );
 
-      if (outputFilePath != null) {
-        // Save the Excel file
-        var fileBytes = excel.save();
-        if (fileBytes != null) {
-          File(outputFilePath)
-            ..createSync(recursive: true)
-            ..writeAsBytesSync(fileBytes);
+      // Save the Excel file
+      var fileBytes = excel.save();
+      if (fileBytes != null) {
+        File(outputFilePath!)
+          ..createSync(recursive: true)
+          ..writeAsBytesSync(fileBytes);
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Data exported to $outputFilePath')),
-          );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Data exported to $outputFilePath')),
+        );
 
-          // Debug log to check if the file is saved
-          if (kDebugMode) {
-            print('File saved at: $outputFilePath');
-          }
-        } else {
-          if (kDebugMode) {
-            print('Failed to save Excel file: fileBytes is null');
-          }
+        // Debug log to check if the file is saved
+        if (kDebugMode) {
+          print('File saved at: $outputFilePath');
         }
       } else {
         if (kDebugMode) {
-          print('File save dialog canceled by user');
+          print('Failed to save Excel file: fileBytes is null');
         }
       }
-    } catch (e) {
+        } catch (e) {
       if (kDebugMode) {
         print('Excel export error: $e');
       }
@@ -953,16 +671,15 @@ class DatabaseManagementExcelImport {
               0.0,
       agentName: rowData[headers.indexOf('agentName')] ?? '',
       branchName: rowData[headers.indexOf('branchName')] ?? '',
-      agentCode: rowData[headers.indexOf('agentCode')] ?? '',
+   
       receiverName: rowData[headers.indexOf('receiverName')] ?? '',
       receiverPhone: rowData[headers.indexOf('receiverPhone')] ?? '',
       receiverCountry: rowData[headers.indexOf('receiverCountry')] ?? '',
       receiverCity: rowData[headers.indexOf('receiverCity')] ?? '',
       streetName: rowData[headers.indexOf('streetName')] ?? '',
-      apartmentNumber: rowData[headers.indexOf('apartmentNumber')] ?? '',
+     
       zipCode: rowData[headers.indexOf('zipCode')] ?? '',
-      postalCity: rowData[headers.indexOf('postalCity')] ?? '',
-      postalCountry: rowData[headers.indexOf('postalCountry')] ?? '',
+
       doorToDoorPrice:
           double.tryParse(rowData[headers.indexOf('doorToDoorPrice')] ?? '') ??
               0.0,
@@ -976,17 +693,13 @@ class DatabaseManagementExcelImport {
               0.0,
       goodsValue:
           double.tryParse(rowData[headers.indexOf('goodsValue')] ?? '') ?? 0.0,
-      agentCommission:
-          double.tryParse(rowData[headers.indexOf('agentCommission')] ?? '') ??
-              0.0,
+    
       insuranceAmount:
           double.tryParse(rowData[headers.indexOf('insuranceAmount')] ?? '') ??
               0.0,
       customsCost:
           double.tryParse(rowData[headers.indexOf('customsCost')] ?? '') ?? 0.0,
-      exportDocCost:
-          double.tryParse(rowData[headers.indexOf('exportDocCost')] ?? '') ??
-              0.0,
+    
       boxPackingCost:
           double.tryParse(rowData[headers.indexOf('boxPackingCost')] ?? '') ??
               0.0,

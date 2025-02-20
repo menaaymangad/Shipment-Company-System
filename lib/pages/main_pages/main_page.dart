@@ -1,6 +1,8 @@
+import 'package:app/cubits/theme_cubit/theme_cubit_cubit.dart';
 import 'package:app/helper/shared_prefs_service.dart';
 import 'package:app/pages/main_pages/login_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -25,7 +27,9 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _buildAppBar(context),
+      appBar: selectedIndex == 1
+          ? _buildSendAppBar(context)
+          : _buildAppBar(context),
       body: Row(
         children: [
           _buildNavigationRail(),
@@ -35,7 +39,7 @@ class _MainLayoutState extends State<MainLayout> {
     );
   }
 
-  AppBar _buildAppBar(BuildContext context) {
+  AppBar _buildSendAppBar(BuildContext context) {
     return AppBar(
       toolbarHeight: 70.h,
       backgroundColor: Colors.white,
@@ -94,6 +98,86 @@ class _MainLayoutState extends State<MainLayout> {
           ),
         ],
       ),
+
+      // In _buildSendAppBar method
+      actions: [
+        BlocBuilder<SendThemeCubit, bool>(
+          builder: (context, isDark) => IconButton(
+            icon: Icon(
+              isDark ? Icons.light_mode : Icons.dark_mode,
+              color: Colors.black,
+            ),
+            onPressed: () => context.read<SendThemeCubit>().toggleTheme(),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.logout, color: Colors.black),
+          onPressed: _logout,
+        ),
+      ],
+    );
+  }
+
+  AppBar _buildAppBar(BuildContext context) {
+    return AppBar(
+      toolbarHeight: 70.h,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      elevation: 4, // Add elevation for a 3D effect
+      shadowColor: Colors.black.withAlpha(40), // Shadow color
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(10.r), // Rounded bottom corners
+        ),
+      ),
+      leading: IconButton(
+        icon: const Icon(
+          Icons.menu,
+          color: Color(0xFF2D3748),
+        ),
+        onPressed: () {
+          setState(() {
+            _isExpanded = !_isExpanded;
+          });
+        },
+      ),
+      title: Row(
+        children: [
+          Container(
+            height: 60.h,
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.blue.shade700,
+                  Colors.blue.shade400
+                ], // Gradient background
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(5.r),
+            ),
+            child: Center(
+              child: Text(
+                'EUKnet',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 28.sp,
+                ),
+              ),
+            ),
+          ),
+          Text(
+            ' TRANSPORT COMPANY',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+              fontSize: 28.sp,
+            ),
+          ),
+        ],
+      ),
+
       actions: [
         IconButton(
           icon: const Icon(Icons.logout, color: Colors.black), // Logout icon
@@ -142,7 +226,7 @@ class _MainLayoutState extends State<MainLayout> {
           minHeight: MediaQuery.of(context).size.height,
         ),
         child: NavigationRail(
-          backgroundColor: const Color(0xFFF5F7FA),
+          backgroundColor: Colors.blue,
           selectedIndex: selectedIndex,
           onDestinationSelected: (int index) {
             setState(() {
@@ -179,18 +263,18 @@ class _MainLayoutState extends State<MainLayout> {
       icon: Icon(
         icon,
         size: 30.sp,
-        color: const Color(0xFF64748B),
+        color: Colors.white,
       ),
       selectedIcon: Icon(
         icon,
         size: 30.sp,
-        color: const Color(0xFF3B82F6),
+        color: Colors.blue,
       ),
       label: Text(
         label,
         style: TextStyle(
           fontSize: 18.sp,
-          color: const Color(0xFF2D3748),
+          color: Colors.white,
         ),
       ),
     );
@@ -301,6 +385,7 @@ class _MainLayoutState extends State<MainLayout> {
       _buildDashboardButton('Send', Icons.send, Colors.blue, () {
         setState(() {
           customPage = const SendScreen();
+          selectedIndex = 1;
         });
       }),
       _buildDashboardButton('Reports', Icons.bar_chart, Colors.pink, () {

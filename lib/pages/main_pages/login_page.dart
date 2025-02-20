@@ -279,11 +279,6 @@ class _LoginPageState extends State<LoginPage> with WindowListener {
     final bool isCompact = windowSize.width < 1200;
 
     return Scaffold(
-      // appBar: const CustomWindowAppBar(
-      //   backgroundColor: Colors.white,
-      //   title: Text('Euknet Company'), // Optional
-      //   height: 30, showWindowControls: true,
-      // ),
       body: Row(
         children: [
           // Left Panel - Collapsible based on window size
@@ -322,7 +317,7 @@ class _LoginPageState extends State<LoginPage> with WindowListener {
         children: [
           // Logo with adaptive sizing
           SvgPicture.asset(
-            'assets/icons/EUKnet Logo (1).svg',
+            'assets/icons/EUKnet-Logo.svg',
             width: MediaQuery.of(context).size.width * 0.2,
             colorFilter: const ColorFilter.mode(
               Colors.white,
@@ -753,10 +748,10 @@ class _LoginPageState extends State<LoginPage> with WindowListener {
     bool isPasswordVisible = false;
 
     // FocusNode for the password field
-    final FocusNode _passwordFocusNode = FocusNode();
+    final FocusNode passwordFocusNode = FocusNode();
 
     // Form key for validation
-    final _formKey = GlobalKey<FormState>();
+    final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
@@ -778,7 +773,7 @@ class _LoginPageState extends State<LoginPage> with WindowListener {
                 width: 400.w,
                 padding: EdgeInsets.all(20.w),
                 child: Form(
-                  key: _formKey,
+                  key: formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -812,14 +807,14 @@ class _LoginPageState extends State<LoginPage> with WindowListener {
                         onFieldSubmitted: (value) {
                           // Move focus to the password field when Enter is pressed
                           FocusScope.of(context)
-                              .requestFocus(_passwordFocusNode);
+                              .requestFocus(passwordFocusNode);
                         },
                       ),
                       SizedBox(height: 20.h),
                       TextFormField(
                         controller: passwordController,
                         obscureText: !isPasswordVisible,
-                        focusNode: _passwordFocusNode,
+                        focusNode: passwordFocusNode,
                         decoration: InputDecoration(
                           prefixIcon:
                               const Icon(Icons.lock, color: Color(0xff236BC9)),
@@ -860,7 +855,7 @@ class _LoginPageState extends State<LoginPage> with WindowListener {
                         },
                         onFieldSubmitted: (value) {
                           // Trigger login when Enter is pressed in the password field
-                          if (_formKey.currentState!.validate()) {
+                          if (formKey.currentState!.validate()) {
                             _handleAdminLogin(context, usernameController.text,
                                 passwordController.text);
                           }
@@ -884,7 +879,7 @@ class _LoginPageState extends State<LoginPage> with WindowListener {
                 // Login Button
                 ElevatedButton(
                   onPressed: () {
-                    if (_formKey.currentState!.validate()) {
+                    if (formKey.currentState!.validate()) {
                       _handleAdminLogin(context, usernameController.text,
                           passwordController.text);
                     }

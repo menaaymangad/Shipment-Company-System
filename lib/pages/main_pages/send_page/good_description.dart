@@ -11,6 +11,7 @@ class GoodsDescriptionPopup extends StatefulWidget {
   final DatabaseHelper dbHelper;
   final List<GoodsDescription> initialSelectedDescriptions;
   final bool hasExistingValue;
+
   const GoodsDescriptionPopup({
     super.key,
     required this.controller,
@@ -47,33 +48,37 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   }
 
   Future<void> _loadDescriptions() async {
-    setState(() {
-      isLoading = true;
-      errorMessage = null;
-    });
-
+    setState(() => isLoading = true);
     try {
       final descriptions = await widget.dbHelper.getAllGoodsDescriptions();
-      // Sync selectedDescriptions with fresh data
-      final validSelected = selectedDescriptions
-          .map((selected) => descriptions.firstWhere(
-                (desc) => desc.id == selected.id,
-                orElse: () => selected,
-              ))
-          .toList();
+
+      // Merge existing selections with database entries
+      final mergedSelections = selectedDescriptions.map((selected) {
+        return descriptions.firstWhere(
+          (d) => d.id == selected.id,
+          orElse: () => selected, // Keep existing if not in DB
+        );
+      }).toList();
+
       setState(() {
         goodsList = descriptions;
         filteredList = descriptions;
-        selectedDescriptions = validSelected; // Update selectedDescriptions
+        selectedDescriptions = mergedSelections;
         isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        isLoading = false;
-        errorMessage = 'Failed to load descriptions: $e';
-      });
-      _showError('Failed to load descriptions');
+      setState(() => isLoading = false);
     }
+  }
+
+  void _toggleSelection(GoodsDescription item) {
+    setState(() {
+      if (selectedDescriptions.contains(item)) {
+        selectedDescriptions.remove(item); // Uncheck
+      } else {
+        selectedDescriptions.add(item); // Check
+      }
+    });
   }
 
   void _filterList() {
@@ -288,64 +293,49 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                 itemCount: filteredList.length,
                 itemBuilder: (context, index) {
                   final item = filteredList[index];
-                  final isSelected = selectedDescriptions.contains(item);
+                  final selectedItem = selectedDescriptions.firstWhere(
+                    (d) => d.id == item.id,
+                    orElse: () => item,
+                  );
+
                   return ListTile(
                     leading: Checkbox(
-                      value: selectedDescriptions
-                          .any((desc) => desc.id == item.id),
-                      onChanged: (bool? value) {
-                        setState(() {
-                          if (value ?? false) {
-                            selectedDescriptions.add(item); // Add to selected
-                          } else {
-                            selectedDescriptions.removeWhere((desc) =>
-                                desc.id == item.id); // Remove from selected
-                          }
-                        });
-                      },
+                      value: selectedDescriptions.any((d) => d.id == item.id),
+                      onChanged: (value) => _toggleSelection(item),
                     ),
                     title: Text('${item.id} - ${item.descriptionEn}'),
                     subtitle: Text(item.descriptionAr),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (isSelected)
+                        if (selectedDescriptions
+                            .any((d) => d.id == item.id)) ...[
                           SizedBox(
                             width: 60.w,
                             child: TextFormField(
-                              initialValue: item.quantity.toString(),
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                labelText: 'Qty',
-                                contentPadding:
-                                    EdgeInsets.symmetric(horizontal: 8.w),
-                              ),
+                              initialValue: selectedItem.quantity.toString(),
                               onChanged: (value) {
                                 setState(() {
-                                  item.quantity = int.tryParse(value) ?? 1;
+                                  selectedItem.quantity =
+                                      int.tryParse(value) ?? 1;
                                 });
                               },
                             ),
                           ),
-                        SizedBox(width: 8.w),
-                        if (isSelected)
+                          SizedBox(width: 8.w),
                           SizedBox(
                             width: 80.w,
                             child: TextFormField(
-                              initialValue: item.weight.toString(),
-                              keyboardType: TextInputType.number,
-                              decoration: InputDecoration(
-                                labelText: 'Weight',
-                                contentPadding:
-                                    EdgeInsets.symmetric(horizontal: 8.w),
-                              ),
+                              initialValue: selectedItem.weight.toString(),
                               onChanged: (value) {
                                 setState(() {
-                                  item.weight = double.tryParse(value) ?? 0.0;
+                                  selectedItem.weight =
+                                      double.tryParse(value) ?? 0.0;
                                 });
                               },
                             ),
                           ),
+                        ],
                         IconButton(
                           icon: const Icon(Icons.edit),
                           onPressed: () => _editItem(item),
@@ -378,17 +368,20 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                   ),
                 TextButton(
                   onPressed: () {
-                    widget.onDescriptionsSelected(
-                        selectedDescriptions); // Pass updated selections
-                    String descriptions = selectedDescriptions
-                        .map((desc) => '${desc.id} - ${desc.descriptionEn}')
-                        .join('\t \t \t');
-                    widget.controller.text =
-                        descriptions; // Update the controller text
+                    // Preserve existing selections with updates
+                    final updatedSelections = selectedDescriptions
+                        .where((selected) =>
+                            goodsList.any((item) => item.id == selected.id))
+                        .toList();
+
+                    widget.onDescriptionsSelected(updatedSelections);
+                    widget.controller.text = updatedSelections
+                        .map((d) =>
+                            '${d.descriptionEn} (${d.quantity}x${d.weight}kg)')
+                        .join(', ');
                     Navigator.pop(context);
                   },
-                  child: Text(
-                      widget.hasExistingValue ? 'Update' : 'Confirm Selection'),
+                  child: Text(widget.hasExistingValue ? 'Update' : 'Confirm'),
                 ),
               ],
             ),

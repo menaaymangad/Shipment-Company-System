@@ -6,7 +6,9 @@ import 'package:app/cubits/currencies_cubit/currencies_cubit.dart';
 import 'package:app/cubits/currencies_cubit/currencies_state.dart';
 import 'package:app/models/country_model.dart';
 import 'package:app/pages/admin_pages/countries/countries_list.dart';
+import 'package:app/widgets/asset_manager.dart';
 import 'package:app/widgets/page_utils.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -21,7 +23,7 @@ class CountriesPage extends StatefulWidget {
   State<CountriesPage> createState() => _CountriesPageState();
 }
 
-class _CountriesPageState extends State<CountriesPage>  {
+class _CountriesPageState extends State<CountriesPage> {
   final TextEditingController _searchController = TextEditingController();
   final Map<String, TextEditingController> _controllers = {
     'countryId': TextEditingController(),
@@ -47,8 +49,6 @@ class _CountriesPageState extends State<CountriesPage>  {
     context.read<CurrencyCubit>().fetchCurrencies();
     _restoreFormData();
   }
-
-
 
   @override
   void deactivate() {
@@ -91,12 +91,10 @@ class _CountriesPageState extends State<CountriesPage>  {
     }
   }
 
-
   @override
   void dispose() {
     super.dispose();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -352,7 +350,7 @@ class _CountriesPageState extends State<CountriesPage>  {
 
   void _clearFields() {
     context.read<CountryFormCubit>().clearFormData();
-    
+
     _controllers.forEach((_, controller) => controller.clear());
     setState(() {
       _selectedCountry = null;
@@ -430,11 +428,7 @@ class _CountriesPageState extends State<CountriesPage>  {
                                 icon: const Icon(Icons.delete_outline),
                                 color: Colors.red,
                                 tooltip: 'Remove image',
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedCircularImage = '';
-                                  });
-                                },
+                                onPressed: () => _handleImageDeletion(true),
                               ),
                             IconButton(
                               icon: const Icon(Icons.upload_file),
@@ -490,11 +484,7 @@ class _CountriesPageState extends State<CountriesPage>  {
                                 icon: const Icon(Icons.delete_outline),
                                 color: Colors.red,
                                 tooltip: 'Remove image',
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedSquareImage = '';
-                                  });
-                                },
+                                onPressed: () => _handleImageDeletion(false),
                               ),
                             IconButton(
                               icon: const Icon(Icons.upload_file),
@@ -602,24 +592,107 @@ class _CountriesPageState extends State<CountriesPage>  {
   }
 
   Future<void> _pickCircularImage() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-    );
-    if (result != null) {
-      setState(() {
-        _selectedCircularImage = result.files.single.path ?? '';
-      });
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final sourcePath = result.files.single.path!;
+        if (kDebugMode) {
+          print('Selected circular image path: $sourcePath');
+        }
+
+        final countryName =
+            _controllers['countryName']?.text.replaceAll(' ', '_') ?? 'flag';
+        final savedPath = await AssetManager.saveImageToAssets(
+          sourcePath,
+          'circular_$countryName',
+        );
+
+        setState(() {
+          _selectedCircularImage = savedPath;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Circular flag saved successfully')),
+          );
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error picking circular image: $e');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving circular flag: $e')),
+        );
+      }
     }
   }
 
   Future<void> _pickSquareImage() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-    );
-    if (result != null) {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final sourcePath = result.files.single.path!;
+        if (kDebugMode) {
+          print('Selected square image path: $sourcePath');
+        }
+
+        final countryName =
+            _controllers['countryName']?.text.replaceAll(' ', '_') ?? 'flag';
+
+        // This will now return an asset path instead of a file system path
+        final assetPath = await AssetManager.saveImageToAssets(
+          sourcePath,
+          'square_$countryName',
+        );
+
+        setState(() {
+          _selectedSquareImage = assetPath; // Store the asset path
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Square flag saved successfully')),
+          );
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error picking square image: $e');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving square flag: $e')),
+        );
+      }
+    }
+  }
+// Update the image deletion handling
+  void _handleImageDeletion(bool isCircular) async {
+    try {
+      final imagePath =
+          isCircular ? _selectedCircularImage : _selectedSquareImage;
+      await AssetManager.deleteImageFromAssets(imagePath);
       setState(() {
-        _selectedSquareImage = result.files.single.path ?? '';
+        if (isCircular) {
+          _selectedCircularImage = '';
+        } else {
+          _selectedSquareImage = '';
+        }
       });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting image: $e')),
+        );
+      }
     }
   }
 
@@ -775,6 +848,7 @@ class _CountriesPageState extends State<CountriesPage>  {
     );
   }
 }
+
 class CountryFormCubit extends Cubit<Map<String, dynamic>> {
   CountryFormCubit() : super({});
 

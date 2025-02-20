@@ -122,30 +122,33 @@ class StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: color,
-      child: Padding(
-        padding: EdgeInsets.all(8.w),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 20.sp,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+    return SizedBox(
+      width: 100.w,
+      child: Card(
+        color: color,
+        child: Padding(
+          padding: EdgeInsets.all(8.w),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 24.sp,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            SizedBox(height: 8.h), // Added spacing
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 20.sp,
-                color: Colors.white,
+              SizedBox(height: 8.h), // Added spacing
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 26.sp,
+                  color: Colors.white,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -169,34 +172,31 @@ class ReportCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: EdgeInsets.all(16.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Text(
-                title,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.bold,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 24.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            SizedBox(height: 10.h),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: children.length,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: EdgeInsets.only(bottom: 8.h), // Increased spacing
-                  child: children[index],
-                );
-              },
-            ),
-       
-            // ...children,
-          ],
+              SizedBox(height: 12.h),
+              Column(
+                children: children.map((child) {
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: 12.h),
+                    child: child,
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -261,7 +261,7 @@ class CustomDropdown extends StatelessWidget {
           border: _buildBorder(enabled: enabled),
           enabledBorder: _buildBorder(enabled: enabled),
           focusedBorder: _buildBorder(
-            color: SendUtils.primaryColor,
+          color: SendUtils.primaryColor(context),
             width: 2,
           ),
           disabledBorder: _buildBorder(enabled: false),
@@ -322,13 +322,14 @@ class CustomTextField extends StatelessWidget {
   final TextEditingController? controller;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
-
+  final bool? enabled;
   const CustomTextField({
     super.key,
     required this.label,
     this.controller,
     this.keyboardType,
     this.validator,
+    this.enabled,
   });
 
   @override
@@ -338,6 +339,7 @@ class CustomTextField extends StatelessWidget {
       child: SizedBox(
         height: 60.h,
         child: TextFormField(
+          enabled: enabled,
           controller: controller,
           keyboardType: keyboardType,
           validator: validator,

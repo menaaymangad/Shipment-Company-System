@@ -9,9 +9,12 @@ import 'package:app/cubits/countries_cubit/countries_cubit.dart';
 import 'package:app/cubits/countries_cubit/countries_state.dart';
 import 'package:app/cubits/currencies_cubit/currencies_cubit.dart';
 import 'package:app/cubits/login_cubit/login_cubit_cubit.dart';
+
 import 'package:app/cubits/send_cubit/send_cubit.dart';
 import 'package:app/cubits/send_cubit/send_state.dart';
+import 'package:app/cubits/theme_cubit/theme_cubit_cubit.dart';
 import 'package:app/helper/good_description_db_helper.dart';
+
 import 'package:app/helper/sql_helper.dart';
 import 'package:app/models/branches_model.dart';
 import 'package:app/models/city_model.dart';
@@ -28,6 +31,7 @@ import 'package:app/pages/main_pages/send_page/send_page_logic.dart';
 import 'package:app/pages/main_pages/send_page/send_record_dialog.dart';
 import 'package:app/widgets/consts.dart';
 import 'package:app/widgets/custom_button.dart';
+
 import 'package:app/widgets/send_utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -39,14 +43,20 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 
 class SendScreen extends StatefulWidget {
-  const SendScreen({super.key});
+  const SendScreen({
+    super.key,
+  });
   static String id = 'SendPage';
+
   @override
   State<SendScreen> createState() => _SendScreenState();
 }
 
 class _SendScreenState extends State<SendScreen> {
+  
+  List<GoodsDescription> selectedGoodsDescriptions = [];
   List<GoodsDescription> goodsList = [];
+  bool _isViewMode = false;
   final _formKey = GlobalKey<FormState>();
   double _selectedCurrencyAgainstIQD = 1.0;
   File? _selectedIdentificationPhoto;
@@ -59,6 +69,7 @@ class _SendScreenState extends State<SendScreen> {
     ControllerKeys.codeNumberController: TextEditingController(),
     ControllerKeys.boxNumberController: TextEditingController(),
     ControllerKeys.palletNumberController: TextEditingController(),
+    ControllerKeys.notesController: TextEditingController(),
     ControllerKeys.weightController: TextEditingController(),
     ControllerKeys.lengthController: TextEditingController(),
     ControllerKeys.widthController: TextEditingController(),
@@ -72,7 +83,6 @@ class _SendScreenState extends State<SendScreen> {
     ControllerKeys.receiverNameController: TextEditingController(),
     ControllerKeys.receiverPhoneController: TextEditingController(),
     ControllerKeys.streetController: TextEditingController(),
-    ControllerKeys.apartmentController: TextEditingController(),
     ControllerKeys.zipCodeController: TextEditingController(),
     ControllerKeys.insurancePercentController: TextEditingController(),
     ControllerKeys.goodsValueController: TextEditingController(),
@@ -91,6 +101,8 @@ class _SendScreenState extends State<SendScreen> {
     ControllerKeys.totalCostEurController: TextEditingController(),
     ControllerKeys.unpaidEurCostController: TextEditingController(),
   };
+  final Map<String, String> _truckCodeMap = {};
+  String? _pendingCodeNumber;
 
   String _selectedAgent = '';
   String? _selectedBranch;
@@ -103,12 +115,11 @@ class _SendScreenState extends State<SendScreen> {
   bool isPostCostPaid = false;
 
   IdType? _selectedIdType;
-  String? _lastTruckNumber;
   String? _selectedLanguage = '';
   double _boxPrice = 0.0;
-  bool _isModifying =
-      false; // Track if the user is modifying an existing record
-
+  bool _isModifying = false;
+  String? _selectedBranchPhoneNo1;
+  String? _selectedBranchPhoneNo2;
   // Add this method to fetch currencies
   void _fetchCurrencies() {
     try {
@@ -139,9 +150,7 @@ class _SendScreenState extends State<SendScreen> {
     // Retrieve the selected branch from AuthCubit
     final authCubit = context.read<AuthCubit>();
     _selectedBranch = authCubit.selectedBranch;
-    if (kDebugMode) {
-      print('Selected Branch: $_selectedBranch');
-    }
+
     // Fetch the branch details and set the Agent and Code Number fields
     if (_selectedBranch != null) {
       _fetchBranchAndSetAgentAndCode(_selectedBranch!);
@@ -178,6 +187,7 @@ class _SendScreenState extends State<SendScreen> {
     final formData = {
       'controllers':
           _controllers.map((key, controller) => MapEntry(key, controller.text)),
+      ' notes': _controllers[ControllerKeys.notesController]?.text ?? '',
       'isInsuranceEnabled': isInsuranceEnabled,
       'areDimensionsEnabled': areDimensionsEnabled,
       'selectedCountry': _selectedCountry,
@@ -213,8 +223,17 @@ class _SendScreenState extends State<SendScreen> {
       });
 
       // Restore goods description
-      _controllers[ControllerKeys.goodsDescriptionController]?.text =
-          formData['goodsDescription'] ?? '';
+      setState(() {
+        selectedGoodsDescriptions = _parseSelectedDescriptions(
+          formData['goodsDescription'] ?? '',
+        );
+        _controllers[ControllerKeys.notesController]?.text =
+            formData['notes'] ?? '';
+        _controllers[ControllerKeys.goodsDescriptionController]?.text =
+            selectedGoodsDescriptions
+                .map((desc) => '${desc.id} - ${desc.descriptionEn}')
+                .join('\n');
+      });
 
       // Restore the identification photo if it exists
       final identificationPhotoBase64 = formData['identificationPhoto'];
@@ -228,29 +247,6 @@ class _SendScreenState extends State<SendScreen> {
         });
       }
     }
-  }
-
-  void _onTruckNumberChanged(String truckNumber) async {
-    if (truckNumber.isEmpty) return;
-
-    if (truckNumber == _lastTruckNumber) {
-      // Increment the code number for the same truck
-      final nextCodeNumber =
-          await _getNextCodeNumber(truckNumber, _selectedBranch!);
-      setState(() {
-        _controllers[ControllerKeys.codeNumberController]?.text =
-            nextCodeNumber;
-      });
-    } else {
-      // Reset the code number for a new truck
-      setState(() {
-        _controllers[ControllerKeys.codeNumberController]?.text =
-            _initialCodeNumber;
-      });
-    }
-
-    // Update the last truck number
-    _lastTruckNumber = truckNumber;
   }
 
 // Helper method to fetch branch details and set the Agent field
@@ -280,9 +276,11 @@ class _SendScreenState extends State<SendScreen> {
       // Set the agent field to the contact person name of the selected branch
       setState(() {
         _selectedAgent = selectedBranch.contactPersonName;
-      });
-      setState(() {
+
         _selectedLanguage = selectedBranch.invoiceLanguage;
+        _selectedBranchPhoneNo1 =
+            selectedBranch.phoneNo1; // Set branch phone numbers
+        _selectedBranchPhoneNo2 = selectedBranch.phoneNo2;
       });
       // Set the initial code number from the branch's codeStyle
       setState(() {
@@ -403,19 +401,34 @@ class _SendScreenState extends State<SendScreen> {
         _controllers[ControllerKeys.truckNumberController]!.text,
         _selectedBranch!,
       );
-
+      final truckNumber =
+          _controllers[ControllerKeys.truckNumberController]!.text;
+      final pendingCode = _pendingCodeNumber ?? _initialCodeNumber;
       // Update the Code Number field in the UI
       setState(() {
         _controllers[ControllerKeys.codeNumberController]?.text =
             nextCodeNumber;
       });
+      List<GoodsDescription> selectedDescriptions = _parseSelectedDescriptions(
+          _controllers[ControllerKeys.goodsDescriptionController]?.text ?? '');
+      selectedDescriptions
+          .map((desc) => {
+                'id': desc.id,
+                'descriptionEn': desc.descriptionEn,
+                'descriptionAr': desc.descriptionAr,
+                'weight': desc.weight,
+                'quantity': desc.quantity,
+              })
+          .toList();
 
       // Create a new SendRecord
       final record = SendRecord(
         // Shipment Info
+        codeNumber: pendingCode,
         date: _controllers[ControllerKeys.dateController]?.text,
         truckNumber: _controllers[ControllerKeys.truckNumberController]?.text,
-        codeNumber: nextCodeNumber,
+        notes: _controllers[ControllerKeys.notesController]?.text,
+        // codeNumber: nextCodeNumber,
         boxNumber: int.tryParse(
             _controllers[ControllerKeys.boxNumberController]?.text ?? ''),
         palletNumber: int.tryParse(
@@ -438,8 +451,8 @@ class _SendScreenState extends State<SendScreen> {
         senderName: _controllers[ControllerKeys.senderNameController]?.text,
         senderPhone: _controllers[ControllerKeys.senderPhoneController]?.text,
         senderIdNumber: _controllers[ControllerKeys.senderIdController]?.text,
-        goodsDescription:
-            _controllers[ControllerKeys.goodsDescriptionController]?.text,
+        goodsDescription: jsonEncode(
+            selectedGoodsDescriptions.map((d) => d.toJson()).toList()),
 
         // Agent Info
         agentName: _selectedAgent,
@@ -454,7 +467,7 @@ class _SendScreenState extends State<SendScreen> {
 
         // All other fields as per your model...
         streetName: _controllers[ControllerKeys.streetController]?.text,
-        apartmentNumber: _controllers[ControllerKeys.apartmentController]?.text,
+
         zipCode: _controllers[ControllerKeys.zipCodeController]?.text,
         insurancePercent: double.tryParse(
             _controllers[ControllerKeys.insurancePercentController]?.text ??
@@ -473,8 +486,7 @@ class _SendScreenState extends State<SendScreen> {
             _controllers[ControllerKeys.insuranceAmountController]?.text ?? ''),
         customsCost: double.tryParse(
             _controllers[ControllerKeys.customsCostController]?.text ?? ''),
-        exportDocCost: double.tryParse(
-            _controllers[ControllerKeys.exportDocCostController]?.text ?? ''),
+
         boxPackingCost: double.tryParse(
             _controllers[ControllerKeys.boxPackingCostController]?.text ?? ''),
         doorToDoorCost: double.tryParse(
@@ -499,11 +511,20 @@ class _SendScreenState extends State<SendScreen> {
       // Save the record
       if (mounted) {
         await context.read<SendRecordCubit>().createSendRecord(record);
-
-        if (!mounted) return;
-        _showCustomSnackBar(context, 'Record saved successfully');
       }
-
+      // After successful save:
+      // 1. Update the truck-code map with the saved code
+      _truckCodeMap[truckNumber] = pendingCode;
+      // 2. Generate the next pending code
+      final nextCode = _incrementCodeNumber(pendingCode);
+      setState(() {
+        _pendingCodeNumber = nextCode;
+        _controllers[ControllerKeys.codeNumberController]!.text = nextCode;
+      });
+      // Refresh the code number after saving
+      _onTruckNumberChanged(truckNumber);
+      if (!mounted) return;
+      _showCustomSnackBar(context, 'Record saved successfully');
       // Your existing logic for saving the record...
     } catch (e) {
       if (mounted) {
@@ -537,6 +558,7 @@ class _SendScreenState extends State<SendScreen> {
       final record = SendRecord(
         id: currentRecordId, // Use the existing record ID
         // Shipment Info
+        notes: _controllers[ControllerKeys.notesController]?.text,
         date: _controllers[ControllerKeys.dateController]?.text,
         truckNumber: _controllers[ControllerKeys.truckNumberController]?.text,
         codeNumber: _controllers[ControllerKeys.codeNumberController]?.text,
@@ -578,7 +600,7 @@ class _SendScreenState extends State<SendScreen> {
 
         // All other fields as per your model...
         streetName: _controllers[ControllerKeys.streetController]?.text,
-        apartmentNumber: _controllers[ControllerKeys.apartmentController]?.text,
+
         zipCode: _controllers[ControllerKeys.zipCodeController]?.text,
         insurancePercent: double.tryParse(
             _controllers[ControllerKeys.insurancePercentController]?.text ??
@@ -597,8 +619,7 @@ class _SendScreenState extends State<SendScreen> {
             _controllers[ControllerKeys.insuranceAmountController]?.text ?? ''),
         customsCost: double.tryParse(
             _controllers[ControllerKeys.customsCostController]?.text ?? ''),
-        exportDocCost: double.tryParse(
-            _controllers[ControllerKeys.exportDocCostController]?.text ?? ''),
+
         boxPackingCost: double.tryParse(
             _controllers[ControllerKeys.boxPackingCostController]?.text ?? ''),
         doorToDoorCost: double.tryParse(
@@ -634,85 +655,181 @@ class _SendScreenState extends State<SendScreen> {
     }
   }
 
-  void _clearForm() {
+void _onTruckNumberChanged(String truckNumber) async {
+  if (truckNumber.isEmpty) {
+    // If the truck number is empty, reset to the initial code number
     setState(() {
-      _isModifying = false;
-      // Clear all fields except date, truck number, code number, agent, and branch
-      _controllers[ControllerKeys.boxNumberController]?.clear();
-      _controllers[ControllerKeys.palletNumberController]?.clear();
-      _controllers[ControllerKeys.weightController]?.clear();
-      _controllers[ControllerKeys.lengthController]?.clear();
-      _controllers[ControllerKeys.widthController]?.clear();
-      _controllers[ControllerKeys.heightController]?.clear();
-      _controllers[ControllerKeys.additionalKGController]?.clear();
-      _controllers[ControllerKeys.totalWeightController]?.clear();
-      _controllers[ControllerKeys.senderNameController]?.clear();
-      _controllers[ControllerKeys.senderPhoneController]?.clear();
-      _controllers[ControllerKeys.senderIdController]?.clear();
-      _controllers[ControllerKeys.goodsDescriptionController]?.clear();
-      _controllers[ControllerKeys.receiverNameController]?.clear();
-      _controllers[ControllerKeys.receiverPhoneController]?.clear();
-      _controllers[ControllerKeys.streetController]?.clear();
-      _controllers[ControllerKeys.apartmentController]?.clear();
-      _controllers[ControllerKeys.zipCodeController]?.clear();
-      _controllers[ControllerKeys.insurancePercentController]?.clear();
-      _controllers[ControllerKeys.goodsValueController]?.clear();
-      _controllers[ControllerKeys.doorToDoorPriceController]?.clear();
-      _controllers[ControllerKeys.pricePerKgController]?.clear();
-      _controllers[ControllerKeys.minimumPriceController]?.clear();
-      _controllers[ControllerKeys.insuranceAmountController]?.clear();
-      _controllers[ControllerKeys.customsCostController]?.clear();
-      _controllers[ControllerKeys.exportDocCostController]?.clear();
-      _controllers[ControllerKeys.boxPackingCostController]?.clear();
-      _controllers[ControllerKeys.doorToDoorCostController]?.clear();
-      _controllers[ControllerKeys.postSubCostController]?.clear();
-      _controllers[ControllerKeys.discountAmountController]?.clear();
-      _controllers[ControllerKeys.totalPostCostController]?.clear();
-      _controllers[ControllerKeys.totalPostCostPaidController]?.clear();
-      _controllers[ControllerKeys.unpaidAmountController]?.clear();
-      _controllers[ControllerKeys.totalCostEurController]?.clear();
-      _controllers[ControllerKeys.unpaidEurCostController]?.clear();
-
-      // Reset other state variables
-      _selectedCountry = '';
-      _selectedCity = '';
-      areDimensionsEnabled = false;
-      isInsuranceEnabled = false;
-      isPostCostPaid = false;
-      _selectedIdType = null;
-      _selectedIdentificationPhoto = null;
+      _controllers[ControllerKeys.codeNumberController]!.text = _initialCodeNumber;
     });
+    return;
+  }
+
+  try {
+    // Fetch all records for this truck
+    final records = await context.read<SendRecordCubit>().fetchAllSendRecords();
+    final truckRecords = records.where((r) => r.truckNumber == truckNumber).toList();
+
+    // Determine the latest code or use initial
+    String latestCode = truckRecords.isNotEmpty
+        ? truckRecords
+            .map((r) => r.codeNumber ?? '')
+            .reduce((a, b) => a.compareTo(b) > 0 ? a : b)
+        : _initialCodeNumber;
+
+    // Generate next code (only increment if records exist)
+    String nextCode = truckRecords.isNotEmpty
+        ? _incrementCodeNumber(latestCode)
+        : _initialCodeNumber; // Use initial code for new trucks
+
+    setState(() {
+      _controllers[ControllerKeys.codeNumberController]!.text = nextCode;
+    });
+  } catch (e) {
+    if (mounted) {
+      _showCustomSnackBar(context, 'Error fetching records: $e', isError: true);
+    }
+  }
+}
+  void _clearForm() async {
+    final truckNumber =
+        _controllers[ControllerKeys.truckNumberController]?.text ?? '';
+
+    // If no truck number is entered, reset to defaults
+    if (truckNumber.isEmpty) {
+      setState(() {
+        _controllers[ControllerKeys.codeNumberController]!.text =
+            _initialCodeNumber;
+      });
+      return;
+    }
+
+    try {
+      // Fetch all records from the database
+      final records =
+          await context.read<SendRecordCubit>().fetchAllSendRecords();
+
+      // Filter records for the current truck
+      final truckRecords =
+          records.where((r) => r.truckNumber == truckNumber).toList();
+
+      // Determine the latest code or use initial
+      String latestCode = truckRecords.isNotEmpty
+          ? truckRecords
+              .map((r) => r.codeNumber ?? '')
+              .reduce((a, b) => a.compareTo(b) > 0 ? a : b)
+          : _initialCodeNumber;
+
+      // Generate next code (only increment if records exist)
+      String nextCode = truckRecords.isNotEmpty
+          ? _incrementCodeNumber(latestCode)
+          : _initialCodeNumber; // Use initial code for new trucks
+
+      setState(() {
+        // Clear all fields except truck number and code
+        _controllers[ControllerKeys.notesController]?.clear();
+        _controllers[ControllerKeys.boxNumberController]?.clear();
+        _controllers[ControllerKeys.palletNumberController]?.clear();
+        _controllers[ControllerKeys.weightController]?.clear();
+        _controllers[ControllerKeys.lengthController]?.clear();
+        _controllers[ControllerKeys.widthController]?.clear();
+        _controllers[ControllerKeys.heightController]?.clear();
+        _controllers[ControllerKeys.additionalKGController]?.clear();
+        _controllers[ControllerKeys.totalWeightController]?.clear();
+        _controllers[ControllerKeys.senderNameController]?.clear();
+        _controllers[ControllerKeys.senderPhoneController]?.clear();
+        _controllers[ControllerKeys.senderIdController]?.clear();
+        _controllers[ControllerKeys.goodsDescriptionController]?.clear();
+        _controllers[ControllerKeys.receiverNameController]?.clear();
+        _controllers[ControllerKeys.receiverPhoneController]?.clear();
+        _controllers[ControllerKeys.streetController]?.clear();
+        _controllers[ControllerKeys.apartmentController]?.clear();
+        _controllers[ControllerKeys.zipCodeController]?.clear();
+        _controllers[ControllerKeys.insurancePercentController]?.clear();
+        _controllers[ControllerKeys.goodsValueController]?.clear();
+        _controllers[ControllerKeys.doorToDoorPriceController]?.clear();
+        _controllers[ControllerKeys.pricePerKgController]?.clear();
+        _controllers[ControllerKeys.minimumPriceController]?.clear();
+        _controllers[ControllerKeys.insuranceAmountController]?.clear();
+        _controllers[ControllerKeys.customsCostController]?.clear();
+        _controllers[ControllerKeys.exportDocCostController]?.clear();
+        _controllers[ControllerKeys.boxPackingCostController]?.clear();
+        _controllers[ControllerKeys.doorToDoorCostController]?.clear();
+        _controllers[ControllerKeys.postSubCostController]?.clear();
+        _controllers[ControllerKeys.discountAmountController]?.clear();
+        _controllers[ControllerKeys.totalPostCostController]?.clear();
+        _controllers[ControllerKeys.totalPostCostPaidController]?.clear();
+        _controllers[ControllerKeys.unpaidAmountController]?.clear();
+        _controllers[ControllerKeys.totalCostEurController]?.clear();
+        _controllers[ControllerKeys.unpaidEurCostController]?.clear();
+
+        // Set the code number
+        _controllers[ControllerKeys.codeNumberController]!.text = nextCode;
+
+        // Reset other state variables
+        _selectedCountry = '';
+        _selectedCity = '';
+        areDimensionsEnabled = false;
+        isInsuranceEnabled = false;
+        isPostCostPaid = false;
+        _selectedIdType = null;
+        _selectedIdentificationPhoto = null;
+      });
+    } catch (e) {
+      if (mounted) {
+        _showCustomSnackBar(context, 'Error fetching records: $e',
+            isError: true);
+      }
+    }
+  }
+
+  String _incrementCodeNumber(String codeNumber) {
+    final parts = codeNumber.split('-');
+    if (parts.length != 2) return _initialCodeNumber;
+
+    final prefix = parts[0];
+    final numericPart = parts[1];
+    final yearPrefix = numericPart.substring(0, 2);
+    final sequence = numericPart.substring(2);
+
+    final incremented = (int.tryParse(sequence) ?? 0) + 1;
+    final newSequence = incremented.toString().padLeft(sequence.length, '0');
+
+    return '$prefix-$yearPrefix$newSequence';
   }
 
   int? currentRecordId;
 
-  void _populateFormWithRecord(SendRecord record) {
+  void _populateFormWithRecord(SendRecord record, {bool isNewRecord = false}) {
     setState(() {
-      _isModifying = true;
+      _isModifying = !isNewRecord; // Set to false for new records
       currentRecordId = record.id;
-
-      // Shipment Info
-      _controllers[ControllerKeys.dateController]?.text = record.date ?? '';
+      // Always preserve truck number for new records
       _controllers[ControllerKeys.truckNumberController]?.text =
           record.truckNumber ?? '';
+
+      // Preserve code number
       _controllers[ControllerKeys.codeNumberController]?.text =
           record.codeNumber ?? '';
+      // Shipment Info
+      _controllers[ControllerKeys.dateController]?.text = record.date ?? '';
+      //
+      _controllers[ControllerKeys.notesController]?.text = record.notes ?? '';
       _controllers[ControllerKeys.boxNumberController]?.text =
-          record.boxNumber?.toString() ?? '';
+          isNewRecord ? '' : record.boxNumber?.toString() ?? '';
       _controllers[ControllerKeys.palletNumberController]?.text =
-          record.palletNumber?.toString() ?? '';
+          isNewRecord ? '' : record.palletNumber?.toString() ?? '';
       _controllers[ControllerKeys.weightController]?.text =
-          record.realWeightKg?.toString() ?? '';
+          isNewRecord ? '' : record.realWeightKg?.toString() ?? '';
       _controllers[ControllerKeys.lengthController]?.text =
-          record.length?.toString() ?? '';
+          isNewRecord ? '' : record.length?.toString() ?? '';
       _controllers[ControllerKeys.widthController]?.text =
-          record.width?.toString() ?? '';
+          isNewRecord ? '' : record.width?.toString() ?? '';
       _controllers[ControllerKeys.heightController]?.text =
-          record.height?.toString() ?? '';
+          isNewRecord ? '' : record.height?.toString() ?? '';
       _controllers[ControllerKeys.additionalKGController]?.text =
-          record.additionalKg?.toString() ?? '';
+          isNewRecord ? '' : record.additionalKg?.toString() ?? '';
       _controllers[ControllerKeys.totalWeightController]?.text =
-          record.totalWeightKg?.toString() ?? '';
+          isNewRecord ? '' : record.totalWeightKg?.toString() ?? '';
 
       // Sender Info
       _controllers[ControllerKeys.senderNameController]?.text =
@@ -721,12 +838,20 @@ class _SendScreenState extends State<SendScreen> {
           record.senderPhone ?? '';
       _controllers[ControllerKeys.senderIdController]?.text =
           record.senderIdNumber ?? '';
-      _controllers[ControllerKeys.goodsDescriptionController]?.text =
-          record.goodsDescription ?? '';
+      // Handle goods description
+      final goodsJson = record.goodsDescription ?? '';
+      final descriptions = _parseSelectedDescriptions(goodsJson);
 
-      // Agent Info
-      _selectedAgent = record.agentName ?? '';
-      _selectedBranch = record.branchName ?? '';
+      // Convert to formatted string
+      final formattedDescriptions = descriptions.map((desc) {
+        return '${desc.descriptionEn} - ${desc.quantity} x ${desc.weight} kg';
+      }).join('\n');
+
+      _controllers[ControllerKeys.goodsDescriptionController]?.text =
+          formattedDescriptions;
+
+      // Store full objects for later use
+      selectedGoodsDescriptions = descriptions;
 
       // Receiver Info
       _controllers[ControllerKeys.receiverNameController]?.text =
@@ -739,52 +864,37 @@ class _SendScreenState extends State<SendScreen> {
       // Postal Info
       _controllers[ControllerKeys.streetController]?.text =
           record.streetName ?? '';
-      _controllers[ControllerKeys.apartmentController]?.text =
-          record.apartmentNumber ?? '';
+
       _controllers[ControllerKeys.zipCodeController]?.text =
           record.zipCode ?? '';
 
-      // Insurance Info
-      _controllers[ControllerKeys.insurancePercentController]?.text =
-          record.insurancePercent?.toString() ?? '';
-      _controllers[ControllerKeys.goodsValueController]?.text =
-          record.goodsValue?.toString() ?? '';
-
-      // Costs Info
-      _controllers[ControllerKeys.doorToDoorPriceController]?.text =
-          record.doorToDoorPrice?.toString() ?? '';
-      _controllers[ControllerKeys.pricePerKgController]?.text =
-          record.pricePerKg?.toString() ?? '';
-      _controllers[ControllerKeys.minimumPriceController]?.text =
-          record.minimumPrice?.toString() ?? '';
-      _controllers[ControllerKeys.insuranceAmountController]?.text =
-          record.insuranceAmount?.toString() ?? '';
-      _controllers[ControllerKeys.customsCostController]?.text =
-          record.customsCost?.toString() ?? '';
-      _controllers[ControllerKeys.exportDocCostController]?.text =
-          record.exportDocCost?.toString() ?? '';
-      _controllers[ControllerKeys.boxPackingCostController]?.text =
-          record.boxPackingCost?.toString() ?? '';
-      _controllers[ControllerKeys.doorToDoorCostController]?.text =
-          record.doorToDoorCost?.toString() ?? '';
-      _controllers[ControllerKeys.postSubCostController]?.text =
-          record.postSubCost?.toString() ?? '';
-      _controllers[ControllerKeys.discountAmountController]?.text =
-          record.discountAmount?.toString() ?? '';
-      _controllers[ControllerKeys.totalPostCostController]?.text =
-          record.totalPostCost?.toString() ?? '';
-      _controllers[ControllerKeys.totalPostCostPaidController]?.text =
-          record.totalPostCostPaid?.toString() ?? '';
-      _controllers[ControllerKeys.unpaidAmountController]?.text =
-          record.unpaidAmount?.toString() ?? '';
-      _controllers[ControllerKeys.totalCostEurController]?.text =
-          record.totalCostEuroCurrency?.toString() ?? '';
-      _controllers[ControllerKeys.unpaidEurCostController]?.text =
-          record.unpaidAmountEuro?.toString() ?? '';
-
-      // Update checkboxes
-      areDimensionsEnabled = record.isDimensionCalculated ?? true;
+      // Reset all other fields for new records
+      if (isNewRecord) {
+        _controllers[ControllerKeys.boxNumberController]?.clear();
+        _controllers[ControllerKeys.palletNumberController]?.clear();
+        _controllers[ControllerKeys.weightController]?.clear();
+        _controllers[ControllerKeys.insurancePercentController]?.clear();
+        _controllers[ControllerKeys.goodsValueController]?.clear();
+        _controllers[ControllerKeys.doorToDoorPriceController]?.clear();
+        _controllers[ControllerKeys.pricePerKgController]?.clear();
+        _controllers[ControllerKeys.minimumPriceController]?.clear();
+        _controllers[ControllerKeys.insuranceAmountController]?.clear();
+        _controllers[ControllerKeys.customsCostController]?.clear();
+        _controllers[ControllerKeys.exportDocCostController]?.clear();
+        _controllers[ControllerKeys.boxPackingCostController]?.clear();
+        _controllers[ControllerKeys.doorToDoorCostController]?.clear();
+        _controllers[ControllerKeys.postSubCostController]?.clear();
+        _controllers[ControllerKeys.discountAmountController]?.clear();
+        _controllers[ControllerKeys.totalPostCostController]?.clear();
+        _controllers[ControllerKeys.totalPostCostPaidController]?.clear();
+        _controllers[ControllerKeys.unpaidAmountController]?.clear();
+        _controllers[ControllerKeys.totalCostEurController]?.clear();
+        _controllers[ControllerKeys.unpaidEurCostController]?.clear();
+      }
     });
+    if (isNewRecord && record.truckNumber != null) {
+      _onTruckNumberChanged(record.truckNumber!);
+    }
   }
 
   String? conditionalValidator(
@@ -803,9 +913,9 @@ class _SendScreenState extends State<SendScreen> {
         goodsList = descriptions;
       });
     } catch (e) {
-      if (kDebugMode) {
-        print('Failed to load goods descriptions: $e');
-      }
+      if (!mounted) return;
+      _showCustomSnackBar(context, 'Failed to load goods descriptions',
+          isError: true);
     }
   }
 
@@ -825,138 +935,217 @@ class _SendScreenState extends State<SendScreen> {
         child: Text('You are not authorized to access the Send page.'),
       );
     }
-    return Shortcuts(
-      shortcuts: {
-        // Define the shortcut (Ctrl + F)
-        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyF):
-            const ActivateIntent(),
-      },
-      child: Actions(
-        actions: {
-          // Map the ActivateIntent to the openDialog function
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (ActivateIntent intent) {
-              if (kDebugMode) {
-                print('Shortcut triggered: Ctrl + F');
-              }
-              _openCodeListDialog(); // Call the function to open the dialog
-              return null;
-            },
-          ),
-        },
-        child: Focus(
-          autofocus: true,
-          child: BlocListener<SendRecordCubit, SendRecordState>(
-            listener: (context, state) {
-              if (state is SendRecordError) {
-                _showCustomSnackBar(context, state.message, isError: true);
-              } else if (state is SendRecordLoaded) {
-                _showCustomSnackBar(context, 'Record saved successfully');
-              }
-            },
-            child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              child: Container(
-                color: Colors.grey,
-                child: Form(
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      IntrinsicHeight(
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildCard(child: buildMainCard()),
+    return BlocBuilder<SendThemeCubit, bool>(
+      builder: (context, isDark) {
+        return Theme(
+          data: isDark
+              ? ThemeData.dark().copyWith(
+                  colorScheme: const ColorScheme.dark(
+                    surface: Colors.black,
+                    primary: Color(0xFF3498DB),
+                  ),
+                  textTheme: ThemeData.dark().textTheme.copyWith(
+                        bodyLarge: TextStyle(fontWeight: FontWeight.bold),
+                        bodyMedium: TextStyle(fontWeight: FontWeight.bold),
+                        bodySmall: TextStyle(fontWeight: FontWeight.bold),
+                        titleLarge: TextStyle(fontWeight: FontWeight.bold),
+                        titleMedium: TextStyle(fontWeight: FontWeight.bold),
+                        titleSmall: TextStyle(fontWeight: FontWeight.bold),
+                        labelLarge: TextStyle(fontWeight: FontWeight.bold),
+                        labelMedium: TextStyle(fontWeight: FontWeight.bold),
+                        labelSmall: TextStyle(fontWeight: FontWeight.bold),
+                        headlineLarge: TextStyle(fontWeight: FontWeight.bold),
+                        headlineMedium: TextStyle(fontWeight: FontWeight.bold),
+                        headlineSmall: TextStyle(fontWeight: FontWeight.bold),
+                        displayLarge: TextStyle(fontWeight: FontWeight.bold),
+                        displayMedium: TextStyle(fontWeight: FontWeight.bold),
+                        displaySmall: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                  cardTheme: CardTheme(
+                    color: Colors.grey[850],
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  cardColor: Colors.black,
+                )
+              : ThemeData.light().copyWith(
+                  colorScheme: const ColorScheme.light(
+                    primary: Color(0xFF3498DB),
+                    surface: Colors.white,
+                  ),
+                  textTheme: ThemeData.light().textTheme.copyWith(
+                        bodyLarge: TextStyle(fontWeight: FontWeight.bold),
+                        bodyMedium: TextStyle(fontWeight: FontWeight.bold),
+                        bodySmall: TextStyle(fontWeight: FontWeight.bold),
+                        titleLarge: TextStyle(fontWeight: FontWeight.bold),
+                        titleMedium: TextStyle(fontWeight: FontWeight.bold),
+                        titleSmall: TextStyle(fontWeight: FontWeight.bold),
+                        labelLarge: TextStyle(fontWeight: FontWeight.bold),
+                        labelMedium: TextStyle(fontWeight: FontWeight.bold),
+                        labelSmall: TextStyle(fontWeight: FontWeight.bold),
+                        headlineLarge: TextStyle(fontWeight: FontWeight.bold),
+                        headlineMedium: TextStyle(fontWeight: FontWeight.bold),
+                        headlineSmall: TextStyle(fontWeight: FontWeight.bold),
+                        displayLarge: TextStyle(fontWeight: FontWeight.bold),
+                        displayMedium: TextStyle(fontWeight: FontWeight.bold),
+                        displaySmall: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                ),
+          child: Builder(
+            builder: (BuildContext context) {
+              return Shortcuts(
+                shortcuts: {
+                  // Define the shortcut (Ctrl + F)
+                  LogicalKeySet(
+                          LogicalKeyboardKey.control, LogicalKeyboardKey.keyF):
+                      const ActivateIntent(),
+                },
+                child: Actions(
+                  actions: {
+                    // Map the ActivateIntent to the openDialog function
+                    ActivateIntent: CallbackAction<ActivateIntent>(
+                      onInvoke: (ActivateIntent intent) {
+                        _openCodeListDialog(); // Call the function to open the dialog
+                        return null;
+                      },
+                    ),
+                  },
+                  child: Focus(
+                    autofocus: true,
+                    child: BlocListener<SendRecordCubit, SendRecordState>(
+                      listener: (context, state) {
+                        if (state is SendRecordError) {
+                          _showCustomSnackBar(context, state.message,
+                              isError: true);
+                        } else if (state is SendRecordLoaded) {
+                          _showCustomSnackBar(
+                              context, 'Record saved successfully');
+                        }
+                      },
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.vertical,
+                        child: Container(
+                          color: Colors.grey,
+                          child: Form(
+                            autovalidateMode:
+                                AutovalidateMode.onUserInteraction,
+                            key: _formKey,
+                            child: Column(
+                              children: [
+                                IntrinsicHeight(
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child:
+                                            _buildCard(child: buildMainCard()),
+                                      ),
+                                      Expanded(
+                                        child: _buildCard(child: agentCard()),
+                                      ),
+                                      Expanded(
+                                        child: _buildCard(
+                                            child: doorToDoorPriceCard()),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IntrinsicHeight(
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // First Column
+                                      Flexible(
+                                        child: Column(
+                                          children: [
+                                            _buildCard(
+                                                child: buildSenderCard()),
+                                            Expanded(
+                                              child: _buildCard(
+                                                  child: buildItemsCard()),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      Flexible(
+                                        child: Column(
+                                          children: [
+                                            _buildCard(child: receiverCard()),
+                                            _buildCard(child: ifPostCard()),
+                                            Expanded(
+                                              child: _buildCard(
+                                                  child: insuranceInfoCard()),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      Flexible(
+                                        child: Column(
+                                          children: [
+                                            Expanded(
+                                              child: _buildCard(
+                                                  child: costsCard()),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    Flexible(flex: 2, child: actionButton()),
+                                    Flexible(flex: 1, child: clearButton()),
+                                  ],
+                                ),
+                              ],
                             ),
-                            Expanded(
-                              child: _buildCard(child: agentCard()),
-                            ),
-                            Expanded(
-                              child: _buildCard(child: doorToDoorPriceCard()),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                      IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // First Column
-                            Flexible(
-                              child: Column(
-                                children: [
-                                  _buildCard(child: buildSenderCard()),
-                                  Expanded(
-                                    child: _buildCard(child: buildItemsCard()),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            Flexible(
-                              child: Column(
-                                children: [
-                                  _buildCard(child: receiverCard()),
-                                  _buildCard(child: ifPostCard()),
-                                  Expanded(
-                                    child:
-                                        _buildCard(child: insuranceInfoCard()),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            Flexible(
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    child: _buildCard(child: costsCard()),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          Flexible(flex: 2, child: actionButton()),
-                          Flexible(flex: 1, child: clearButton()),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
   Widget buildMainCard() {
     return SendUtils.buildCard(
+      context: context,
+      backgroundColor: Colors.blue,
       child: Column(
         spacing: 8.h,
         children: [
           SendUtils.buildInputRow(
+            context: context,
             icon: Icon(
               Icons.calendar_today_outlined,
               size: 24.sp,
+              color: Colors.white,
             ),
             child: SendUtils.buildTextField(
+              context: context,
               controller: _controllers[ControllerKeys.dateController] ??
                   TextEditingController(),
               hint: 'Date',
-              enabled: false,
+              enabled: false || !_isViewMode,
             ),
           ),
           SendUtils.buildInputRow(
+            context: context,
             icon: Icon(
               Icons.local_shipping_outlined,
               size: 24.sp,
+              color: Colors.white,
             ),
             child: SendUtils.buildTextField(
               controller: _controllers[ControllerKeys.truckNumberController] ??
@@ -964,6 +1153,7 @@ class _SendScreenState extends State<SendScreen> {
               onChanged: (value) => _onTruckNumberChanged(value),
               hint: 'Truck Number',
               context: context,
+              enabled: !_isViewMode,
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Truck Number is required';
@@ -973,33 +1163,41 @@ class _SendScreenState extends State<SendScreen> {
             ),
           ),
           SendUtils.buildInputRow(
+            context: context,
             icon: Icon(
               Icons.code,
               size: 24.sp,
+              color: Colors.white,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Expanded(
-                  child: SendUtils.buildTextField(
-                    controller:
-                        _controllers[ControllerKeys.codeNumberController] ??
-                            TextEditingController(),
-                    hint: 'Code Number',
-                    enabled: false,
-                    context: context, // Make the field non-editable
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Code Number is required';
-                      }
-                      return null;
-                    },
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 48.0.w),
+                    child: SendUtils.buildTextField(
+                      padding: 0.w,
+                      controller:
+                          _controllers[ControllerKeys.codeNumberController] ??
+                              TextEditingController(),
+                      hint: 'Code Number',
+                      enabled: false,
+                      context: context, // Make the field non-editable
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Code Number is required';
+                        }
+                        return null;
+                      },
+                    ),
                   ),
                 ),
                 IconButton(
                   icon: Icon(
                     Icons.delete,
                     size: 30.sp,
+                    color: Colors.white,
                   ), // Delete icon
                   onPressed: _deleteRecordByCodeNumber, // Delete function
                   tooltip: 'Delete Record', // Tooltip for better UX
@@ -1097,512 +1295,585 @@ class _SendScreenState extends State<SendScreen> {
         false; // Return false if the dialog is dismissed
   }
 
-  List<GoodsDescription> _parseSelectedDescriptions(
-    String descriptions,
-    List<GoodsDescription> goodsList, // Add this parameter
-  ) {
-    final List<GoodsDescription> selected = [];
-    final lines = descriptions.split('\t \t \t');
+  List<GoodsDescription> _parseSelectedDescriptions(String descriptionsJson) {
+    if (descriptionsJson.isEmpty) return [];
 
-    for (var line in lines) {
-      final parts = line.split(' - ');
-      if (parts.length >= 2) {
-        final id = int.tryParse(parts[0]);
-        if (id != null) {
-          // Match by ID from the goodsList
-          final existingItem = goodsList.firstWhere(
-            (item) => item.id == id,
-            orElse: () => GoodsDescription(
-              id: id,
-              descriptionEn: parts[1],
-              descriptionAr: '',
-            ),
-          );
-          selected.add(existingItem);
-        }
-      }
+    try {
+      final List<dynamic> jsonList = jsonDecode(descriptionsJson);
+      return jsonList
+          .map((item) => GoodsDescription(
+                id: item['id'],
+                descriptionEn: item['descriptionEn'],
+                descriptionAr: item['descriptionAr'],
+                weight: item['weight'],
+                quantity: item['quantity'],
+              ))
+          .toList();
+    } catch (e) {
+      return [];
     }
-    return selected;
   }
 
   Widget buildSenderCard() {
-    return SendUtils.buildCard(
-      title: 'Sender',
-      child: Column(
-        spacing: 8.h,
-        children: [
-          SendUtils.buildInputRow(
-            icon: Icon(
-              Icons.person_outline,
-              size: 24.sp,
-            ),
-            child: SendUtils.buildTextField(
-              controller: _controllers[ControllerKeys.senderNameController] ??
-                  TextEditingController(),
-              hint: 'Sender Name',
+    return BlocBuilder<SendThemeCubit, bool>(
+      builder: (context, isDark) {
+        return SendUtils.buildCard(
+          context: context,
+          title: 'Sender',
+          child: Column(
+            spacing: 8.h,
+            children: [
+              SendUtils.buildInputRow(
+                context: context,
+                icon: Icon(
+                  Icons.person_outline,
+                  size: 24.sp,
+                ),
+                child: SendUtils.buildTextField(
+                  controller:
+                      _controllers[ControllerKeys.senderNameController] ??
+                          TextEditingController(),
+                  hint: 'Sender Name',
 
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Sender Name is required';
-                }
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Sender Name is required';
+                    }
 
-                return null;
-              },
-              context: context,
-              textCapitalization:
-                  TextCapitalization.characters, // Enforce uppercase
-              inputFormatters: [
-                UpperCaseTextFormatter(), // Custom formatter to enforce uppercase
-              ], // Pass the context here
-            ),
-          ),
-          SendUtils.buildInputRow(
-            icon: Icon(
-              Icons.phone_outlined,
-              size: 24.sp,
-            ),
-            child: SendUtils.buildTextField(
-              controller: _controllers[ControllerKeys.senderPhoneController] ??
-                  TextEditingController(),
-              hint: 'Sender Phone',
-              keyboardType: TextInputType.phone,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Phone number is required';
-                }
-                if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
-                  return 'Phone number must contain only numbers';
-                }
-                // if (value.length != 11) {
-                //   return 'Phone number must be exactly 11 digits';
-                // }
-
-                return null;
-              },
-              context: context,
-            ),
-          ),
-          SendUtils.buildInputRow(
-            icon: SizedBox(
-              height: 24.h,
-              width: 24.w,
-              child: IdTypeSelector(
-                // Pass IdTypeSelector as a widget
-                onTypeSelected: (type) {
-                  setState(() {
-                    _selectedIdType = type;
-                  });
-                },
-                currentType: _selectedIdType,
-                iconColor: SendUtils.secondaryColor,
+                    return null;
+                  },
+                  context: context,
+                  enabled: !_isViewMode,
+                  textCapitalization:
+                      TextCapitalization.characters, // Enforce uppercase
+                  inputFormatters: [
+                    UpperCaseTextFormatter(), // Custom formatter to enforce uppercase
+                  ], // Pass the context here
+                ),
               ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: SendUtils.buildTextField(
-                    controller:
-                        _controllers[ControllerKeys.senderIdController]!,
-                    keyboardType: TextInputType.number,
-                    hint: 'Sender ID',
-                    validator: (value) {
-                      if (!RegExp(r'^[0-9]+$').hasMatch(value ?? '')) {
-                        return 'ID number must contain only numbers';
-                      }
-                      return null;
+              SendUtils.buildInputRow(
+                context: context,
+                icon: Icon(
+                  Icons.phone_outlined,
+                  size: 24.sp,
+                ),
+                child: SendUtils.buildTextField(
+                  controller:
+                      _controllers[ControllerKeys.senderPhoneController] ??
+                          TextEditingController(),
+                  hint: 'Sender Phone',
+                  keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Phone number is required';
+                    }
+                    if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                      return 'Phone number must contain only numbers';
+                    }
+                    // if (value.length != 11) {
+                    //   return 'Phone number must be exactly 11 digits';
+                    // }
+
+                    return null;
+                  },
+                  context: context,
+                  enabled: !_isViewMode,
+                ),
+              ),
+              SendUtils.buildInputRow(
+                context: context,
+                icon: SizedBox(
+                  height: 24.h,
+                  width: 24.w,
+                  child: IdTypeSelector(
+                    iconColor: isDark ? Colors.white : Colors.grey[700],
+
+                    // Pass IdTypeSelector as a widget
+                    onTypeSelected: (type) {
+                      setState(() {
+                        _selectedIdType = type;
+                      });
                     },
+                    currentType: _selectedIdType,
+                    // iconColor: SendUtils.secondaryColor(context),
                   ),
                 ),
-                StatefulBuilder(
-                  builder: (context, setState) {
-                    return GestureDetector(
-                      onTap: () async {
-                        if (_selectedIdentificationPhoto == null) {
-                          // Pick image
-                          FilePickerResult? result =
-                              await FilePicker.platform.pickFiles(
-                            type: FileType.image,
-                            allowMultiple: false,
-                          );
-
-                          if (result != null &&
-                              result.files.single.path != null) {
-                            setState(() {
-                              _selectedIdentificationPhoto =
-                                  File(result.files.single.path!);
-                            });
-                          } else {
-                            if (mounted) {
-                              setState(() {
-                                _showCustomSnackBar(context, 'No file selected',
-                                    isError: true);
-                              });
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 38.0.w),
+                        child: SendUtils.buildTextField(
+                          padding: 8.w,
+                          context: context,
+                          controller:
+                              _controllers[ControllerKeys.senderIdController]!,
+                          keyboardType: TextInputType.number,
+                          enabled: !_isViewMode,
+                          hint: 'Sender ID',
+                          validator: (value) {
+                            if (!RegExp(r'^[0-9]+$').hasMatch(value ?? '')) {
+                              return 'ID number must contain only numbers';
                             }
-                          }
-                        } else {
-                          // Show options dialog
-                          showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return Dialog(
-                                child: Container(
-                                  padding: EdgeInsets.all(8.0.r),
-                                  constraints: BoxConstraints(
-                                    maxWidth: 500.0.w,
-                                    maxHeight: 600.0.h,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        'ID Photo',
-                                        style: TextStyle(
-                                          fontSize: 20.sp,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                            return null;
+                          },
+                        ),
+                      ),
+                    ),
+                    StatefulBuilder(
+                      builder: (context, setState) {
+                        return GestureDetector(
+                          onTap: () async {
+                            if (_selectedIdentificationPhoto == null) {
+                              // Pick image
+                              FilePickerResult? result =
+                                  await FilePicker.platform.pickFiles(
+                                type: FileType.image,
+                                allowMultiple: false,
+                              );
+
+                              if (result != null &&
+                                  result.files.single.path != null) {
+                                setState(() {
+                                  _selectedIdentificationPhoto =
+                                      File(result.files.single.path!);
+                                });
+                              } else {
+                                if (mounted) {
+                                  setState(() {
+                                    _showCustomSnackBar(
+                                        context, 'No file selected',
+                                        isError: true);
+                                  });
+                                }
+                              }
+                            } else {
+                              // Show options dialog
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return Dialog(
+                                    child: Container(
+                                      padding: EdgeInsets.all(8.0.r),
+                                      constraints: BoxConstraints(
+                                        maxWidth: 500.0.w,
+                                        maxHeight: 600.0.h,
                                       ),
-                                      SizedBox(height: 16.h),
-                                      Flexible(
-                                        child: Image.file(
-                                          _selectedIdentificationPhoto!,
-                                          fit: BoxFit.contain,
-                                        ),
-                                      ),
-                                      SizedBox(height: 16.h),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceEvenly,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          ElevatedButton(
-                                            onPressed: () {
-                                              setState(() {
-                                                _selectedIdentificationPhoto =
-                                                    null;
-                                              });
-                                              Navigator.of(context).pop();
-                                            },
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.red,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 24,
-                                                vertical: 12,
-                                              ),
+                                          Text(
+                                            'ID Photo',
+                                            style: TextStyle(
+                                              fontSize: 20.sp,
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                            child: const Text('Delete Photo'),
                                           ),
-                                          ElevatedButton(
-                                            onPressed: () {
-                                              Navigator.of(context).pop();
-                                            },
-                                            style: ElevatedButton.styleFrom(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 24,
-                                                vertical: 12,
-                                              ),
+                                          SizedBox(height: 16.h),
+                                          Flexible(
+                                            child: Image.file(
+                                              _selectedIdentificationPhoto!,
+                                              fit: BoxFit.contain,
                                             ),
-                                            child: const Text('Cancel'),
+                                          ),
+                                          SizedBox(height: 16.h),
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceEvenly,
+                                            children: [
+                                              ElevatedButton(
+                                                onPressed: () {
+                                                  setState(() {
+                                                    _selectedIdentificationPhoto =
+                                                        null;
+                                                  });
+                                                  Navigator.of(context).pop();
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.red,
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 24,
+                                                    vertical: 12,
+                                                  ),
+                                                ),
+                                                child:
+                                                    const Text('Delete Photo'),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () {
+                                                  Navigator.of(context).pop();
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 24,
+                                                    vertical: 12,
+                                                  ),
+                                                ),
+                                                child: const Text('Cancel'),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
-                                    ],
-                                  ),
-                                ),
+                                    ),
+                                  );
+                                },
                               );
-                            },
-                          );
-                        }
+                            }
+                          },
+                          child: Card(
+                            color: isDark ? Colors.grey[800] : Colors.white,
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Container(
+                              width: 70.w,
+                              height: 40.h,
+                              decoration: BoxDecoration(
+                                color: _selectedIdentificationPhoto == null
+                                    ? Colors.white
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: _selectedIdentificationPhoto == null
+                                  ? Icon(
+                                      Icons.camera_alt_outlined,
+                                      color:
+                                          isDark ? Colors.black : Colors.black,
+                                    )
+                                  : ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.file(
+                                        _selectedIdentificationPhoto!,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        );
                       },
-                      child: Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(
+                    ),
+                  ],
+                ),
+              ),
+              SendUtils.buildInputRow(
+                context: context,
+                icon: Icon(
+                  Icons.description_outlined,
+                  size: 24.sp,
+                ),
+                child: InkWell(
+                  onTap: () {
+                    final currentText =
+                        _controllers[ControllerKeys.goodsDescriptionController]
+                                ?.text ??
+                            '';
+
+                    // Parse the current text to get selected items
+                    _parseSelectedDescriptions(currentText);
+                    if (!_isViewMode) {
+                      showDialog(
+                        context: context,
+                        builder: (context) => GoodsDescriptionPopup(
+                          controller: _controllers[
+                              ControllerKeys.goodsDescriptionController]!,
+                          // Inside the GoodsDescriptionPopup dialog
+                          onDescriptionsSelected:
+                              (List<GoodsDescription> newSelected) {
+                            setState(() {
+                              selectedGoodsDescriptions =
+                                  newSelected; // Store full objects
+                              _controllers[ControllerKeys
+                                          .goodsDescriptionController]
+                                      ?.text =
+                                  newSelected
+                                      .map((desc) =>
+                                          '${desc.id} - ${desc.descriptionEn}')
+                                      .join('\n');
+                            });
+                          },
+                          dbHelper: DatabaseHelper(),
+                          initialSelectedDescriptions:
+                              _parseSelectedDescriptions(
+                            _controllers[
+                                    ControllerKeys.goodsDescriptionController]!
+                                .text,
+                            // Pass goodsList
+                          ),
+                          hasExistingValue: _controllers[
+                                  ControllerKeys.goodsDescriptionController]!
+                              .text
+                              .isNotEmpty,
+                        ),
+                      );
+                    }
+                  },
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 48.w),
+                    child: TextFormField(
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black,
+                        fontSize: 14.sp,
+                      ),
+                      controller: _controllers[
+                              ControllerKeys.goodsDescriptionController] ??
+                          TextEditingController(),
+                      enabled: false,
+
+                      decoration: InputDecoration(
+                        hintText: 'Goods Description',
+                        hintStyle: TextStyle(
+                          color: isDark ? Colors.white70 : Colors.grey[600],
+                        ),
+                        border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Container(
-                          width: 70.w,
-                          height: 40.h,
-                          decoration: BoxDecoration(
-                            color: _selectedIdentificationPhoto == null
-                                ? Colors.white
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: _selectedIdentificationPhoto == null
-                              ? const Icon(
-                                  Icons.camera_alt_outlined,
-                                  color: SendUtils.secondaryColor,
-                                )
-                              : ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.file(
-                                    _selectedIdentificationPhoto!,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                        ),
+                        filled: true,
+                        fillColor: isDark ? Colors.grey[800] : Colors.grey[200],
                       ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          SendUtils.buildInputRow(
-            icon: Icon(
-              Icons.description_outlined,
-              size: 24.sp,
-            ),
-            child: InkWell(
-              onTap: () {
-                final currentText =
-                    _controllers[ControllerKeys.goodsDescriptionController]
-                            ?.text ??
-                        '';
 
-                // Parse the current text to get selected items
-                _parseSelectedDescriptions(currentText, goodsList);
-                showDialog(
-                  context: context,
-                  builder: (context) => GoodsDescriptionPopup(
-                    controller: _controllers[
-                        ControllerKeys.goodsDescriptionController]!,
-                    onDescriptionsSelected:
-                        (List<GoodsDescription> newSelected) {
-                      // Update the field with the new selection
-                      String descriptions = newSelected
-                          .map((desc) => '${desc.id} - ${desc.descriptionEn}')
-                          .join('\n');
-                      _controllers[ControllerKeys.goodsDescriptionController]!
-                          .text = descriptions;
-                    },
-                    dbHelper: DatabaseHelper(),
-                    initialSelectedDescriptions: _parseSelectedDescriptions(
-                      _controllers[ControllerKeys.goodsDescriptionController]!
-                          .text,
-                      goodsList, // Pass goodsList
+                      maxLines: 2, // Allow multiple lines for notes
+                      onChanged: (value) {
+                        // Handle the note input if needed
+                      },
                     ),
-                    hasExistingValue:
-                        _controllers[ControllerKeys.goodsDescriptionController]!
-                            .text
-                            .isNotEmpty,
                   ),
-                );
-              },
-              child: TextFormField(
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 14.sp,
                 ),
-                controller:
-                    _controllers[ControllerKeys.goodsDescriptionController] ??
-                        TextEditingController(),
-                enabled: false,
-
-                decoration: InputDecoration(
-                  hintText: 'Goods Description',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[200],
-                ),
-
-                maxLines: 2, // Allow multiple lines for notes
-                onChanged: (value) {
-                  // Handle the note input if needed
-                },
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget buildItemsCard() {
     return SendUtils.buildCard(
+      context: context,
       title: 'Items',
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: SendUtils.buildTextField(
-                  controller:
-                      _controllers[ControllerKeys.boxNumberController] ??
-                          TextEditingController(),
-                  hint: 'Box No.',
+          SendUtils.buildInputRow(
+            context: context,
+            icon: Icon(
+              Icons.format_list_numbered,
+              size: 24.sp,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SendUtils.buildTextField(
+                    controller:
+                        _controllers[ControllerKeys.boxNumberController] ??
+                            TextEditingController(),
+                    hint: 'Box No.',
+                    onChanged: (value) {
+                      final boxNumber = int.tryParse(value) ?? 0;
+                      final boxPackingCost =
+                          boxNumber * _boxPrice; // Use the stored box price
+                      _controllers[ControllerKeys.boxPackingCostController]
+                          ?.text = boxPackingCost.toStringAsFixed(2);
+                      SendPageLogic.updateCalculations(
+                        controllers: _controllers,
+                        isInsuranceEnabled: isInsuranceEnabled,
+                        euroRate: _selectedCurrencyAgainstIQD,
+                      );
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Box number is required';
+                      }
+                      return null;
+                    },
+                    context: context,
+                    enabled: !_isViewMode,
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: SendUtils.buildTextField(
+                    context: context,
+                    controller:
+                        _controllers[ControllerKeys.palletNumberController] ??
+                            TextEditingController(),
+                    hint: 'Pallet No.',
+                    optional: true, enabled: !_isViewMode,
+                    // Pallet field is optional, so no validator
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 8.h),
+          SendUtils.buildInputRow(
+            context: context,
+            icon: Icon(Icons.scale_sharp, size: 24.sp),
+            child: SendUtils.buildTextField(
+              controller: _controllers[ControllerKeys.weightController] ??
+                  TextEditingController(),
+              hint: 'Real Weight KG',
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Real Weight is required';
+                }
+                final weight = double.tryParse(value);
+                if (weight == null || weight <= 0) {
+                  return 'Please enter a valid positive number';
+                }
+                return null;
+              },
+              context: context,
+              enabled: !_isViewMode,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Weight\n volume\n KG',
+            child: Row(
+              children: [
+                Expanded(
+                  child: SendUtils.buildTextField(
+                    padding: 8.w,
+                    controller: _controllers[ControllerKeys.lengthController] ??
+                        TextEditingController(),
+                    hint: 'L',
+                    enabled: areDimensionsEnabled && !_isViewMode,
+                    validator: (value) {
+                      if (areDimensionsEnabled &&
+                          (value == null || value.isEmpty)) {
+                        return 'Length is required';
+                      }
+                      return null;
+                    },
+                    context: context,
+                  ),
+                ),
+                // SizedBox(width: 8.w),
+                Expanded(
+                  child: SendUtils.buildTextField(
+                    padding: 8.w,
+                    controller: _controllers[ControllerKeys.widthController] ??
+                        TextEditingController(),
+                    hint: 'W',
+                    enabled: areDimensionsEnabled && !_isViewMode,
+                    validator: (value) {
+                      if (areDimensionsEnabled &&
+                          (value == null || value.isEmpty)) {
+                        return 'Width is required';
+                      }
+                      return null;
+                    },
+                    context: context,
+                  ),
+                ),
+                // SizedBox(width: 8.w),
+                Expanded(
+                  child: SendUtils.buildTextField(
+                    padding: 8.w,
+                    controller: _controllers[ControllerKeys.heightController] ??
+                        TextEditingController(),
+                    hint: 'H',
+                    enabled: areDimensionsEnabled && !_isViewMode,
+                    validator: (value) {
+                      if (areDimensionsEnabled &&
+                          (value == null || value.isEmpty)) {
+                        return 'Height is required';
+                      }
+                      return null;
+                    },
+                    context: context,
+                  ),
+                ),
+
+                Checkbox(
+                  value: areDimensionsEnabled,
                   onChanged: (value) {
-                    final boxNumber = int.tryParse(value) ?? 0;
-                    final boxPackingCost =
-                        boxNumber * _boxPrice; // Use the stored box price
-                    _controllers[ControllerKeys.boxPackingCostController]
-                        ?.text = boxPackingCost.toStringAsFixed(2);
-                    SendPageLogic.updateCalculations(
-                      controllers: _controllers,
-                      isInsuranceEnabled: isInsuranceEnabled,
-                      euroRate: _selectedCurrencyAgainstIQD,
-                    );
+                    setState(() {
+                      areDimensionsEnabled = value ?? true;
+                      // Clear fields when checkbox is unchecked
+                      if (!areDimensionsEnabled) {
+                        _controllers[ControllerKeys.lengthController]?.clear();
+                        _controllers[ControllerKeys.widthController]?.clear();
+                        _controllers[ControllerKeys.heightController]?.clear();
+                        _controllers[ControllerKeys.additionalKGController]
+                            ?.clear();
+                        selectedValue = null;
+                        _controllers[ControllerKeys.resultController]?.clear();
+                      }
+                    });
                   },
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Box number is required';
-                    }
-                    return null;
-                  },
-                  context: context,
                 ),
-              ),
-              SizedBox(width: 8.w),
-              Expanded(
-                child: SendUtils.buildTextField(
-                  controller:
-                      _controllers[ControllerKeys.palletNumberController] ??
-                          TextEditingController(),
-                  hint: 'Pallet No.',
-                  optional: true,
-                  // Pallet field is optional, so no validator
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
           SizedBox(height: 8.h),
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.weightController] ??
-                TextEditingController(),
-            hint: 'Real Weight KG',
-            keyboardType: TextInputType.number,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Real Weight is required';
-              }
-              final weight = double.tryParse(value);
-              if (weight == null || weight <= 0) {
-                return 'Please enter a valid positive number';
-              }
-              return null;
-            },
+          SendUtils.buildInputRow(
             context: context,
+            label: '/',
+            child: SendUtils.buildDropdownField(
+              label: 'Select Amount',
+              items: areDimensionsEnabled ? ['5000', '6000'] : [],
+              value: selectedValue,
+              onChanged: (String? newValue) {
+                setState(() {
+                  selectedValue = newValue;
+                  _calculateResult(); // Recalculate result when select amount changes
+                });
+              },
+              validator: (value) {
+                if (areDimensionsEnabled && (value == null || value.isEmpty)) {
+                  return 'Select Amount is required';
+                }
+                return null;
+              },
+              context: context,
+              enabled: !_isViewMode,
+            ),
           ),
           SizedBox(height: 8.h),
-          Row(
-            children: [
-              Expanded(
-                child: SendUtils.buildTextField(
-                  controller: _controllers[ControllerKeys.lengthController] ??
-                      TextEditingController(),
-                  hint: 'L',
-                  enabled: areDimensionsEnabled,
-                  validator: (value) {
-                    if (areDimensionsEnabled &&
-                        (value == null || value.isEmpty)) {
-                      return 'Length is required';
-                    }
-                    return null;
-                  },
-                  context: context,
-                ),
-              ),
-              SizedBox(width: 8.w),
-              Expanded(
-                child: SendUtils.buildTextField(
-                  controller: _controllers[ControllerKeys.widthController] ??
-                      TextEditingController(),
-                  hint: 'W',
-                  enabled: areDimensionsEnabled,
-                  validator: (value) {
-                    if (areDimensionsEnabled &&
-                        (value == null || value.isEmpty)) {
-                      return 'Width is required';
-                    }
-                    return null;
-                  },
-                  context: context,
-                ),
-              ),
-              SizedBox(width: 8.w),
-              Expanded(
-                child: SendUtils.buildTextField(
-                  controller: _controllers[ControllerKeys.heightController] ??
-                      TextEditingController(),
-                  hint: 'H',
-                  enabled: areDimensionsEnabled,
-                  validator: (value) {
-                    if (areDimensionsEnabled &&
-                        (value == null || value.isEmpty)) {
-                      return 'Height is required';
-                    }
-                    return null;
-                  },
-                  context: context,
-                ),
-              ),
-              SizedBox(width: 8.w),
-              Checkbox(
-                value: areDimensionsEnabled,
-                onChanged: (value) {
-                  setState(() {
-                    areDimensionsEnabled = value ?? true;
-                    // Clear fields when checkbox is unchecked
-                    if (!areDimensionsEnabled) {
-                      _controllers[ControllerKeys.lengthController]?.clear();
-                      _controllers[ControllerKeys.widthController]?.clear();
-                      _controllers[ControllerKeys.heightController]?.clear();
-                      _controllers[ControllerKeys.additionalKGController]
-                          ?.clear();
-                      selectedValue = null;
-                      _controllers[ControllerKeys.resultController]?.clear();
-                    }
-                  });
-                },
-              ),
-            ],
-          ),
-          SizedBox(height: 8.h),
-          SendUtils.buildDropdownField(
-            label: 'Select Amount',
-            items: areDimensionsEnabled ? ['5000', '6000'] : [],
-            value: selectedValue,
-            onChanged: (String? newValue) {
-              setState(() {
-                selectedValue = newValue;
-                _calculateResult(); // Recalculate result when select amount changes
-              });
-            },
-            validator: (value) {
-              if (areDimensionsEnabled && (value == null || value.isEmpty)) {
-                return 'Select Amount is required';
-              }
-              return null;
-            },
+          SendUtils.buildInputRow(
             context: context,
+            icon: Icon(Icons.scale_sharp, size: 24.sp),
+            child: SendUtils.buildTextField(
+              context: context,
+              controller: _controllers[ControllerKeys.resultController] ??
+                  TextEditingController(),
+              hint: 'Result (L*H*W / Select Amount)',
+              enabled: false, // Make the field read-only
+            ),
           ),
           SizedBox(height: 8.h),
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.resultController] ??
-                TextEditingController(),
-            hint: 'Result (L*H*W / Select Amount)',
-            enabled: false, // Make the field read-only
+          SendUtils.buildInputRow(
+            context: context,
+            icon: Icon(Icons.add_box, size: 24.sp),
+            child: SendUtils.buildTextField(
+              context: context,
+              controller: _controllers[ControllerKeys.additionalKGController] ??
+                  TextEditingController(),
+              hint: 'Additional KG',
+              enabled: areDimensionsEnabled && !_isViewMode,
+              optional: true,
+              onChanged: (value) {
+                _calculateResult(); // Recalculate result when additional weight changes
+              },
+            ),
           ),
           SizedBox(height: 8.h),
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.additionalKGController] ??
-                TextEditingController(),
-            hint: 'Additional KG',
-            enabled: areDimensionsEnabled,
-            optional: true,
-            onChanged: (value) {
-              _calculateResult(); // Recalculate result when additional weight changes
-            },
-          ),
-          SizedBox(height: 8.h),
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.totalWeightController] ??
-                TextEditingController(),
-            hint: 'Total Weight KG',
-            enabled: false, // Make the field read-only
+          SendUtils.buildInputRow(
+            context: context,
+            icon: Icon(Icons.sort_sharp, size: 24.sp),
+            child: SendUtils.buildTextField(
+              context: context,
+              controller: _controllers[ControllerKeys.totalWeightController] ??
+                  TextEditingController(),
+              hint: 'Total Weight KG',
+              enabled: false, // Make the field read-only
+            ),
           ),
         ],
       ),
@@ -1631,72 +1902,108 @@ class _SendScreenState extends State<SendScreen> {
   }
 
   Widget insuranceInfoCard() {
-    return SendUtils.buildCard(
-      title: 'Insurance Percent % Of Value',
-      child: Column(
-        spacing: 8.h,
-        children: [
-          Row(
+    return BlocBuilder<SendThemeCubit, bool>(
+      builder: (context, isDark) {
+        return SendUtils.buildCard(
+          context: context,
+          title: 'Insurance Percent % Of Value',
+          child: Column(
+            spacing: 10.h,
             children: [
-              Expanded(
-                child: SendUtils.buildTextField(
-                  controller:
-                      _controllers[ControllerKeys.insurancePercentController] ??
-                          TextEditingController(),
-                  hint: 'Insurance Amount',
-                  enabled:
-                      isInsuranceEnabled, // Enable/disable based on checkbox
-                  validator: (value) {
-                    return conditionalValidator(
-                      isInsuranceEnabled, // Condition: Is insurance enabled?
-                      value, // Field value
-                      'Insurance Amount is required', // Error message
-                    );
-                  },
-                  context: context,
+              SendUtils.buildInputRow(
+                context: context,
+                icon: Icon(Icons.percent, size: 24.sp),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 36.0.w),
+                        child: SendUtils.buildTextField(
+                          padding: 8.w,
+                          controller: _controllers[
+                                  ControllerKeys.insurancePercentController] ??
+                              TextEditingController(),
+                          hint: 'Insurance Amount',
+                          enabled: isInsuranceEnabled &&
+                              !_isViewMode, // Enable/disable based on checkbox
+                          validator: (value) {
+                            return conditionalValidator(
+                              isInsuranceEnabled, // Condition: Is insurance enabled?
+                              value, // Field value
+                              'Insurance Amount is required', // Error message
+                            );
+                          },
+                          context: context,
+                        ),
+                      ),
+                    ),
+                    Checkbox(
+                      value: isInsuranceEnabled,
+                      onChanged: (value) {
+                        setState(() {
+                          isInsuranceEnabled = value ?? true;
+                          // Clear the field when checkbox is unchecked
+                          if (!isInsuranceEnabled) {
+                            _controllers[
+                                    ControllerKeys.insurancePercentController]
+                                ?.clear();
+                          }
+                        });
+                      },
+                    ),
+                  ],
                 ),
               ),
-              Checkbox(
-                value: isInsuranceEnabled,
-                onChanged: (value) {
-                  setState(() {
-                    isInsuranceEnabled = value ?? true;
-                    // Clear the field when checkbox is unchecked
-                    if (!isInsuranceEnabled) {
-                      _controllers[ControllerKeys.insurancePercentController]
-                          ?.clear();
-                    }
-                  });
-                },
+
+              SendUtils.buildInputRow(
+                context: context,
+                icon: Icon(Icons.attach_money, size: 24.sp),
+                child: SendUtils.buildTextField(
+                  context: context,
+
+                  hint: 'Goods Value',
+                  enabled: true && !_isViewMode,
+                  controller:
+                      _controllers[ControllerKeys.goodsValueController] ??
+                          TextEditingController(),
+                  optional: true, // This field is optional
+                ),
+              ),
+
+              // Replace the static container with a TextField for notes
+              SendUtils.buildInputRow(
+                context: context,
+                icon: Icon(Icons.note_add_sharp, size: 30.sp),
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 48.w),
+                  child: TextFormField(
+                    enabled: !_isViewMode,
+                    style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black,
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.bold),
+
+                    controller: _controllers[ControllerKeys.notesController],
+
+                    decoration: InputDecoration(
+                      hintText: 'Write notes here...',
+                      hintStyle: TextStyle(
+                        color: isDark ? Colors.white70 : Colors.grey[600],
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                    ),
+                    maxLines: 3, // Allow multiple lines for notes
+                  ),
+                ),
               ),
             ],
           ),
-
-          SendUtils.buildTextField(
-            hint: 'Goods Value',
-            enabled: true,
-            controller: _controllers[ControllerKeys.goodsValueController] ??
-                TextEditingController(),
-            optional: true, // This field is optional
-          ),
-
-          // Replace the static container with a TextField for notes
-          TextFormField(
-            decoration: InputDecoration(
-              hintText: 'Write notes here...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              filled: true,
-              fillColor: Colors.grey[200],
-            ),
-            maxLines: 4, // Allow multiple lines for notes
-            onChanged: (value) {
-              // Handle the note input if needed
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1727,20 +2034,23 @@ class _SendScreenState extends State<SendScreen> {
     final isPostCity = _selectedCity.isNotEmpty && _isPostCitySelected();
 
     return SendUtils.buildCard(
+      context: context,
       title: 'Send Via Post',
       child: Column(
         spacing: 8.h,
         children: [
           SendUtils.buildInputRow(
+            context: context,
             icon: Icon(
               Icons.home_outlined,
               size: 24.sp,
             ),
             child: SendUtils.buildTextField(
+              context: context,
               hint: 'Street Name & No.',
               controller: _controllers[ControllerKeys.streetController] ??
                   TextEditingController(),
-              enabled: isPostCity,
+              enabled: isPostCity && !_isViewMode,
               validator: (value) {
                 return conditionalValidator(
                   isPostCity, // Condition: Is post city selected?
@@ -1759,11 +2069,13 @@ class _SendScreenState extends State<SendScreen> {
             ),
           ),
           SendUtils.buildInputRow(
+            context: context,
             icon: Icon(
               Icons.markunread_mailbox,
               size: 24.sp,
             ),
             child: SendUtils.buildTextField(
+              context: context,
               hint: 'ZIP Code',
               validator: (value) {
                 return conditionalValidator(
@@ -1774,9 +2086,10 @@ class _SendScreenState extends State<SendScreen> {
               },
               controller: _controllers[ControllerKeys.zipCodeController] ??
                   TextEditingController(),
-              enabled: isPostCity, // Disable if not a post city
+              enabled: isPostCity && !_isViewMode, // Disable if not a post city
             ),
           ),
+          _buildCityDropdown(),
         ],
       ),
     );
@@ -1784,11 +2097,13 @@ class _SendScreenState extends State<SendScreen> {
 
   Widget receiverCard() {
     return SendUtils.buildCard(
+      context: context,
       title: 'Receiver',
       child: Column(
         spacing: 8.h,
         children: [
           SendUtils.buildInputRow(
+            context: context,
             icon: Icon(
               Icons.person_outline,
               size: 24.sp,
@@ -1809,9 +2124,11 @@ class _SendScreenState extends State<SendScreen> {
               inputFormatters: [
                 UpperCaseTextFormatter(), // Custom formatter to enforce uppercase
               ],
+              enabled: !_isViewMode,
             ),
           ),
           SendUtils.buildInputRow(
+            context: context,
             icon: Icon(
               Icons.phone_outlined,
               size: 24.sp,
@@ -1828,6 +2145,7 @@ class _SendScreenState extends State<SendScreen> {
                 return null;
               },
               context: context,
+              enabled: !_isViewMode,
             ),
           ),
           _buildCountryDropdown(),
@@ -1839,14 +2157,26 @@ class _SendScreenState extends State<SendScreen> {
 
   Widget agentCard() {
     return SendUtils.buildCard(
+      context: context,
+      backgroundColor: Colors.blue,
       child: Column(
         spacing: 8.h,
         children: [
-          _buildAgentDropdown(),
-          _buildBranchDropdown(),
-          _buildCodeListDropdown(
-            hint: 'Code List Items/ press ctrl + F to search',
-            context: context, // Add actual items as needed
+          SendUtils.buildInputRow(
+              context: context,
+              icon: Icon(Icons.person, size: 24.sp),
+              child: _buildAgentDropdown()),
+          SendUtils.buildInputRow(
+              context: context,
+              icon: Icon(Icons.location_on, size: 24.sp),
+              child: _buildBranchDropdown()),
+          SendUtils.buildInputRow(
+            context: context,
+            icon: Icon(Icons.code, size: 24.sp),
+            child: _buildCodeListDropdown(
+              hint: 'Code List Items/ press ctrl + F to search',
+              context: context, // Add actual items as needed
+            ),
           ),
         ],
       ),
@@ -1870,12 +2200,14 @@ class _SendScreenState extends State<SendScreen> {
 
         if (state is CountryLoaded) {
           return SendUtils.buildInputRow(
+            context: context,
             icon: Icon(
               Icons.flag,
               size: 24.sp,
             ),
             child: SendUtils.buildDropdownField(
               context: context,
+              enabled: !_isViewMode,
               label: 'Country',
               items: countries,
               value: _selectedCountry,
@@ -1952,16 +2284,38 @@ class _SendScreenState extends State<SendScreen> {
     });
   }
 
-  void _openCodeListDialog() {
-    context.read<SendRecordCubit>().fetchAllSendRecords();
-    showDialog(
+  void _openCodeListDialog() async {
+    final result = await showDialog(
       context: context,
       builder: (context) => RecordsTableDialog(
-        onRecordSelected: (record) {
-          _populateFormWithRecord(record);
-        },
+        onRecordSelected: (record) {}, // Keep empty if not needed
       ),
     );
+
+    if (result != null && result is Map<String, dynamic>) {
+      final action = result['action'];
+      final record = result['record'] as SendRecord;
+
+      if (action == 'edit') {
+        // Populate form in edit mode
+        setState(() {
+          _isViewMode = false;
+          _populateFormWithRecord(record);
+        });
+      } else if (action == 'view') {
+        // Populate form in view mode
+        setState(() {
+          _isViewMode = true;
+          _populateFormWithRecord(record);
+        });
+      } else if (action == 'new') {
+        // Populate form with sender/receiver info and reset other fields
+        setState(() {
+          _isViewMode = false;
+          _populateFormWithRecord(record, isNewRecord: true);
+        });
+      }
+    }
   }
 
   Widget _buildCityDropdown() {
@@ -1987,12 +2341,14 @@ class _SendScreenState extends State<SendScreen> {
         }
 
         return SendUtils.buildInputRow(
+          context: context,
           icon: Icon(
             Icons.location_on,
             size: 24.sp,
           ),
           child: SendUtils.buildDropdownField(
             context: context,
+            enabled: !_isViewMode,
             label: 'City',
             items: cityNames,
             value: _selectedCity,
@@ -2112,6 +2468,7 @@ class _SendScreenState extends State<SendScreen> {
         if (state is BranchLoadedState) {
           // Use the non-editable text field for the branch
           return SendUtils.buildTextField(
+            context: context,
             hint: 'Branch',
             controller: TextEditingController(
                 text: _selectedBranch ?? ''), // Set the branch value
@@ -2134,6 +2491,7 @@ class _SendScreenState extends State<SendScreen> {
 
   Widget _buildAgentDropdown() {
     return SendUtils.buildTextField(
+      context: context,
       hint: 'Agent',
       controller: TextEditingController(text: _selectedAgent),
       enabled: false, // Make the field non-editable
@@ -2164,9 +2522,6 @@ class _SendScreenState extends State<SendScreen> {
               .where((code) => code.isNotEmpty) // Filter out empty codes
               .toSet() // Ensure unique values
               .toList();
-          if (kDebugMode) {
-            print(codeNumbers);
-          }
         }
 
         if (selectedValue != null && !codeNumbers.contains(selectedValue)) {
@@ -2175,6 +2530,7 @@ class _SendScreenState extends State<SendScreen> {
 
         return SendUtils.buildDropdownField(
           context: context,
+          enabled: !_isViewMode,
           label: hint,
           items: codeNumbers,
           value: selectedValue,
@@ -2209,28 +2565,49 @@ class _SendScreenState extends State<SendScreen> {
 
   Widget doorToDoorPriceCard() {
     return SendUtils.buildCard(
+      context: context,
+      backgroundColor: Colors.blue,
       child: Column(
         spacing: 8.h,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SendUtils.buildTextField(
-            controller:
-                _controllers[ControllerKeys.doorToDoorPriceController] ??
-                    TextEditingController(),
-            hint: 'Door To Door Price',
-            enabled: false, // Make the field read-only
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Door To Door Price',
+            child: SendUtils.buildTextField(
+              context: context,
+              controller:
+                  _controllers[ControllerKeys.doorToDoorPriceController] ??
+                      TextEditingController(),
+              hint: 'Door To Door Price',
+              enabled: false, // Make the field read-only
+            ),
           ),
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.pricePerKgController] ??
-                TextEditingController(),
-            hint: 'Price For Each 1 KG',
-            enabled: false, // Make the field read-only
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Price For Each 1 KG',
+            child: SendUtils.buildTextField(
+              context: context,
+              controller: _controllers[ControllerKeys.pricePerKgController] ??
+                  TextEditingController(),
+              hint: 'Price For Each 1 KG',
+              enabled: false, // Make the field read-only
+            ),
           ),
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.minimumPriceController] ??
-                TextEditingController(),
-            hint: 'Minimum Price',
-            enabled: false, // Make the field read-only
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Minimum Price',
+            child: Padding(
+              padding: EdgeInsets.only(left: 32.0.w),
+              child: SendUtils.buildTextField(
+                context: context,
+                controller:
+                    _controllers[ControllerKeys.minimumPriceController] ??
+                        TextEditingController(),
+                hint: 'Minimum Price',
+                enabled: false, // Make the field read-only
+              ),
+            ),
           ),
         ],
       ),
@@ -2239,6 +2616,7 @@ class _SendScreenState extends State<SendScreen> {
 
   Widget costsCard() {
     return SendUtils.buildCard(
+      context: context,
       child: Column(
         spacing: 10.h,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2255,95 +2633,201 @@ class _SendScreenState extends State<SendScreen> {
             ),
           ),
 
-          SendUtils.buildTextField(
-            controller:
-                _controllers[ControllerKeys.insuranceAmountController] ??
-                    TextEditingController(),
-            hint: 'Insurance Amount',
-          ),
-
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.customsCostController] ??
-                TextEditingController(),
-            hint: 'Customs Cost',
-            optional: true,
-          ),
-
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.boxPackingCostController] ??
-                TextEditingController(),
-            hint: 'Box Packing Cost',
-          ),
-
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.doorToDoorCostController] ??
-                TextEditingController(),
-            hint: 'Door To Door Cost',
-          ),
-
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.postSubCostController] ??
-                TextEditingController(),
-            hint: 'Post Sub Cost',
-          ),
-
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.discountAmountController] ??
-                TextEditingController(),
-            hint: 'Discount Amount',
-            optional: true,
-          ),
-
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.totalPostCostController] ??
-                TextEditingController(),
-            hint: 'Total Post Cost',
-          ),
-
-          // In the costsCard method, update the checkbox logic
-          Row(
-            children: [
-              Expanded(
-                child: SendUtils.buildTextField(
-                  controller: _controllers[
-                          ControllerKeys.totalPostCostPaidController] ??
+          // Insurance Amount
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Insurance Amount',
+            child: SendUtils.buildTextField(
+              context: context,
+              controller:
+                  _controllers[ControllerKeys.insuranceAmountController] ??
                       TextEditingController(),
-                  hint: 'Total Post Cost Paid',
+              hint: 'Insurance Amount',
+            ),
+          ),
+
+          // Customs Cost
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Customs Cost',
+            child: Padding(
+              padding: EdgeInsets.only(left: 32.w),
+              child: SendUtils.buildTextField(
+                context: context,
+                controller:
+                    _controllers[ControllerKeys.customsCostController] ??
+                        TextEditingController(),
+                hint: 'Customs Cost',
+                optional: true,
+                enabled: !_isViewMode,
+              ),
+            ),
+          ),
+
+          // Box Packing Cost
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Box Packing Cost',
+            child: Padding(
+              padding: EdgeInsets.only(left: 8.0.w),
+              child: SendUtils.buildTextField(
+                context: context,
+                controller:
+                    _controllers[ControllerKeys.boxPackingCostController] ??
+                        TextEditingController(),
+                hint: 'Box Packing Cost',
+              ),
+            ),
+          ),
+
+          // Door To Door Cost
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Door To Door Cost',
+            child: SendUtils.buildTextField(
+              context: context,
+              controller:
+                  _controllers[ControllerKeys.doorToDoorCostController] ??
+                      TextEditingController(),
+              hint: 'Door To Door Cost',
+            ),
+          ),
+
+          // Post Sub Cost
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Post Sub Cost',
+            child: Padding(
+              padding: EdgeInsets.only(left: 32.0.w),
+              child: SendUtils.buildTextField(
+                context: context,
+                controller:
+                    _controllers[ControllerKeys.postSubCostController] ??
+                        TextEditingController(),
+                hint: 'Post Sub Cost',
+              ),
+            ),
+          ),
+
+          // Discount Amount
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Discount Amount',
+            child: Padding(
+              padding: EdgeInsets.only(left: 8.0.w),
+              child: SendUtils.buildTextField(
+                context: context,
+                controller:
+                    _controllers[ControllerKeys.discountAmountController] ??
+                        TextEditingController(),
+                hint: 'Discount Amount',
+                optional: true,
+                enabled: !_isViewMode,
+              ),
+            ),
+          ),
+
+          // Total Post Cost
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Total Post Cost',
+            child: Padding(
+              padding: EdgeInsets.only(left: 30.w),
+              child: SendUtils.buildTextField(
+                context: context,
+                controller:
+                    _controllers[ControllerKeys.totalPostCostController] ??
+                        TextEditingController(),
+                hint: 'Total Post Cost',
+              ),
+            ),
+          ),
+
+          // Total Post Cost Paid with Checkbox
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Total Post Cost Paid',
+            child: Row(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 32.0.w),
+                    child: SendUtils.buildTextField(
+                      padding: 8.w,
+                      context: context,
+                      controller: _controllers[
+                              ControllerKeys.totalPostCostPaidController] ??
+                          TextEditingController(),
+                      hint: 'Total Post Cost Paid',
+                      enabled: !_isViewMode,
+                    ),
+                  ),
                 ),
-              ),
-              Checkbox(
-                value: isPostCostPaid,
-                onChanged: (value) {
-                  setState(() {
-                    isPostCostPaid = value ?? false;
-                    if (isPostCostPaid) {
-                      _controllers[ControllerKeys.totalPostCostPaidController]
-                              ?.text =
-                          _controllers[ControllerKeys.totalPostCostController]
-                                  ?.text ??
-                              '0.00';
-                    }
-                  });
-                },
-              ),
-            ],
+                Checkbox(
+                  value: isPostCostPaid,
+                  onChanged: (value) {
+                    setState(() {
+                      isPostCostPaid = value ?? false;
+                      if (isPostCostPaid) {
+                        _controllers[ControllerKeys.totalPostCostPaidController]
+                                ?.text =
+                            _controllers[ControllerKeys.totalPostCostController]
+                                    ?.text ??
+                                '0.00';
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
           ),
 
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.unpaidAmountController] ??
-                TextEditingController(),
-            hint: 'Unpaid Amount',
+          // Unpaid Amount
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Unpaid Amount',
+            child: Padding(
+              padding: EdgeInsets.only(left: 22.0.w),
+              child: SendUtils.buildTextField(
+                context: context,
+                controller:
+                    _controllers[ControllerKeys.unpaidAmountController] ??
+                        TextEditingController(),
+                hint: 'Unpaid Amount',
+              ),
+            ),
           ),
 
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.totalCostEurController] ??
-                TextEditingController(),
-            hint: 'Total Cost By Europe Currency',
+          // Total Cost By Europe Currency
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Total Cost (EUR)',
+            child: Padding(
+              padding: EdgeInsets.only(left: 18.0.w),
+              child: SendUtils.buildTextField(
+                context: context,
+                controller:
+                    _controllers[ControllerKeys.totalCostEurController] ??
+                        TextEditingController(),
+                hint: 'Total Cost By Europe Currency',
+              ),
+            ),
           ),
-          SendUtils.buildTextField(
-            controller: _controllers[ControllerKeys.unpaidEurCostController] ??
-                TextEditingController(),
-            hint: 'Unpaid and Will Paid In Europe',
+
+          // Unpaid and Will Paid In Europe
+          SendUtils.buildInputRow(
+            context: context,
+            label: 'Unpaid (EUR)',
+            child: Padding(
+              padding: EdgeInsets.only(left: 32.0.w),
+              child: SendUtils.buildTextField(
+                context: context,
+                controller:
+                    _controllers[ControllerKeys.unpaidEurCostController] ??
+                        TextEditingController(),
+                hint: 'Unpaid and Will Paid In Europe',
+              ),
+            ),
           ),
         ],
       ),
@@ -2352,6 +2836,7 @@ class _SendScreenState extends State<SendScreen> {
 
   Widget actionButton() {
     return SendUtils.buildCard(
+      context: context,
       title: 'Actions',
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -2368,7 +2853,7 @@ class _SendScreenState extends State<SendScreen> {
                     isError: true);
               }
             },
-            isEnabled: !_isModifying, // Disable when modifying
+            isEnabled: !_isModifying && !_isViewMode, // Disable when modifying
           ),
           _buildActionButton(
             'Update Code',
@@ -2381,8 +2866,10 @@ class _SendScreenState extends State<SendScreen> {
               }
               await _updateRecord();
             },
-            isEnabled: _isModifying, // Disable when adding
+            isEnabled: _isModifying && !_isViewMode, // Disable when adding
           ),
+
+          // Example usage in a widget
           _buildActionButton('Make Label', Colors.green, () {
             generateLabelPdf();
           }),
@@ -2409,6 +2896,7 @@ class _SendScreenState extends State<SendScreen> {
 
   Widget clearButton() {
     return SendUtils.buildCard(
+      context: context,
       title: 'Actions',
       child: CustomButton(
         color: Colors.red,
@@ -2449,10 +2937,18 @@ class _SendScreenState extends State<SendScreen> {
         country: _selectedCountry,
         zipCode: _controllers[ControllerKeys.zipCodeController]?.text ?? '',
         branch: _selectedBranch ?? '',
+        phoneNo1: _selectedBranchPhoneNo1 ?? '', // Add branch phone numbers
+        phoneNo2: _selectedBranchPhoneNo2 ?? '',
       );
 
       final costs = CostSummary(
         shippingCost:
+            _controllers[ControllerKeys.doorToDoorCostController]?.text ?? '',
+        emptyBoxCost:
+            _controllers[ControllerKeys.boxPackingCostController]?.text ?? '',
+        customsAdmin:
+            _controllers[ControllerKeys.customsCostController]?.text ?? '',
+        deliveryCost:
             _controllers[ControllerKeys.doorToDoorCostController]?.text ?? '',
         insuranceAmount:
             _controllers[ControllerKeys.insuranceAmountController]?.text ?? '',
@@ -2463,18 +2959,10 @@ class _SendScreenState extends State<SendScreen> {
                 '',
         amountDue:
             _controllers[ControllerKeys.unpaidAmountController]?.text ?? '',
-        totalCostEur:
-            _controllers[ControllerKeys.totalCostEurController]?.text ?? '',
         amountDueEur:
             _controllers[ControllerKeys.unpaidEurCostController]?.text ?? '',
+        isInsuranceEnabled: isInsuranceEnabled,
       );
-
-      if (kDebugMode) {
-        print('Shipment Details: $shipment');
-        print('Sender Info: $sender');
-        print('Receiver Info: $receiver');
-        print('Cost Summary: $costs');
-      }
 
       final regularFont = await PDFGenerator.loadCairoFont(isBold: false);
       final boldFont = await PDFGenerator.loadCairoFont(isBold: true);
@@ -2500,6 +2988,7 @@ class _SendScreenState extends State<SendScreen> {
         regularFont: regularFont,
         boldFont: boldFont,
         language: invoiceLanguage,
+        isPostCity: _isPostCitySelected(),
       );
 
       if (mounted) {
@@ -2528,14 +3017,12 @@ class _SendScreenState extends State<SendScreen> {
             _controllers[ControllerKeys.palletNumberController]?.text ?? '1') ??
         1;
 
+    // Get the country flag path from the selected country
+
     // Loop through each pallet and generate a label
     for (int currentLabelIndex = 1;
         currentLabelIndex <= palletNumber;
         currentLabelIndex++) {
-      // Debug log
-      if (kDebugMode) {
-        print('Generating label $currentLabelIndex of $palletNumber');
-      }
       var regularFont = await PDFGenerator.loadCairoFont(isBold: false);
       var boldFont = await PDFGenerator.loadCairoFont(isBold: true);
 
@@ -2552,10 +3039,16 @@ class _SendScreenState extends State<SendScreen> {
               _controllers[ControllerKeys.receiverPhoneController]?.text ?? '',
           city: _selectedCity,
           country: _selectedCountry,
+          street: _controllers[ControllerKeys.streetController]?.text ?? '',
+          apartment:
+              _controllers[ControllerKeys.apartmentController]?.text ?? '',
+          zipCode: _controllers[ControllerKeys.zipCodeController]?.text ?? '',
         ),
         shipment: ShipmentInfo(
           date: DateTime.now().toString(),
           time: TimeOfDay.now().toString(),
+          truckNumber:
+              _controllers[ControllerKeys.truckNumberController]?.text ?? '',
           itemDetails:
               _controllers[ControllerKeys.goodsDescriptionController]?.text ??
                   '',
@@ -2566,6 +3059,9 @@ class _SendScreenState extends State<SendScreen> {
               _controllers[ControllerKeys.additionalKGController]?.text ?? '',
           code: _controllers[ControllerKeys.codeNumberController]?.text ?? '',
           branch: _selectedBranch ?? '',
+          insuranceAmount:
+              _controllers[ControllerKeys.insuranceAmountController]?.text ??
+                  '',
         ),
         onGenerated: (Uint8List pdfData) async {
           final tempDir = await getTemporaryDirectory();
@@ -2575,21 +3071,14 @@ class _SendScreenState extends State<SendScreen> {
           await file.writeAsBytes(pdfData);
 
           if (mounted) {
-            if (kDebugMode) {
-              print('PDF saved: ${file.path}');
-            } // Debug log
-
             // Show the preview dialog for the current label
             final result = await showDialog(
               context: context,
               builder: (context) => LabelPDFPreviewDialog(pdfFile: file),
             );
 
-            // Wait for the user to take action (Save or Print)
-            if (result == 'save' || result == 'print') {
-              if (kDebugMode) {
-                print('User action taken for label $currentLabelIndex');
-              }
+            if (mounted && result == 'save') {
+              _showCustomSnackBar(context, 'Label saved: ${file.path}');
             }
           }
         },

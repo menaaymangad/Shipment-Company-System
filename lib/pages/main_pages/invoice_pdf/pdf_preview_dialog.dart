@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
+import 'package:file_picker/file_picker.dart'; // Import the file_picker package
 
 class InvoicePDFPreviewDialog extends StatefulWidget {
   final File pdfFile;
@@ -21,15 +22,14 @@ class InvoicePDFPreviewDialog extends StatefulWidget {
 
 class _InvoicePDFPreviewDialogState extends State<InvoicePDFPreviewDialog> {
   final TextEditingController _copiesController =
-      TextEditingController(text: '2'); // Default to 2 copy
+      TextEditingController(text: '2'); // Default to 2 copies
+  bool _isPrinting = false;
 
   @override
   void dispose() {
     _copiesController.dispose();
     super.dispose();
   }
-
-  bool _isPrinting = false; // Add this to your state
 
   Future<void> _safePrintDocument(BuildContext context) async {
     setState(() {
@@ -84,6 +84,36 @@ class _InvoicePDFPreviewDialogState extends State<InvoicePDFPreviewDialog> {
     }
   }
 
+  Future<void> _savePDF(BuildContext context) async {
+    try {
+      // Use file_picker to let the user choose the save location
+      String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+
+      // Define the file name and path
+      String fileName =
+          'invoice_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      String filePath = '$selectedDirectory/$fileName';
+
+      // Save the file to the selected directory
+      File newFile = File(filePath);
+      await newFile.writeAsBytes(await widget.pdfFile.readAsBytes());
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('PDF saved successfully at $filePath'),
+          backgroundColor: Colors.green,
+        ),
+      );
+        } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -112,7 +142,7 @@ class _InvoicePDFPreviewDialogState extends State<InvoicePDFPreviewDialog> {
               IconButton(
                 icon: const Icon(Icons.download),
                 onPressed: () async {
-                  Navigator.of(context).pop('save');
+                  await _savePDF(context); // Call the save function
                 },
               ),
               IconButton(

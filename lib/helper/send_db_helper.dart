@@ -14,6 +14,61 @@ class SendRecordDatabaseHelper {
   factory SendRecordDatabaseHelper() => _instance;
 
   SendRecordDatabaseHelper._internal();
+  
+  Future<void> _createTable(Database db, int version) async {
+    await db.execute('''
+    CREATE TABLE send_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date TEXT,
+      truckNumber TEXT,
+      codeNumber TEXT,
+      senderName TEXT,
+      senderPhone TEXT,
+      senderIdNumber TEXT,
+      goodsDescription TEXT,
+      notes TEXT,
+      boxNumber INTEGER,
+      palletNumber INTEGER,
+      realWeightKg REAL,
+      length REAL,
+      width REAL,
+      height REAL,
+      isDimensionCalculated INTEGER,
+      additionalKg REAL,
+      totalWeightKg REAL,
+      agentName TEXT,
+      branchName TEXT,
+      receiverName TEXT,
+      receiverPhone TEXT,
+      receiverCountry TEXT,
+      receiverCity TEXT,
+      streetName TEXT,
+      zipCode TEXT,
+      doorToDoorPrice REAL,
+      pricePerKg REAL,
+      minimumPrice REAL,
+      insurancePercent REAL,
+      goodsValue REAL,
+      insuranceAmount REAL,
+      customsCost REAL,
+      boxPackingCost REAL,
+      doorToDoorCost REAL,
+      postSubCost REAL,
+      discountAmount REAL,
+      totalPostCost REAL,
+      totalPostCostPaid REAL,
+      unpaidAmount REAL,
+      totalCostEuroCurrency REAL,
+      unpaidAmountEuro REAL
+    )
+  ''');
+
+    // Add indexes if needed
+    await db
+        .execute('CREATE INDEX idx_codeNumber ON send_records (codeNumber);');
+    await db
+        .execute('CREATE INDEX idx_branchName ON send_records (branchName);');
+  }
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -39,12 +94,12 @@ class SendRecordDatabaseHelper {
     final dbPath = await getDatabasePath();
     return await openDatabase(
       dbPath,
-      version: 1,
+      version: 2,
       onCreate: _createTable,
     );
   }
 
- // In SendRecordDatabaseHelper class
+  // In SendRecordDatabaseHelper class
 
   /// Delete all records for a specific year
   Future<int> deleteRecordsByYear(String year) async {
@@ -76,6 +131,7 @@ class SendRecordDatabaseHelper {
     return result.map((e) => e['truckNumber']?.toString() ?? '').toList()
       ..removeWhere((truckNumber) => truckNumber.isEmpty);
   }
+
   // In send_db_helper.dart
   Future<List<String>> getAvailableYears() async {
     final db = await database;
@@ -84,66 +140,6 @@ class SendRecordDatabaseHelper {
     );
     return result.map((e) => e['year']?.toString() ?? '').toList()
       ..removeWhere((year) => year.isEmpty);
-  }
-
- 
-  Future<void> _createTable(Database db, int version) async {
-    await db.execute('''
-    CREATE TABLE send_records (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      date TEXT,
-      truckNumber TEXT,
-      codeNumber TEXT,
-      senderName TEXT,
-      senderPhone TEXT,
-      senderIdNumber TEXT,
-      goodsDescription TEXT,
-      boxNumber INTEGER,
-      palletNumber INTEGER,
-      realWeightKg REAL,
-      length REAL,
-      width REAL,
-      height REAL,
-      isDimensionCalculated INTEGER,
-      additionalKg REAL,
-      totalWeightKg REAL,
-      agentName TEXT,
-      branchName TEXT,
-      agentCode TEXT,
-      receiverName TEXT,
-      receiverPhone TEXT,
-      receiverCountry TEXT,
-      receiverCity TEXT,
-      streetName TEXT,
-      apartmentNumber TEXT,
-      zipCode TEXT,
-      postalCity TEXT,
-      postalCountry TEXT,
-      doorToDoorPrice REAL,
-      pricePerKg REAL,
-      minimumPrice REAL,
-      insurancePercent REAL,
-      goodsValue REAL,
-      agentCommission REAL,
-      insuranceAmount REAL,
-      customsCost REAL,
-      exportDocCost REAL,
-      boxPackingCost REAL,
-      doorToDoorCost REAL,
-      postSubCost REAL,
-      discountAmount REAL,
-      totalPostCost REAL,
-      totalPostCostPaid REAL,
-      unpaidAmount REAL,
-      totalCostEuroCurrency REAL,
-      unpaidAmountEuro REAL
-    )
-  ''');
-
-    await db
-        .execute('CREATE INDEX idx_codeNumber ON send_records (codeNumber);');
-    await db
-        .execute('CREATE INDEX idx_branchName ON send_records (branchName);');
   }
 
   Future<int> insertSendRecord(SendRecord record) async {
@@ -252,9 +248,106 @@ class SendRecordDatabaseHelper {
   Future<List<String>> getUniqueTruckNumbers() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.rawQuery(
-      'SELECT DISTINCT truckNumber FROM send_records WHERE truckNumber IS NOT NULL',
+      'SELECT DISTINCT truckNumber FROM send_records WHERE truckNumber IS NOT NULL ORDER BY id DESC',
     );
     return List.generate(maps.length, (i) => maps[i]['truckNumber'] as String);
+  }
+
+  Future<Map<String, dynamic>> getDailyTotals({
+    required String fromDate,
+    required String toDate,
+    String? branchName,
+  }) async {
+    final db = await database;
+
+    String whereClause = "date BETWEEN ? AND ?";
+    List<dynamic> whereArgs = [fromDate, toDate];
+
+    if (branchName != null) {
+      whereClause += " AND branchName = ?";
+      whereArgs.add(branchName);
+    }
+
+    final result = await db.rawQuery('''
+      SELECT 
+        COUNT(*) as codeCount,
+        SUM(palletNumber) as palletCount,
+        SUM(boxNumber) as boxCount,
+        SUM(totalWeightKg) as totalWeight,
+        SUM(totalPostCostPaid) as totalPaid
+      FROM send_records
+      WHERE $whereClause
+    ''', whereArgs);
+
+    return {
+      'codeCount': result.first['codeCount'] ?? 0,
+      'palletCount': result.first['palletCount'] ?? 0,
+      'boxCount': result.first['boxCount'] ?? 0,
+      'totalWeight': result.first['totalWeight'] ?? 0.0,
+      'totalPaid': result.first['totalPaid'] ?? 0.0,
+    };
+  }
+// Add these methods to your SendRecordDatabaseHelper class
+
+  Future<Map<String, dynamic>> getFilteredStats({
+    String? year,
+    String? truckNumber,
+  }) async {
+    final db = await database;
+
+    String whereClause = '1=1';
+    List<dynamic> whereArgs = [];
+
+    if (year != null) {
+      whereClause += " AND strftime('%Y', date) = ?";
+      whereArgs.add(year);
+    }
+
+    if (truckNumber != null) {
+      whereClause += " AND truckNumber = ?";
+      whereArgs.add(truckNumber);
+    }
+
+    // Get overall stats
+    final stats = await db.rawQuery('''
+    SELECT
+      COUNT(DISTINCT id) as totalCodes,
+      SUM(boxNumber) as totalBoxes,
+      SUM(palletNumber) as totalPallets,
+      SUM(totalWeightKg) as totalKG,
+      COUNT(DISTINCT truckNumber) as totalTrucks,
+      SUM(totalCostEuroCurrency) as totalCashIn,
+      SUM(unpaidAmountEuro) as totalPayInEurope
+    FROM send_records
+    WHERE $whereClause
+  ''', whereArgs);
+
+    // Get country-wise stats
+    final countries = await getUniqueCountries();
+    final countryTotals = <String, Map<String, dynamic>>{};
+
+    for (final country in countries) {
+      final countryStats = await db.rawQuery('''
+      SELECT
+        COUNT(DISTINCT id) as totalCodes,
+        SUM(boxNumber) as totalBoxes,
+        SUM(palletNumber) as totalPallets,
+        SUM(totalWeightKg) as totalKG,
+        COUNT(DISTINCT truckNumber) as totalTrucks,
+        SUM(totalCostEuroCurrency) as totalCashIn,
+        SUM(unpaidAmountEuro) as totalPayInEurope
+      FROM send_records
+      WHERE $whereClause AND receiverCountry = ?
+    ''', [...whereArgs, country]);
+
+      countryTotals[country] = countryStats.first;
+    }
+
+    return {
+      ...stats.first,
+      'countries': countries,
+      'countryTotals': countryTotals,
+    };
   }
 
   Future<List<String>> getUniqueEUCountries() async {
@@ -332,5 +425,128 @@ class SendRecordDatabaseHelper {
     ''', [country]);
 
     return maps.first;
+  }
+
+  Future<bool> _tableExists() async {
+    final db = await database;
+    final result = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='send_records';");
+    return result.isNotEmpty;
+  }
+
+  /// Gets database stats if table exists, otherwise returns empty stats
+  Future<Map<String, dynamic>> getDatabaseStats() async {
+    try {
+      final db = await database;
+
+      // Check if table exists first
+      if (!await _tableExists()) {
+        return {
+          'totalRecords': 0,
+          'uniqueTrucks': 0,
+          'uniqueCountries': 0,
+          'totalBoxes': 0,
+          'totalPallets': 0,
+          'totalWeight': 0.0
+        };
+      }
+
+      final result = await db.rawQuery('''
+        SELECT 
+          COUNT(*) as totalRecords,
+          COUNT(DISTINCT truckNumber) as uniqueTrucks,
+          COUNT(DISTINCT receiverCountry) as uniqueCountries,
+          SUM(boxNumber) as totalBoxes,
+          SUM(palletNumber) as totalPallets,
+          SUM(totalWeightKg) as totalWeight
+        FROM send_records
+      ''');
+
+      return result.first;
+    } catch (e) {
+      // Return empty stats in case of error
+      return {
+        'totalRecords': 0,
+        'uniqueTrucks': 0,
+        'uniqueCountries': 0,
+        'totalBoxes': 0,
+        'totalPallets': 0,
+        'totalWeight': 0.0
+      };
+    }
+  }
+
+  /// Resets the entire database by dropping and recreating the table
+  Future<void> resetDatabase() async {
+    try {
+      final db = await database;
+
+      // Drop the existing table if it exists
+      if (await _tableExists()) {
+        await db.execute('DROP TABLE IF EXISTS send_records');
+      }
+
+      // Recreate the table
+      await _createTable(db, 1);
+
+      // Close the database connection
+      await db.close();
+
+      // Clear the database instance
+      _database = null;
+
+      // Reinitialize the database
+      _database = await _initDatabase();
+    } catch (e) {
+      throw Exception('Failed to reset database: $e');
+    }
+  }
+
+  /// Creates a backup before resetting
+  Future<String> createBackup() async {
+    final dbPath = await getDatabasePath();
+    final backupPath =
+        '${dbPath}_backup_${DateTime.now().millisecondsSinceEpoch}';
+
+    try {
+      // Check if original database file exists
+      final File dbFile = File(dbPath);
+      if (!await dbFile.exists()) {
+        throw Exception('Database file does not exist');
+      }
+
+      // Copy the current database file to backup location
+      await dbFile.copy(backupPath);
+      return backupPath;
+    } catch (e) {
+      throw Exception('Failed to create backup: $e');
+    }
+  }
+
+  /// Restores from a backup file
+  Future<void> restoreFromBackup(String backupPath) async {
+    try {
+      final dbPath = await getDatabasePath();
+
+      // Check if backup file exists
+      final File backupFile = File(backupPath);
+      if (!await backupFile.exists()) {
+        throw Exception('Backup file does not exist');
+      }
+
+      // Close current database connection
+      if (_database != null) {
+        await _database!.close();
+        _database = null;
+      }
+
+      // Copy backup file to main database location
+      await backupFile.copy(dbPath);
+
+      // Reinitialize the database
+      _database = await _initDatabase();
+    } catch (e) {
+      throw Exception('Failed to restore from backup: $e');
+    }
   }
 }

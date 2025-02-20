@@ -18,7 +18,7 @@ class ControllerKeys {
   static  String senderPhoneController = 'senderPhoneController';
   static  String senderIdController = 'senderIdController';
   static  String goodsDescriptionController = 'goodsDescriptionController';
-
+static const notesController = 'notesController';
   // Receiver Keys
   static  String receiverNameController = 'receiverNameController';
   static  String receiverPhoneController = 'receiverPhoneController';

@@ -7,6 +7,7 @@ import 'package:app/cubits/countries_cubit/countries_cubit.dart';
 import 'package:app/cubits/currencies_cubit/currencies_cubit.dart';
 import 'package:app/cubits/login_cubit/login_cubit_cubit.dart';
 import 'package:app/cubits/send_cubit/send_cubit.dart';
+import 'package:app/cubits/theme_cubit/theme_cubit_cubit.dart';
 import 'package:app/cubits/user_cubit/user_cubit.dart';
 import 'package:app/helper/send_db_helper.dart';
 import 'package:app/helper/shared_prefs_service.dart';
@@ -23,9 +24,7 @@ import 'package:app/pages/main_pages/main_page.dart';
 import 'package:app/pages/main_pages/report_page.dart';
 import 'package:app/pages/main_pages/send_page/send.dart';
 import 'package:app/pages/main_pages/setting/setting_page.dart';
-import 'package:app/pages/reports_pages/eu_reports_page.dart';
 import 'package:app/pages/reports_pages/overview_page.dart';
-import 'package:app/pages/reports_pages/reports_page.dart';
 import 'package:app/widgets/custom_scroll_behavior.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -33,7 +32,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path/path.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -218,60 +216,83 @@ class MyApp extends StatelessWidget {
           BlocProvider(create: (_) => CurrencyFormCubit()),
           BlocProvider(create: (_) => UserFormCubit()),
           BlocProvider(create: (_) => OverviewFormCubit()),
-          BlocProvider(create: (_) => ReportsFormCubit()),
-          BlocProvider(create: (_) => EUReportsFormCubit()),
+          BlocProvider<ThemeCubit>(
+            create: (context) => ThemeCubit(),
+          ),
+          
+          BlocProvider(create: (_) => SendThemeCubit()),
+          // BlocProvider(create: (_) => EUReportsFormCubit()),
           BlocProvider(
             create: (context) => SettingFormCubit(),
           ),
         ],
-        child: MaterialApp(
-          scrollBehavior: PermanentScrollBehavior(),
-          debugShowCheckedModeBanner: false,
-          title: 'Transport Company',
-          theme: ThemeData(
-            fontFamily: 'Poppins',
-            // Set the default text style to bold
-            textTheme: TextTheme(
-              bodyLarge: TextStyle(fontWeight: FontWeight.bold),
-              bodyMedium: TextStyle(fontWeight: FontWeight.bold),
-              bodySmall: TextStyle(fontWeight: FontWeight.bold),
-              titleLarge: TextStyle(fontWeight: FontWeight.bold),
-              titleMedium: TextStyle(fontWeight: FontWeight.bold),
-              titleSmall: TextStyle(fontWeight: FontWeight.bold),
-              labelLarge: TextStyle(fontWeight: FontWeight.bold),
-              labelMedium: TextStyle(fontWeight: FontWeight.bold),
-              labelSmall: TextStyle(fontWeight: FontWeight.bold),
-              headlineLarge: TextStyle(fontWeight: FontWeight.bold),
-              headlineMedium: TextStyle(fontWeight: FontWeight.bold),
-              headlineSmall: TextStyle(fontWeight: FontWeight.bold),
-              displayLarge: TextStyle(fontWeight: FontWeight.bold),
-              displayMedium: TextStyle(fontWeight: FontWeight.bold),
-              displaySmall: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            primarySwatch: Colors.blue,
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-            ),
-            elevatedButtonTheme: ElevatedButtonThemeData(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
+        child: BlocBuilder<ThemeCubit, AppTheme>(
+          builder: (context, state) {
+            return MaterialApp(
+              scrollBehavior: PermanentScrollBehavior(),
+              debugShowCheckedModeBanner: false,
+              title: 'Transport Company',
+              // Add to main.dart MaterialApp
+              darkTheme: ThemeData(
+                brightness: Brightness.dark,
+                colorScheme: ColorScheme.dark(
+                  primary: Color(0xFF3498DB),
+                  secondary: Color(0xFF2980B9),
+                  surface: Color(0xFF121212),
+                  onSurface: Colors.white,
+                ),
+                cardTheme: CardTheme(
+                  color: Color(0xFF2D2D2D),
+                ),
+                
               ),
-            ),
-          ),
-          routes: {
-            LoginPage.id: (context) => const LoginPage(),
-            SendScreen.id: (context) => const SendScreen(),
-            AdminPage.id: (context) => const AdminPage(),
-            ReportPage.id: (context) => const ReportPage(),
-            SettingPage.id: (context) => const SettingPage(),
-            MainLayout.id: (context) => const MainLayout(),
-            CitiesPage.id: (context) => const CitiesPage(),
-            BranchesPage.id: (context) => const BranchesPage(),
+
+              theme: ThemeData(
+                fontFamily: 'Poppins',
+                // Set the default text style to bold
+                textTheme: TextTheme(
+                  bodyLarge: TextStyle(fontWeight: FontWeight.bold),
+                  bodyMedium: TextStyle(fontWeight: FontWeight.bold),
+                  bodySmall: TextStyle(fontWeight: FontWeight.bold),
+                  titleLarge: TextStyle(fontWeight: FontWeight.bold),
+                  titleMedium: TextStyle(fontWeight: FontWeight.bold),
+                  titleSmall: TextStyle(fontWeight: FontWeight.bold),
+                  labelLarge: TextStyle(fontWeight: FontWeight.bold),
+                  labelMedium: TextStyle(fontWeight: FontWeight.bold),
+                  labelSmall: TextStyle(fontWeight: FontWeight.bold),
+                  headlineLarge: TextStyle(fontWeight: FontWeight.bold),
+                  headlineMedium: TextStyle(fontWeight: FontWeight.bold),
+                  headlineSmall: TextStyle(fontWeight: FontWeight.bold),
+                  displayLarge: TextStyle(fontWeight: FontWeight.bold),
+                  displayMedium: TextStyle(fontWeight: FontWeight.bold),
+                  displaySmall: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                primarySwatch: Colors.blue,
+
+                elevatedButtonTheme: ElevatedButtonThemeData(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+              // darkTheme: ThemeData.dark(),
+              themeMode:
+                  state == AppTheme.light ? ThemeMode.light : ThemeMode.dark,
+              routes: {
+                LoginPage.id: (context) => const LoginPage(),
+                SendScreen.id: (context) => const SendScreen(),
+                AdminPage.id: (context) => const AdminPage(),
+                ReportPage.id: (context) => const ReportPage(),
+                SettingPage.id: (context) => const SettingPage(),
+                MainLayout.id: (context) => const MainLayout(),
+                CitiesPage.id: (context) => const CitiesPage(),
+                BranchesPage.id: (context) => const BranchesPage(),
+              },
+              initialRoute: LoginPage.id,
+              navigatorObservers: [routeObserver],
+            );
           },
-          initialRoute: LoginPage.id,
-          navigatorObservers: [routeObserver],
         ),
       ),
     );

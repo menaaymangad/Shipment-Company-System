@@ -13,7 +13,7 @@ class SendRecord {
   String? senderPhone;
   String? senderIdNumber;
   String? goodsDescription;
-
+String?notes;
   // Item Details
   int? boxNumber;
   int? palletNumber;
@@ -28,7 +28,7 @@ class SendRecord {
   // Agent Information
   String? agentName;
   String? branchName;
-  String? agentCode;
+  // String? agentCode;
 
   // Receiver Information
   String? receiverName;
@@ -38,10 +38,10 @@ class SendRecord {
 
   // Postal Details
   String? streetName;
-  String? apartmentNumber;
+  // String? apartmentNumber;
   String? zipCode;
-  String? postalCity;
-  String? postalCountry;
+  // String? postalCity;
+  // String? postalCountry;
 
   // Pricing and Costs
   double? doorToDoorPrice;
@@ -49,12 +49,12 @@ class SendRecord {
   double? minimumPrice;
   double? insurancePercent;
   double? goodsValue;
-  double? agentCommission;
+  // double? agentCommission;
 
   // Additional Costs
   double? insuranceAmount;
   double? customsCost;
-  double? exportDocCost;
+  
   double? boxPackingCost;
   double? doorToDoorCost;
   double? postSubCost;
@@ -86,26 +86,25 @@ IdType? idType;
     this.totalWeightKg,
     this.agentName,
     this.branchName,
-    this.agentCode,
+    // this.agentCode,
     this.receiverName,
     this.receiverPhone,
     this.receiverCountry,
     this.receiverCity,
     this.streetName,
-    this.apartmentNumber,
+    this.notes,
     this.zipCode,
-    this.postalCity,
-    this.postalCountry,
+    // this.postalCity,
+    // this.postalCountry,
     this.doorToDoorPrice,
     this.pricePerKg,
     this.minimumPrice,
     this.insurancePercent,
     this.goodsValue,
-    this.agentCommission,
+    // this.agentCommission,
     this.insuranceAmount,
     this.customsCost,
-    this.exportDocCost,
-    this.boxPackingCost,
+  this.boxPackingCost,
     this.doorToDoorCost,
     this.postSubCost,
     this.discountAmount,
@@ -140,6 +139,7 @@ IdType? idType;
       'senderPhone': senderPhone,
       'senderIdNumber': senderIdNumber,
       'goodsDescription': goodsDescription,
+      'notes': notes,
       'boxNumber': boxNumber,
       'palletNumber': palletNumber,
       'realWeightKg': realWeightKg,
@@ -151,25 +151,25 @@ IdType? idType;
       'totalWeightKg': totalWeightKg,
       'agentName': agentName,
       'branchName': branchName,
-      'agentCode': agentCode,
+      // 'agentCode': agentCode,
       'receiverName': receiverName,
       'receiverPhone': receiverPhone,
       'receiverCountry': receiverCountry,
       'receiverCity': receiverCity,
       'streetName': streetName,
-      'apartmentNumber': apartmentNumber,
+     
       'zipCode': zipCode,
-      'postalCity': postalCity,
-      'postalCountry': postalCountry,
+      // 'postalCity': postalCity,
+      // 'postalCountry': postalCountry,
       'doorToDoorPrice': doorToDoorPrice,
       'pricePerKg': pricePerKg,
       'minimumPrice': minimumPrice,
       'insurancePercent': insurancePercent,
       'goodsValue': goodsValue,
-      'agentCommission': agentCommission,
+      // 'agentCommission': agentCommission,
       'insuranceAmount': insuranceAmount,
       'customsCost': customsCost,
-      'exportDocCost': exportDocCost,
+    
       'boxPackingCost': boxPackingCost,
       'doorToDoorCost': doorToDoorCost,
       'postSubCost': postSubCost,
@@ -192,6 +192,7 @@ IdType? idType;
       senderPhone: map['senderPhone'],
       senderIdNumber: map['senderIdNumber'],
       goodsDescription: map['goodsDescription'],
+      notes: map['notes'],
       boxNumber: map['boxNumber'],
       palletNumber: map['palletNumber'],
       realWeightKg: map['realWeightKg'],
@@ -203,25 +204,25 @@ IdType? idType;
       totalWeightKg: map['totalWeightKg'],
       agentName: map['agentName'],
       branchName: map['branchName'],
-      agentCode: map['agentCode'],
+      // agentCode: map['agentCode'],
       receiverName: map['receiverName'],
       receiverPhone: map['receiverPhone'],
       receiverCountry: map['receiverCountry'],
       receiverCity: map['receiverCity'],
       streetName: map['streetName'],
-      apartmentNumber: map['apartmentNumber'],
+      
       zipCode: map['zipCode'],
-      postalCity: map['postalCity'],
-      postalCountry: map['postalCountry'],
+      // postalCity: map['postalCity'],
+      // postalCountry: map['postalCountry'],
       doorToDoorPrice: map['doorToDoorPrice'],
       pricePerKg: map['pricePerKg'],
       minimumPrice: map['minimumPrice'],
       insurancePercent: map['insurancePercent'],
       goodsValue: map['goodsValue'],
-      agentCommission: map['agentCommission'],
+      // agentCommission: map['agentCommission'],
       insuranceAmount: map['insuranceAmount'],
       customsCost: map['customsCost'],
-      exportDocCost: map['exportDocCost'],
+ 
       boxPackingCost: map['boxPackingCost'],
       doorToDoorCost: map['doorToDoorCost'],
       postSubCost: map['postSubCost'],
@@ -242,6 +243,7 @@ IdType? idType;
     String? senderPhone,
     String? senderIdNumber,
     String? goodsDescription,
+    String? notes,
     int? boxNumber,
     int? palletNumber,
     double? realWeightKg,
@@ -291,6 +293,7 @@ IdType? idType;
       senderPhone: senderPhone ?? this.senderPhone,
       senderIdNumber: senderIdNumber ?? this.senderIdNumber,
       goodsDescription: goodsDescription ?? this.goodsDescription,
+      notes: notes ?? this.notes,
       boxNumber: boxNumber ?? this.boxNumber,
       palletNumber: palletNumber ?? this.palletNumber,
       realWeightKg: realWeightKg ?? this.realWeightKg,
@@ -303,25 +306,25 @@ IdType? idType;
       totalWeightKg: totalWeightKg ?? this.totalWeightKg,
       agentName: agentName ?? this.agentName,
       branchName: branchName ?? this.branchName,
-      agentCode: agentCode ?? this.agentCode,
+      // agentCode: agentCode ?? this.agentCode,
       receiverName: receiverName ?? this.receiverName,
       receiverPhone: receiverPhone ?? this.receiverPhone,
       receiverCountry: receiverCountry ?? this.receiverCountry,
       receiverCity: receiverCity ?? this.receiverCity,
       streetName: streetName ?? this.streetName,
-      apartmentNumber: apartmentNumber ?? this.apartmentNumber,
+
       zipCode: zipCode ?? this.zipCode,
-      postalCity: postalCity ?? this.postalCity,
-      postalCountry: postalCountry ?? this.postalCountry,
+      // postalCity: postalCity ?? this.postalCity,
+      // postalCountry: postalCountry ?? this.postalCountry,
       doorToDoorPrice: doorToDoorPrice ?? this.doorToDoorPrice,
       pricePerKg: pricePerKg ?? this.pricePerKg,
       minimumPrice: minimumPrice ?? this.minimumPrice,
       insurancePercent: insurancePercent ?? this.insurancePercent,
       goodsValue: goodsValue ?? this.goodsValue,
-      agentCommission: agentCommission ?? this.agentCommission,
+      // agentCommission: agentCommission ?? this.agentCommission,
       insuranceAmount: insuranceAmount ?? this.insuranceAmount,
       customsCost: customsCost ?? this.customsCost,
-      exportDocCost: exportDocCost ?? this.exportDocCost,
+  
       boxPackingCost: boxPackingCost ?? this.boxPackingCost,
       doorToDoorCost: doorToDoorCost ?? this.doorToDoorCost,
       postSubCost: postSubCost ?? this.postSubCost,
@@ -334,7 +337,56 @@ IdType? idType;
       unpaidAmountEuro: unpaidAmountEuro ?? this.unpaidAmountEuro,
     );
   }
-
+  @override
+  String toString() {
+    return '''
+SendRecord {
+  id: $id,
+  date: $date,
+  idType: $idType,
+  truckNumber: $truckNumber,
+  codeNumber: $codeNumber,
+  senderName: $senderName,
+  senderPhone: $senderPhone,
+  senderIdNumber: $senderIdNumber,
+  goodsDescription: $goodsDescription,
+  notes: $notes,
+  boxNumber: $boxNumber,
+  palletNumber: $palletNumber,
+  realWeightKg: $realWeightKg,
+  length: $length,
+  width: $width,
+  height: $height,
+  isDimensionCalculated: $isDimensionCalculated,
+  additionalKg: $additionalKg,
+  totalWeightKg: $totalWeightKg,
+  agentName: $agentName,
+  branchName: $branchName,
+  receiverName: $receiverName,
+  receiverPhone: $receiverPhone,
+  receiverCountry: $receiverCountry,
+  receiverCity: $receiverCity,
+  streetName: $streetName,
+  zipCode: $zipCode,
+  doorToDoorPrice: $doorToDoorPrice,
+  pricePerKg: $pricePerKg,
+  minimumPrice: $minimumPrice,
+  insurancePercent: $insurancePercent,
+  goodsValue: $goodsValue,
+  insuranceAmount: $insuranceAmount,
+  customsCost: $customsCost,
+  boxPackingCost: $boxPackingCost,
+  doorToDoorCost: $doorToDoorCost,
+  postSubCost: $postSubCost,
+  discountAmount: $discountAmount,
+  totalPostCost: $totalPostCost,
+  totalPostCostPaid: $totalPostCostPaid,
+  unpaidAmount: $unpaidAmount,
+  totalCostEuroCurrency: $totalCostEuroCurrency,
+  unpaidAmountEuro: $unpaidAmountEuro
+}
+''';
+  }
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

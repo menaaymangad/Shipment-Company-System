@@ -81,7 +81,7 @@ class DatabaseHelper {
     return await databaseFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 1, // Increment this version
+        version: 4, // Increment this version
         onCreate: createTables,
         onUpgrade: _onUpgrade,
         onOpen: _onOpen,
@@ -217,7 +217,7 @@ class DatabaseHelper {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
-      await db.execute('ALTER TABLE send_records ADD COLUMN newColumn TEXT;');
+   
     }
   }
 
@@ -301,14 +301,17 @@ class DatabaseHelper {
         print('Creating goods_descriptions table...');
       }
       batch.execute('''
-      CREATE TABLE IF NOT EXISTS goods_descriptions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        description_en TEXT NOT NULL,
-        description_ar TEXT NOT NULL,
-        
-        UNIQUE(description_en, description_ar)
-      )
-    ''');
+  CREATE TABLE IF NOT EXISTS goods_descriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    description_en TEXT NOT NULL,
+    description_ar TEXT NOT NULL,
+    weight REAL NOT NULL DEFAULT 0, 
+    quantity INTEGER NOT NULL DEFAULT 1, 
+    UNIQUE(description_en, description_ar)
+  )
+''');
+      
+     
       // Commit all table creation statements
       await batch.commit(noResult: true);
 
@@ -326,7 +329,7 @@ class DatabaseHelper {
     }
   }
 
- Future<void> _insertDefaultAdminUser(Database db) async {
+  Future<void> _insertDefaultAdminUser(Database db) async {
     final prefs = await SharedPreferences.getInstance();
 
     // Only set defaults if credentials don't exist

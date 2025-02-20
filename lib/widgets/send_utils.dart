@@ -1,31 +1,44 @@
-import 'package:app/pages/main_pages/send_page/id_type_selector.dart';
+import 'package:app/cubits/theme_cubit/theme_cubit_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class SendUtils {
   // Custom color palette for consistent design
-  static const Color primaryColor = Color(0xFF2C3E50);
-  static const Color secondaryColor = Color(0xFF34495E);
-  static const Color _lightGreyColor = Color(0xFFF4F6F7);
-  static const Color _textColorLight = Color(0xFF4A4A4A);
+  static Color primaryColor(BuildContext context) =>
+      Theme.of(context).colorScheme.primary;
+  static Color secondaryColor(BuildContext context) =>
+      Theme.of(context).colorScheme.secondary;
+  static Color getBackgroundColor(BuildContext context) {
+    final isDark = context.watch<SendThemeCubit>().state;
+    return isDark ? Colors.grey[850]! : Colors.white;
+  }
+
+  static Color getTextColor(BuildContext context) {
+    final isDark = context.watch<SendThemeCubit>().state;
+    return isDark ? Colors.white : Colors.black87;
+  }
 
   /// Builds a card with enhanced styling and optional title
   static Widget buildCard({
+    required BuildContext context,
     String? title,
     required Widget child,
     double? height,
     Color? backgroundColor,
   }) {
+    Theme.of(context);
+    final isDark = context.watch<SendThemeCubit>().state;
     return Card(
       elevation: 4,
+      color: backgroundColor ?? (isDark ? Colors.black : Colors.white),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8.r),
       ),
       child: Container(
         height: height,
         decoration: BoxDecoration(
-          color: backgroundColor ?? Colors.white,
           borderRadius: BorderRadius.circular(8.r),
           boxShadow: [
             BoxShadow(
@@ -43,19 +56,36 @@ class SendUtils {
   }
 
   static Widget buildInputRow({
-    Widget? icon, // Change IconData? to Widget?
+    required BuildContext context,
+    Widget? icon,
     required Widget child,
     Color? iconColor,
     VoidCallback? onIconPressed,
+    String? label,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        if (icon != null) icon, // Use the provided widget as the icon
-        if (icon != null)
-          SizedBox(width: 8.w), // Add spacing only if icon is present
-        Expanded(child: child),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Icon or placeholder space
+          if (icon != null) icon,
+
+          if (icon != null) SizedBox(width: 8.w),
+          if (label != null)
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.bold,
+                color: getTextColor(context),
+              ),
+            ),
+          if (label != null) SizedBox(width: 24.w),
+          // Input field
+          Expanded(child: child),
+        ],
+      ),
     );
   }
 
@@ -64,8 +94,20 @@ class SendUtils {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Validation Error'),
-          content: Text(message),
+          title: Text(
+            'Validation Error',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: getTextColor(context),
+            ),
+          ),
+          content: Text(
+            message,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: getTextColor(context),
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () {
@@ -80,6 +122,7 @@ class SendUtils {
   }
 
   static Widget buildTextField({
+    required BuildContext context,
     required String hint,
     int? maxLines = 1,
     String? label,
@@ -90,40 +133,41 @@ class SendUtils {
     FormFieldValidator<String>? validator,
     double? height = 50,
     ValueChanged<String>? onChanged,
-    BuildContext? context,
     TextCapitalization textCapitalization = TextCapitalization.none,
     List<TextInputFormatter>? inputFormatters,
     AutovalidateMode? autovalidateMode,
+    double? padding,
   }) {
     final ValueNotifier<String?> errorNotifier = ValueNotifier(null);
 
+    final isDark = context.watch<SendThemeCubit>().state;
     return ValueListenableBuilder<String?>(
       valueListenable: errorNotifier,
       builder: (context, errorMessage, child) {
-        return SizedBox(
+        return Container(
           height: height!.h,
+          width: 200.w,
+          padding: EdgeInsets.symmetric(horizontal: padding ?? 48.w),
           child: TextFormField(
             autovalidateMode: autovalidateMode,
             textCapitalization: textCapitalization,
             inputFormatters: inputFormatters,
             controller: controller,
-            // onChanged: (value) {
-            //   errorNotifier.value = validator?.call(value);
-            //   onChanged?.call(value);
-            // },
             maxLines: maxLines,
             enabled: enabled,
             keyboardType: keyboardType,
             validator: (value) {
               final error = validator?.call(value);
               errorNotifier.value = error;
-              return error; // Pass the error back to the form
+              return error;
             },
             textAlign: TextAlign.start,
             style: TextStyle(
-              color: _textColorLight,
-              fontSize: 14.sp,
+              fontSize: 16.sp,
               fontWeight: FontWeight.bold,
+              color: enabled
+                  ? (isDark ? Colors.white : Colors.black87)
+                  : (isDark ? Colors.white.withOpacity(0.6) : Colors.grey[600]),
             ),
             decoration: InputDecoration(
               errorMaxLines: null,
@@ -147,14 +191,16 @@ class SendUtils {
               ),
               labelText: hint,
               labelStyle: TextStyle(
-                color: enabled ? Colors.grey[700] : Colors.grey[500],
-                fontSize: 14.sp,
+                fontSize: 16.sp,
                 fontWeight: FontWeight.bold,
+                color: enabled
+                    ? (isDark ? Colors.white : Colors.grey[700])
+                    : (isDark ? Colors.white : Colors.grey[500]),
               ),
               hintText: hint,
               hintStyle: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 14.sp,
+                color: isDark ? Colors.grey[500] : Colors.grey[500],
+                fontSize: 16.sp,
                 fontWeight: FontWeight.bold,
               ),
               contentPadding: EdgeInsets.symmetric(
@@ -164,7 +210,9 @@ class SendUtils {
               isDense: false,
               isCollapsed: false,
               filled: true,
-              fillColor: enabled ? Colors.white : _lightGreyColor,
+              fillColor: isDark
+                  ? Colors.grey[850]
+                  : Theme.of(context).colorScheme.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide(
@@ -181,8 +229,8 @@ class SendUtils {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(
-                  color: primaryColor,
+                borderSide: BorderSide(
+                  color: primaryColor(context),
                   width: 2,
                 ),
               ),
@@ -196,10 +244,9 @@ class SendUtils {
               suffixText: optional ? 'Optional' : null,
               suffixStyle: TextStyle(
                 color: Colors.grey[500],
-                fontSize: 20.sp,
+                fontSize: 14.sp,
               ),
-              errorStyle: const TextStyle(
-                  height: 0, fontSize: 0), // Hide the error message
+              errorStyle: const TextStyle(height: 0, fontSize: 0),
             ),
           ),
         );
@@ -218,18 +265,21 @@ class SendUtils {
     Widget? suffixIcon,
     double? height,
     String? Function(String?)? validator,
+    double? padding,
   }) {
-    // Ensure the value is valid or set a default value
     final validValue =
         items.contains(value) ? value : (items.isNotEmpty ? items.first : null);
     final ValueNotifier<String?> errorNotifier = ValueNotifier(null);
+
+    final isDark = context.watch<SendThemeCubit>().state;
     return ValueListenableBuilder<String?>(
       valueListenable: errorNotifier,
       builder: (context, errorMessage, child) {
-        return SizedBox(
+        return Container(
           height: 50.h,
+          padding: EdgeInsets.symmetric(horizontal: padding ?? 48.w),
           child: DropdownButtonFormField<String>(
-            value: validValue, // Use the valid value
+            value: validValue,
             decoration: InputDecoration(
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8.r),
@@ -240,16 +290,22 @@ class SendUtils {
               ),
               labelText: isRequired ? '$label *' : label,
               labelStyle: TextStyle(
-                fontSize: 14.sp,
+                fontSize: 16.sp,
                 fontWeight: FontWeight.bold,
-                color: enabled ? Colors.grey[700] : Colors.grey[500],
+                color: enabled
+                    ? (isDark ? Colors.white : Colors.grey[700])
+                    : (isDark
+                        ? Colors.white.withOpacity(0.5)
+                        : Colors.grey[500]),
               ),
               contentPadding: EdgeInsets.symmetric(
                 horizontal: 12.w,
                 vertical: 8.h,
               ),
               filled: true,
-              fillColor: enabled ? Colors.white : _lightGreyColor,
+              fillColor: isDark
+                  ? Colors.grey[850]
+                  : Theme.of(context).colorScheme.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8.r),
                 borderSide: BorderSide(
@@ -266,8 +322,8 @@ class SendUtils {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8.r),
-                borderSide: const BorderSide(
-                  color: primaryColor,
+                borderSide: BorderSide(
+                  color: primaryColor(context),
                   width: 2,
                 ),
               ),
@@ -284,13 +340,14 @@ class SendUtils {
                       ),
                     )
                   : null,
-              errorStyle: const TextStyle(
-                  height: 0, fontSize: 0), // Hide the error message
+              errorStyle: const TextStyle(height: 0, fontSize: 0),
             ),
             style: TextStyle(
-              fontSize: 14.sp,
+              fontSize: 16.sp,
               fontWeight: FontWeight.bold,
-              color: enabled ? Colors.black87 : Colors.grey[600],
+              color: enabled
+                  ? (isDark ? Colors.white : Colors.black87)
+                  : (isDark ? Colors.white.withOpacity(0.6) : Colors.grey[600]),
             ),
             items: items.map((String item) {
               return DropdownMenuItem<String>(
@@ -298,23 +355,30 @@ class SendUtils {
                 child: Text(
                   item,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14.sp),
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    color: isDark
+                        ? Colors.white
+                        : Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
               );
             }).toList(),
             validator: (value) {
               final error = validator?.call(value);
               errorNotifier.value = error;
-              return error; // Pass the error back to the form
+              return error;
             },
             onChanged: enabled ? onChanged : null,
             isExpanded: true,
             icon: Icon(
               Icons.arrow_drop_down,
               size: 30.h,
-              color: enabled ? primaryColor : Colors.grey[400],
+              color: enabled ? primaryColor(context) : Colors.grey[400],
             ),
-            dropdownColor: Colors.white,
+            dropdownColor: isDark
+                ? Colors.grey[850]
+                : Theme.of(context).colorScheme.surface,
             alignment: AlignmentDirectional.center,
           ),
         );
@@ -329,11 +393,9 @@ class UpperCaseTextFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    // Convert the new value to uppercase
     return TextEditingValue(
       text: newValue.text.toUpperCase(),
       selection: newValue.selection,
     );
   }
 }
-//
