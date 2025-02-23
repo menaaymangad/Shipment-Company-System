@@ -8,7 +8,9 @@ class City {
   final double priceKg;
   final double minimumPrice;
   final double boxPrice;
-
+  final String circularFlag;
+  final String squareFlag;
+    final double maxWeightKG;
   City({
     this.id,
     required this.cityName,
@@ -19,6 +21,9 @@ class City {
     required this.priceKg,
     required this.minimumPrice,
     required this.boxPrice,
+    required this.circularFlag,
+    required this.squareFlag,
+    required this.maxWeightKG,
   });
 
   Map<String, dynamic> toMap() {
@@ -31,7 +36,8 @@ class City {
       'doorToDoorPrice': doorToDoorPrice,
       'priceKg': priceKg,
       'minimumPrice': minimumPrice,
-      'boxPrice': boxPrice,
+      'boxPrice': boxPrice, 'circular_flag': circularFlag,
+      'square_flag': squareFlag, 'maxWeightKG': maxWeightKG,
     };
   }
 
@@ -45,7 +51,8 @@ class City {
       doorToDoorPrice: map['doorToDoorPrice'],
       priceKg: map['priceKg'],
       minimumPrice: map['minimumPrice'],
-      boxPrice: map['boxPrice'],
+      boxPrice: map['boxPrice'], circularFlag: map['circular_flag'] ?? '',
+      squareFlag: map['square_flag'] ?? '', maxWeightKG: map['maxWeightKG'],
     );
   }
 }

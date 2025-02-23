@@ -435,6 +435,7 @@ class _SettingPageState extends State<SettingPage> {
                   },
                   secondary: const Icon(Icons.visibility),
                 ),
+
                 _buildActionButton(
                   'Change Password',
                   Icons.key,

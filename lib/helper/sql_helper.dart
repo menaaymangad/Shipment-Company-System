@@ -256,10 +256,8 @@ class DatabaseHelper {
         zipCodeText TEXT,
         currency TEXT NOT NULL,
         currencyAgainstIQD REAL NOT NULL,
-        hasAgent INTEGER NOT NULL,
-        maxWeightKG REAL,
-        flagBoxLabel TEXT,
-        postBoxLabel TEXT
+        hasAgent INTEGER NOT NULL
+       
       )
     ''');
 
@@ -274,7 +272,10 @@ class DatabaseHelper {
     doorToDoorPrice REAL NOT NULL,
     priceKg REAL NOT NULL DEFAULT 0,
     minimumPrice REAL NOT NULL DEFAULT 0,
-    boxPrice REAL NOT NULL DEFAULT 0
+    boxPrice REAL NOT NULL DEFAULT 0,
+    maxWeightKG REAL NOT NULL DEFAULT 0,
+    circular_flag TEXT NOT NULL DEFAULT '',
+    square_flag TEXT NOT NULL DEFAULT ''
   )
 ''');
       // Currencies table

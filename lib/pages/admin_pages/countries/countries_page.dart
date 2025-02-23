@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:app/cubits/countries_cubit/countries_cubit.dart';
 import 'package:app/cubits/countries_cubit/countries_state.dart';
@@ -6,13 +5,10 @@ import 'package:app/cubits/currencies_cubit/currencies_cubit.dart';
 import 'package:app/cubits/currencies_cubit/currencies_state.dart';
 import 'package:app/models/country_model.dart';
 import 'package:app/pages/admin_pages/countries/countries_list.dart';
-import 'package:app/widgets/asset_manager.dart';
 import 'package:app/widgets/page_utils.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:file_picker/file_picker.dart';
 
 class CountriesPage extends StatefulWidget {
   const CountriesPage({
@@ -33,11 +29,9 @@ class _CountriesPageState extends State<CountriesPage> {
     'zipCodeDigit2': TextEditingController(),
     'zipCodeText': TextEditingController(),
     'currencyRate': TextEditingController(),
-    'maximumKg': TextEditingController(),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
   };
 
-  String _selectedCircularImage = '';
-  String _selectedSquareImage = '';
   String _selectedCurrency = '';
   Country? _selectedCountry;
   bool _hasAgent = false;
@@ -64,10 +58,9 @@ class _CountriesPageState extends State<CountriesPage> {
       'zipCodeDigit2': _controllers['zipCodeDigit2']!.text,
       'zipCodeText': _controllers['zipCodeText']!.text,
       'currencyRate': _controllers['currencyRate']!.text,
-      'maximumKg': _controllers['maximumKg']!.text,
+      
       'hasAgent': _hasAgent,
-      'circularImage': _selectedCircularImage,
-      'squareImage': _selectedSquareImage,
+    
       'selectedCurrency': _selectedCurrency,
     };
     context.read<CountryFormCubit>().saveFormData(formData);
@@ -82,10 +75,9 @@ class _CountriesPageState extends State<CountriesPage> {
       _controllers['zipCodeDigit2']!.text = formData['zipCodeDigit2'] ?? '';
       _controllers['zipCodeText']!.text = formData['zipCodeText'] ?? '';
       _controllers['currencyRate']!.text = formData['currencyRate'] ?? '';
-      _controllers['maximumKg']!.text = formData['maximumKg'] ?? '';
+  
       _hasAgent = formData['hasAgent'] ?? false;
-      _selectedCircularImage = formData['circularImage'] ?? '';
-      _selectedSquareImage = formData['squareImage'] ?? '';
+
       _selectedCurrency = formData['selectedCurrency'] ?? '';
       setState(() {});
     }
@@ -149,7 +141,7 @@ class _CountriesPageState extends State<CountriesPage> {
               child: Column(
                 children: [
                   _buildFormFields(),
-                  _buildImageSelectors(),
+               
                   PageUtils.buildActionButtons(
                     onAddPressed: () => _handleAddCountry(),
                     onUpdatePressed: _selectedCountry != null
@@ -306,36 +298,7 @@ class _CountriesPageState extends State<CountriesPage> {
             ],
           ),
         ),
-        SizedBox(height: 24.h),
 
-        // Weight Section
-        Container(
-          padding: EdgeInsets.all(16.r),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(8.r),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Shipping Information',
-                style: TextStyle(
-                  fontSize: 32.sp,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).primaryColor,
-                ),
-              ),
-              SizedBox(height: 24.h),
-              PageUtils.buildTextField(
-                controller: _controllers['maximumKg']!,
-                labelText: 'Maximum Weight (KG)',
-                keyboardType: TextInputType.number,
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -354,8 +317,7 @@ class _CountriesPageState extends State<CountriesPage> {
     _controllers.forEach((_, controller) => controller.clear());
     setState(() {
       _selectedCountry = null;
-      _selectedCircularImage = '';
-      _selectedSquareImage = '';
+     
       _selectedCurrency = '';
       _hasAgent = false;
     });
@@ -368,333 +330,6 @@ class _CountriesPageState extends State<CountriesPage> {
     });
   }
 
-  Widget _buildImageSelectors() {
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 16.h),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(left: 8.w, bottom: 8.h),
-            child: Text(
-              'Country Flags',
-              style: TextStyle(
-                fontSize: 36.sp,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-          ),
-          Row(
-            children: [
-              // Circular Flag Selector
-              Expanded(
-                child: Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: _selectedCircularImage.isEmpty
-                          ? Colors.grey.shade300
-                          : Theme.of(context).primaryColor,
-                      width: 1,
-                    ),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(12.r),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Circular Flag',
-                          style: TextStyle(
-                            fontSize: 26.sp,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        SizedBox(height: 12.h),
-                        Center(
-                          child: _selectedCircularImage.isEmpty
-                              ? _buildEmptyImagePlaceholder(true)
-                              : _buildImagePreview(
-                                  _selectedCircularImage, true),
-                        ),
-                        SizedBox(height: 12.h),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            if (_selectedCircularImage.isNotEmpty)
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline),
-                                color: Colors.red,
-                                tooltip: 'Remove image',
-                                onPressed: () => _handleImageDeletion(true),
-                              ),
-                            IconButton(
-                              icon: const Icon(Icons.upload_file),
-                              color: Theme.of(context).primaryColor,
-                              tooltip: 'Upload image',
-                              onPressed: _pickCircularImage,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: 16.w),
-              // Square Flag Selector
-              Expanded(
-                child: Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: _selectedSquareImage.isEmpty
-                          ? Colors.grey.shade300
-                          : Theme.of(context).primaryColor,
-                      width: 1,
-                    ),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(12.r),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Square Flag',
-                          style: TextStyle(
-                            fontSize: 26.sp,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        SizedBox(height: 12.h),
-                        Center(
-                          child: _selectedSquareImage.isEmpty
-                              ? _buildEmptyImagePlaceholder(false)
-                              : _buildImagePreview(_selectedSquareImage, false),
-                        ),
-                        SizedBox(height: 12.h),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            if (_selectedSquareImage.isNotEmpty)
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline),
-                                color: Colors.red,
-                                tooltip: 'Remove image',
-                                onPressed: () => _handleImageDeletion(false),
-                              ),
-                            IconButton(
-                              icon: const Icon(Icons.upload_file),
-                              color: Theme.of(context).primaryColor,
-                              tooltip: 'Upload image',
-                              onPressed: _pickSquareImage,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyImagePlaceholder(bool isCircular) {
-    return Container(
-      width: 150.w,
-      height: 150.h,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        shape: isCircular ? BoxShape.circle : BoxShape.rectangle,
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: isCircular ? null : BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.image_outlined,
-            size: 40.sp,
-            color: Colors.grey.shade400,
-          ),
-          SizedBox(height: 8.h),
-          Text(
-            'Upload Image',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 14.sp,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImagePreview(String imagePath, bool isCircular) {
-    return Container(
-      width: 150.w,
-      height: 150.h,
-      decoration: BoxDecoration(
-        shape: isCircular ? BoxShape.circle : BoxShape.rectangle,
-        borderRadius: isCircular ? null : BorderRadius.circular(8),
-        border: Border.all(
-          color: Theme.of(context).primaryColor.withAlpha(60),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(20),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius:
-            isCircular ? BorderRadius.circular(75.r) : BorderRadius.circular(8),
-        child: Image.file(
-          File(imagePath),
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: Colors.grey.shade200,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    color: Colors.red.shade300,
-                    size: 32.sp,
-                  ),
-                  SizedBox(height: 8.h),
-                  Text(
-                    'Error loading image',
-                    style: TextStyle(
-                      color: Colors.red.shade300,
-                      fontSize: 22.sp,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickCircularImage() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-      );
-
-      if (result != null && result.files.single.path != null) {
-        final sourcePath = result.files.single.path!;
-        if (kDebugMode) {
-          print('Selected circular image path: $sourcePath');
-        }
-
-        final countryName =
-            _controllers['countryName']?.text.replaceAll(' ', '_') ?? 'flag';
-        final savedPath = await AssetManager.saveImageToAssets(
-          sourcePath,
-          'circular_$countryName',
-        );
-
-        setState(() {
-          _selectedCircularImage = savedPath;
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Circular flag saved successfully')),
-          );
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error picking circular image: $e');
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving circular flag: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _pickSquareImage() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-      );
-
-      if (result != null && result.files.single.path != null) {
-        final sourcePath = result.files.single.path!;
-        if (kDebugMode) {
-          print('Selected square image path: $sourcePath');
-        }
-
-        final countryName =
-            _controllers['countryName']?.text.replaceAll(' ', '_') ?? 'flag';
-
-        // This will now return an asset path instead of a file system path
-        final assetPath = await AssetManager.saveImageToAssets(
-          sourcePath,
-          'square_$countryName',
-        );
-
-        setState(() {
-          _selectedSquareImage = assetPath; // Store the asset path
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Square flag saved successfully')),
-          );
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error picking square image: $e');
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving square flag: $e')),
-        );
-      }
-    }
-  }
-// Update the image deletion handling
-  void _handleImageDeletion(bool isCircular) async {
-    try {
-      final imagePath =
-          isCircular ? _selectedCircularImage : _selectedSquareImage;
-      await AssetManager.deleteImageFromAssets(imagePath);
-      setState(() {
-        if (isCircular) {
-          _selectedCircularImage = '';
-        } else {
-          _selectedSquareImage = '';
-        }
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting image: $e')),
-        );
-      }
-    }
-  }
 
   Future<void> _handleAddCountry() async {
     if (!_validateForm()) return;
@@ -807,13 +442,12 @@ class _CountriesPageState extends State<CountriesPage> {
     _controllers['zipCodeDigit2']?.text = country.zipCodeDigit2;
     _controllers['zipCodeText']?.text = country.zipCodeText;
     _controllers['currencyRate']?.text = country.currencyAgainstIQD.toString();
-    _controllers['maximumKg']?.text = country.maxWeightKG.toString();
+   
 
     setState(() {
       _selectedCurrency = country.currency; // This should be the currency ID
       _hasAgent = country.hasAgent;
-      _selectedCircularImage = country.postBoxLabel;
-      _selectedSquareImage = country.flagBoxLabel;
+     
     });
   }
 
@@ -841,10 +475,9 @@ class _CountriesPageState extends State<CountriesPage> {
       currency: _selectedCurrency,
       currencyAgainstIQD:
           double.tryParse(_controllers['currencyRate']!.text) ?? 0.0,
-      maxWeightKG: double.tryParse(_controllers['maximumKg']!.text) ?? 0.0,
+      
       hasAgent: _hasAgent,
-      postBoxLabel: _selectedCircularImage,
-      flagBoxLabel: _selectedSquareImage,
+    
     );
   }
 }

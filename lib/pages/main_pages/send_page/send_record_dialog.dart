@@ -286,10 +286,7 @@ class _RecordsTableDialogState extends State<RecordsTableDialog> {
                   if (state is SendRecordLoading) {
                     return const Center(child: CircularProgressIndicator());
                   } else if (state is SendRecordListLoaded) {
-                    print('Loaded Records:');
-                    for (var record in state.sendRecords) {
-                      print(record);
-                    }
+                   
                     final filteredRecords =
                         _getFilteredAndSortedRecords(state.sendRecords);
 
@@ -606,22 +603,24 @@ class _RecordsTableDialogState extends State<RecordsTableDialog> {
   void _handleNewRecord(SendRecord originalRecord) async {
     Navigator.pop(context); // Close options dialog
 
-    // Get all records to find latest code for this truck
+    // Get all records to find the latest code for this truck AND branch
     final records = await context.read<SendRecordCubit>().fetchAllSendRecords();
 
-    // Filter records for the same truck
-    final truckRecords = records
-        .where((r) => r.truckNumber == originalRecord.truckNumber)
+    // Filter records for the same truck AND branch
+    final truckBranchRecords = records
+        .where((r) =>
+            r.truckNumber == originalRecord.truckNumber &&
+            r.branchName == originalRecord.branchName)
         .toList();
 
-    // Find latest code for this truck
-    String latestCode = truckRecords.isNotEmpty
-        ? truckRecords
+    // Find latest code for this truck and branch combination
+    String latestCode = truckBranchRecords.isNotEmpty
+        ? truckBranchRecords
             .map((r) => r.codeNumber ?? '')
             .reduce((a, b) => a.compareTo(b) > 0 ? a : b)
-        : originalRecord.codeNumber ?? _initialCodeNumber;
+        : _initialCodeNumber; // Use initial code if no records exist
 
-    // Generate new code based on latest code for this truck
+    // Generate new code based on latest code for this truck and branch
     final newCodeNumber = _incrementCodeNumber(latestCode);
 
     // Create new record with preserved truck number and new code
@@ -629,6 +628,7 @@ class _RecordsTableDialogState extends State<RecordsTableDialog> {
       codeNumber: newCodeNumber,
       date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
       truckNumber: originalRecord.truckNumber, // Preserve truck number
+      branchName: originalRecord.branchName, // Preserve branch name
 
       // Reset calculated fields
       boxNumber: 0,

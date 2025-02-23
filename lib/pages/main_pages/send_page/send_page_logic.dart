@@ -5,6 +5,8 @@ class SendPageLogic {
     required Map<String, TextEditingController> controllers,
     required bool isInsuranceEnabled,
     required double euroRate,
+    required double? maxCityWeight, // Add this parameter
+    required BuildContext context, // Add context to show SnackBar
   }) {
     // Parse input values
     final realWeight =
@@ -30,6 +32,20 @@ class SendPageLogic {
 
     // Calculate total weight
     final totalWeight = realWeight + additionalWeight;
+
+    // Check if total weight exceeds maxCityWeight
+    if (maxCityWeight != null && totalWeight > maxCityWeight) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Total weight ($totalWeight kg) exceeds the maximum allowed weight for the selected city ($maxCityWeight kg)'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return; // Stop further calculations if weight exceeds limit
+    }
+
+    // Update total weight controller if valid
     controllers['totalWeightController']!.text = totalWeight.toStringAsFixed(2);
 
     // Calculate insurance amount (if enabled)
@@ -66,7 +82,7 @@ class SendPageLogic {
         customsCost +
         boxPackingCost +
         doorToDoorCost +
-        postSubCost - // Use the updated post sub cost here
+        postSubCost -
         discountAmount;
     controllers['totalPostCostController']!.text =
         totalPostCost.toStringAsFixed(2);

@@ -68,22 +68,28 @@ class SendUtils {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Icon or placeholder space
-          if (icon != null) icon,
-
+          if (icon != null)
+            IconTheme(
+              data: IconThemeData(
+                size: 24.sp,
+                color: iconColor ?? getTextColor(context),
+              ),
+              child: icon,
+            ),
           if (icon != null) SizedBox(width: 8.w),
           if (label != null)
             Text(
               label,
               style: TextStyle(
-                fontSize: 14.sp,
+                fontSize: 16.sp,
                 fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
                 color: getTextColor(context),
               ),
             ),
           if (label != null) SizedBox(width: 24.w),
-          // Input field
-          Expanded(child: child),
+          Expanded(
+              child: child), // Ensure child expands to fill available width
         ],
       ),
     );
@@ -131,12 +137,12 @@ class SendUtils {
     bool enabled = true,
     TextInputType? keyboardType,
     FormFieldValidator<String>? validator,
-    double? height = 50,
+    double? height = 50, // Fixed height for consistency
     ValueChanged<String>? onChanged,
     TextCapitalization textCapitalization = TextCapitalization.none,
     List<TextInputFormatter>? inputFormatters,
     AutovalidateMode? autovalidateMode,
-    double? padding,
+    double? padding = 48, // Default padding for all fields
   }) {
     final ValueNotifier<String?> errorNotifier = ValueNotifier(null);
 
@@ -146,8 +152,8 @@ class SendUtils {
       builder: (context, errorMessage, child) {
         return Container(
           height: height!.h,
-          width: 200.w,
-          padding: EdgeInsets.symmetric(horizontal: padding ?? 48.w),
+          width: double.infinity, // Ensure full width
+          padding: EdgeInsets.symmetric(horizontal: padding!.w),
           child: TextFormField(
             autovalidateMode: autovalidateMode,
             textCapitalization: textCapitalization,
@@ -163,8 +169,9 @@ class SendUtils {
             },
             textAlign: TextAlign.start,
             style: TextStyle(
-              fontSize: 16.sp,
+              fontSize: 18.sp,
               fontWeight: FontWeight.bold,
+              fontFamily: 'Poppins',
               color: enabled
                   ? (isDark ? Colors.white : Colors.black87)
                   : (isDark ? Colors.white.withOpacity(0.6) : Colors.grey[600]),
@@ -183,25 +190,29 @@ class SendUtils {
                     )
                   : null,
               errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.r),
                 borderSide: const BorderSide(
                   color: Colors.red,
                   width: 1.5,
                 ),
               ),
-              labelText: hint,
+              labelText: label ?? hint,
               labelStyle: TextStyle(
-                fontSize: 16.sp,
+                fontSize: 18.sp,
                 fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
                 color: enabled
                     ? (isDark ? Colors.white : Colors.grey[700])
-                    : (isDark ? Colors.white : Colors.grey[500]),
+                    : (isDark
+                        ? Colors.white.withOpacity(0.5)
+                        : Colors.grey[500]),
               ),
               hintText: hint,
               hintStyle: TextStyle(
-                color: isDark ? Colors.grey[500] : Colors.grey[500],
-                fontSize: 16.sp,
+                fontSize: 18.sp,
                 fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
+                color: isDark ? Colors.grey[500] : Colors.grey[500],
               ),
               contentPadding: EdgeInsets.symmetric(
                 horizontal: 12.w,
@@ -214,28 +225,28 @@ class SendUtils {
                   ? Colors.grey[850]
                   : Theme.of(context).colorScheme.surface,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.r),
                 borderSide: BorderSide(
                   color: enabled ? Colors.grey.shade300 : Colors.grey.shade200,
                   width: 1.5,
                 ),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.r),
                 borderSide: BorderSide(
                   color: Colors.grey.shade300,
                   width: 1.5,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.r),
                 borderSide: BorderSide(
                   color: primaryColor(context),
                   width: 2,
                 ),
               ),
               disabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.r),
                 borderSide: BorderSide(
                   color: Colors.grey.shade200,
                   width: 1.5,
@@ -243,8 +254,10 @@ class SendUtils {
               ),
               suffixText: optional ? 'Optional' : null,
               suffixStyle: TextStyle(
+                fontSize: 16.sp,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
                 color: Colors.grey[500],
-                fontSize: 14.sp,
               ),
               errorStyle: const TextStyle(height: 0, fontSize: 0),
             ),
@@ -263,9 +276,9 @@ class SendUtils {
     bool isRequired = true,
     bool enabled = true,
     Widget? suffixIcon,
-    double? height,
+    double? height = 50, // Fixed height for consistency
     String? Function(String?)? validator,
-    double? padding,
+    double? padding = 48, // Default padding for all fields
   }) {
     final validValue =
         items.contains(value) ? value : (items.isNotEmpty ? items.first : null);
@@ -276,8 +289,9 @@ class SendUtils {
       valueListenable: errorNotifier,
       builder: (context, errorMessage, child) {
         return Container(
-          height: 50.h,
-          padding: EdgeInsets.symmetric(horizontal: padding ?? 48.w),
+          height: height!.h,
+          width: double.infinity, // Ensure full width
+          padding: EdgeInsets.symmetric(horizontal: padding!.w),
           child: DropdownButtonFormField<String>(
             value: validValue,
             decoration: InputDecoration(
@@ -290,8 +304,9 @@ class SendUtils {
               ),
               labelText: isRequired ? '$label *' : label,
               labelStyle: TextStyle(
-                fontSize: 16.sp,
+                fontSize: 18.sp,
                 fontWeight: FontWeight.bold,
+                fontFamily: 'Poppins',
                 color: enabled
                     ? (isDark ? Colors.white : Colors.grey[700])
                     : (isDark
@@ -343,8 +358,9 @@ class SendUtils {
               errorStyle: const TextStyle(height: 0, fontSize: 0),
             ),
             style: TextStyle(
-              fontSize: 16.sp,
+              fontSize: 18.sp,
               fontWeight: FontWeight.bold,
+              fontFamily: 'Poppins',
               color: enabled
                   ? (isDark ? Colors.white : Colors.black87)
                   : (isDark ? Colors.white.withOpacity(0.6) : Colors.grey[600]),
@@ -356,7 +372,9 @@ class SendUtils {
                   item,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 16.sp,
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Poppins',
                     color: isDark
                         ? Colors.white
                         : Theme.of(context).colorScheme.onSurface,
@@ -370,7 +388,7 @@ class SendUtils {
               return error;
             },
             onChanged: enabled ? onChanged : null,
-            isExpanded: true,
+            isExpanded: true, // Ensures the dropdown fills the available width
             icon: Icon(
               Icons.arrow_drop_down,
               size: 30.h,

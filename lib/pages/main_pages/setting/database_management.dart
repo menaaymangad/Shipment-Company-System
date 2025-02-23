@@ -147,9 +147,8 @@ class DatabaseManagementExcelImport {
                     country.currency,
                     country.currencyAgainstIQD,
                     country.hasAgent,
-                    country.maxWeightKG,
-                    country.flagBoxLabel,
-                    country.postBoxLabel
+      
+                    
                   ])
               .toList());
 
@@ -534,7 +533,10 @@ class DatabaseManagementExcelImport {
           double.tryParse(rowData[headers.indexOf('minimumPrice')] ?? '') ??
               0.0,
       boxPrice:
-          double.tryParse(rowData[headers.indexOf('boxPrice')] ?? '') ?? 0.0,
+          double.tryParse(rowData[headers.indexOf('boxPrice')] ?? '') ?? 0.0,  squareFlag: rowData[headers.indexOf('flagBoxLabel')] ?? '',
+      circularFlag: rowData[headers.indexOf('postBoxLabel')] ?? '',
+      maxWeightKG:
+          double.tryParse(rowData[headers.indexOf('maxWeightKG')] ?? '') ?? 0.0,
     );
 
     // Insert or replace the city
@@ -567,10 +569,8 @@ class DatabaseManagementExcelImport {
               rowData[headers.indexOf('currencyAgainstIQD')] ?? '') ??
           0.0,
       hasAgent: rowData[headers.indexOf('hasAgent')] == 'true',
-      maxWeightKG:
-          double.tryParse(rowData[headers.indexOf('maxWeightKG')] ?? '') ?? 0.0,
-      flagBoxLabel: rowData[headers.indexOf('flagBoxLabel')] ?? '',
-      postBoxLabel: rowData[headers.indexOf('postBoxLabel')] ?? '',
+
+     
     );
 
     // Insert or replace the country

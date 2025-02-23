@@ -31,6 +31,7 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   final TextEditingController _newDescriptionArController =
       TextEditingController();
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _weightController = TextEditingController();
   List<GoodsDescription> goodsList = [];
   List<GoodsDescription> filteredList = [];
@@ -42,8 +43,9 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   @override
   void initState() {
     super.initState();
-    selectedDescriptions = widget.initialSelectedDescriptions;
-    _loadDescriptions(); // Load goodsList
+    selectedDescriptions = List.from(
+        widget.initialSelectedDescriptions); // Copy initial selections
+    _loadDescriptions();
     _searchController.addListener(_filterList);
   }
 
@@ -52,11 +54,19 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
     try {
       final descriptions = await widget.dbHelper.getAllGoodsDescriptions();
 
-      // Merge existing selections with database entries
+      // Merge selectedDescriptions with database values, preserving quantity and weight
       final mergedSelections = selectedDescriptions.map((selected) {
-        return descriptions.firstWhere(
+        final dbItem = descriptions.firstWhere(
           (d) => d.id == selected.id,
           orElse: () => selected, // Keep existing if not in DB
+        );
+        return selected.copyWith(
+          descriptionEn: dbItem.descriptionEn,
+          descriptionAr: dbItem.descriptionAr,
+          weight: selected.weight ??
+              dbItem.weight, // Preserve selected weight if exists
+          quantity:
+              selected.quantity ?? 1, // Preserve selected quantity if exists
         );
       }).toList();
 
@@ -73,10 +83,14 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
 
   void _toggleSelection(GoodsDescription item) {
     setState(() {
-      if (selectedDescriptions.contains(item)) {
-        selectedDescriptions.remove(item); // Uncheck
+      if (selectedDescriptions.any((d) => d.id == item.id)) {
+        selectedDescriptions.removeWhere((d) => d.id == item.id);
       } else {
-        selectedDescriptions.add(item); // Check
+        // Add item with initial quantity and weight from DB or defaults
+        selectedDescriptions.add(item.copyWith(
+          quantity: item.quantity ?? 1,
+          weight: item.weight ?? 0.0,
+        ));
       }
     });
   }
@@ -102,11 +116,12 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   Future<void> _addNewDescription() async {
     final descriptionEn = _newDescriptionEnController.text.trim();
     final descriptionAr = _newDescriptionArController.text.trim();
-    final weight =
-        double.tryParse(_weightController.text) ?? 0.0; // Parse weight
+    final quantity = int.tryParse(_quantityController.text) ?? 1;
+    final weight = double.tryParse(_weightController.text) ?? 0.0;
 
-    if (descriptionEn.isEmpty || descriptionAr.isEmpty) {
-      _showError('Both English and Arabic descriptions are required');
+    if (descriptionEn.isEmpty || descriptionAr.isEmpty || weight <= 0) {
+      _showError(
+          'All fields (English, Arabic, Quantity, and Weight) are required, and weight must be positive');
       return;
     }
 
@@ -116,25 +131,25 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
     });
 
     try {
-      // Create a new GoodsDescription object
       final newDescription = GoodsDescription(
         descriptionEn: descriptionEn,
         descriptionAr: descriptionAr,
-        weight: weight, // Include weight
+        weight: weight,
       );
 
-      // Insert the new description into the database
-      await widget.dbHelper.insertGoodsDescription(newDescription);
+      final id = await widget.dbHelper.insertGoodsDescription(newDescription);
 
       setState(() {
         _newDescriptionEnController.clear();
         _newDescriptionArController.clear();
-        _weightController.clear(); // Clear the weight field
+        _quantityController.clear();
+        _weightController.clear();
         isLoading = false;
       });
 
-      // Refresh the list after adding
       await _loadDescriptions();
+      selectedDescriptions
+          .add(newDescription.copyWith(id: id, quantity: quantity));
       _showSuccess('Description added successfully');
     } catch (e) {
       setState(() {
@@ -153,11 +168,12 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
 
     final descriptionEn = _newDescriptionEnController.text.trim();
     final descriptionAr = _newDescriptionArController.text.trim();
-    final weight =
-        double.tryParse(_weightController.text) ?? 0.0; // Add this line
+    final quantity = int.tryParse(_quantityController.text) ?? 1;
+    final weight = double.tryParse(_weightController.text) ?? 0.0;
 
-    if (descriptionEn.isEmpty || descriptionAr.isEmpty) {
-      _showError('Both English and Arabic descriptions are required');
+    if (descriptionEn.isEmpty || descriptionAr.isEmpty || weight <= 0) {
+      _showError(
+          'All fields (English, Arabic, Quantity, and Weight) are required, and weight must be positive');
       return;
     }
 
@@ -172,12 +188,23 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
           id: selectedForEdit!.id,
           descriptionEn: descriptionEn,
           descriptionAr: descriptionAr,
-          weight: weight, // Add this line
+          weight: weight,
         ),
       );
       _newDescriptionEnController.clear();
       _newDescriptionArController.clear();
-      _weightController.clear(); // Clear the weight field
+      _quantityController.clear();
+      _weightController.clear();
+      final index =
+          selectedDescriptions.indexWhere((d) => d.id == selectedForEdit!.id);
+      if (index != -1) {
+        selectedDescriptions[index] = selectedDescriptions[index].copyWith(
+          descriptionEn: descriptionEn,
+          descriptionAr: descriptionAr,
+          weight: weight,
+          quantity: quantity,
+        );
+      }
       selectedForEdit = null;
       await _loadDescriptions();
       _showSuccess('Description updated successfully');
@@ -193,10 +220,9 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   Future<void> _deleteDescription(GoodsDescription description) async {
     try {
       await widget.dbHelper.deleteGoodsDescription(description.id!);
-      await _loadDescriptions(); // Reload the list after deletion
+      await _loadDescriptions();
       setState(() {
-        selectedDescriptions.removeWhere(
-            (desc) => desc.id == description.id); // Remove from selected
+        selectedDescriptions.removeWhere((desc) => desc.id == description.id);
       });
       _showSuccess('Description deleted successfully');
     } catch (e) {
@@ -207,7 +233,7 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message, style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.red,
       ),
     );
@@ -216,15 +242,26 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
   void _showSuccess(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message, style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.green,
       ),
     );
   }
-  // Other methods (e.g., _updateDescription, _deleteDescription, etc.) remain unchanged...
+
+  void _editItem(GoodsDescription item) {
+    setState(() {
+      selectedForEdit = item;
+      _newDescriptionEnController.text = item.descriptionEn;
+      _newDescriptionArController.text = item.descriptionAr;
+      _quantityController.text = item.quantity.toString();
+      _weightController.text = (item.weight ?? 0.0).toStringAsFixed(1);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Dialog(
       child: Container(
         width: MediaQuery.of(context).size.width * 0.9,
@@ -236,7 +273,9 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
               selectedForEdit == null
                   ? 'Add New Description'
                   : 'Edit Description',
-              style: Theme.of(context).textTheme.titleLarge,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: isDarkMode ? Colors.white : Colors.black87,
+                  ),
             ),
             SizedBox(height: 16.h),
             Row(
@@ -244,48 +283,94 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                 Expanded(
                   child: TextField(
                     controller: _newDescriptionEnController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'English Description',
                       labelText: 'English Description *',
+                      labelStyle: TextStyle(
+                          color: isDarkMode ? Colors.white70 : Colors.black87),
+                      hintStyle: TextStyle(
+                          color: isDarkMode ? Colors.white54 : Colors.grey),
                       border: OutlineInputBorder(),
+                      focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                              color: isDarkMode ? Colors.white : Colors.blue)),
+                      enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                              color:
+                                  isDarkMode ? Colors.white54 : Colors.grey)),
                     ),
+                    style: TextStyle(
+                        color: isDarkMode ? Colors.white : Colors.black87),
                   ),
                 ),
                 SizedBox(width: 8.w),
                 Expanded(
                   child: TextField(
                     controller: _newDescriptionArController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Arabic Description',
                       labelText: 'Arabic Description *',
+                      labelStyle: TextStyle(
+                          color: isDarkMode ? Colors.white70 : Colors.black87),
+                      hintStyle: TextStyle(
+                          color: isDarkMode ? Colors.white54 : Colors.grey),
                       border: OutlineInputBorder(),
+                      focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                              color: isDarkMode ? Colors.white : Colors.blue)),
+                      enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                              color:
+                                  isDarkMode ? Colors.white54 : Colors.grey)),
                     ),
+                    style: TextStyle(
+                        color: isDarkMode ? Colors.white : Colors.black87),
                   ),
                 ),
                 SizedBox(width: 8.w),
                 ElevatedButton(
                   onPressed: () {
                     if (_newDescriptionEnController.text.isEmpty ||
-                        _newDescriptionArController.text.isEmpty) {
+                        _newDescriptionArController.text.isEmpty ||
+                        _quantityController.text.isEmpty ||
+                        _weightController.text.isEmpty) {
                       _showError(
-                          'Both English and Arabic descriptions are required');
+                          'All fields (English, Arabic, Quantity, and Weight) are required');
                       return;
                     }
                     selectedForEdit == null
                         ? _addNewDescription()
                         : _updateDescription();
                   },
-                  child: Text(selectedForEdit == null ? 'Add' : 'Update'),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: isDarkMode ? Colors.blue : Colors.blue),
+                  child: Text(
+                    selectedForEdit == null ? 'Add' : 'Update',
+                    style: TextStyle(
+                        color: isDarkMode ? Colors.black87 : Colors.white),
+                  ),
                 ),
               ],
             ),
             SizedBox(height: 16.h),
             TextField(
               controller: _searchController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Search descriptions...',
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: Icon(Icons.search,
+                    color: isDarkMode ? Colors.white70 : Colors.black87),
+                hintStyle:
+                    TextStyle(color: isDarkMode ? Colors.white54 : Colors.grey),
+                border: OutlineInputBorder(),
+                focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                        color: isDarkMode ? Colors.white : Colors.blue)),
+                enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                        color: isDarkMode ? Colors.white54 : Colors.grey)),
               ),
+              style:
+                  TextStyle(color: isDarkMode ? Colors.white : Colors.black87),
             ),
             SizedBox(height: 16.h),
             Expanded(
@@ -293,18 +378,31 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                 itemCount: filteredList.length,
                 itemBuilder: (context, index) {
                   final item = filteredList[index];
+                  // Find the selected item if it exists, otherwise use defaults
                   final selectedItem = selectedDescriptions.firstWhere(
                     (d) => d.id == item.id,
-                    orElse: () => item,
+                    orElse: () =>
+                        item.copyWith(quantity: 1, weight: item.weight ?? 0.0),
                   );
 
                   return ListTile(
                     leading: Checkbox(
                       value: selectedDescriptions.any((d) => d.id == item.id),
                       onChanged: (value) => _toggleSelection(item),
+                      activeColor: isDarkMode ? Colors.blue : Colors.blue,
+                      checkColor: isDarkMode ? Colors.white : Colors.white,
                     ),
-                    title: Text('${item.id} - ${item.descriptionEn}'),
-                    subtitle: Text(item.descriptionAr),
+                    title: Text(
+                      '${item.id} - ${item.descriptionEn}',
+                      style: TextStyle(
+                          color: isDarkMode ? Colors.white : Colors.black87),
+                    ),
+                    subtitle: Text(
+                      item.descriptionAr,
+                      style: TextStyle(
+                          color:
+                              isDarkMode ? Colors.white70 : Colors.grey[600]),
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -313,35 +411,97 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                           SizedBox(
                             width: 60.w,
                             child: TextFormField(
-                              initialValue: selectedItem.quantity.toString(),
+                              initialValue: selectedItem.quantity
+                                  .toString(), // Use selected quantity
                               onChanged: (value) {
                                 setState(() {
-                                  selectedItem.quantity =
-                                      int.tryParse(value) ?? 1;
+                                  final index = selectedDescriptions
+                                      .indexWhere((d) => d.id == item.id);
+                                  if (index != -1) {
+                                    selectedDescriptions[index] =
+                                        selectedDescriptions[index].copyWith(
+                                      quantity: int.tryParse(value) ?? 1,
+                                    );
+                                  }
                                 });
                               },
+                              decoration: InputDecoration(
+                                hintText: 'Qty',
+                                hintStyle: TextStyle(
+                                    color: isDarkMode
+                                        ? Colors.white54
+                                        : Colors.grey),
+                                border: OutlineInputBorder(),
+                                focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(
+                                        color: isDarkMode
+                                            ? Colors.white
+                                            : Colors.blue)),
+                                enabledBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(
+                                        color: isDarkMode
+                                            ? Colors.white54
+                                            : Colors.grey)),
+                              ),
+                              style: TextStyle(
+                                  color: isDarkMode
+                                      ? Colors.white
+                                      : Colors.black87),
+                              keyboardType: TextInputType.number,
                             ),
                           ),
                           SizedBox(width: 8.w),
                           SizedBox(
                             width: 80.w,
                             child: TextFormField(
-                              initialValue: selectedItem.weight.toString(),
+                              initialValue: (selectedItem.weight ?? 0.0)
+                                  .toStringAsFixed(1), // Use selected weight
                               onChanged: (value) {
                                 setState(() {
-                                  selectedItem.weight =
-                                      double.tryParse(value) ?? 0.0;
+                                  final index = selectedDescriptions
+                                      .indexWhere((d) => d.id == item.id);
+                                  if (index != -1) {
+                                    selectedDescriptions[index] =
+                                        selectedDescriptions[index].copyWith(
+                                      weight: double.tryParse(value) ?? 0.0,
+                                    );
+                                  }
                                 });
                               },
+                              decoration: InputDecoration(
+                                hintText: 'Weight',
+                                hintStyle: TextStyle(
+                                    color: isDarkMode
+                                        ? Colors.white54
+                                        : Colors.grey),
+                                border: OutlineInputBorder(),
+                                focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(
+                                        color: isDarkMode
+                                            ? Colors.white
+                                            : Colors.blue)),
+                                enabledBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(
+                                        color: isDarkMode
+                                            ? Colors.white54
+                                            : Colors.grey)),
+                              ),
+                              style: TextStyle(
+                                  color: isDarkMode
+                                      ? Colors.white
+                                      : Colors.black87),
+                              keyboardType: TextInputType.number,
                             ),
                           ),
                         ],
                         IconButton(
-                          icon: const Icon(Icons.edit),
+                          icon: Icon(Icons.edit,
+                              color:
+                                  isDarkMode ? Colors.white70 : Colors.black87),
                           onPressed: () => _editItem(item),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
+                          icon: Icon(Icons.delete, color: Colors.red),
                           onPressed: () => _deleteDescription(item),
                         ),
                       ],
@@ -351,7 +511,6 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
               ),
             ),
             SizedBox(height: 16.h),
-            // Inside the build method of _GoodsDescriptionPopupState
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -362,26 +521,34 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
                         selectedForEdit = null;
                         _newDescriptionEnController.clear();
                         _newDescriptionArController.clear();
+                        _quantityController.clear();
+                        _weightController.clear();
                       });
                     },
-                    child: const Text('Cancel Edit'),
+                    child: Text(
+                      'Cancel Edit',
+                      style: TextStyle(
+                          color: isDarkMode ? Colors.white70 : Colors.black87),
+                    ),
                   ),
                 TextButton(
                   onPressed: () {
-                    // Preserve existing selections with updates
                     final updatedSelections = selectedDescriptions
                         .where((selected) =>
                             goodsList.any((item) => item.id == selected.id))
                         .toList();
-
                     widget.onDescriptionsSelected(updatedSelections);
                     widget.controller.text = updatedSelections
                         .map((d) =>
-                            '${d.descriptionEn} (${d.quantity}x${d.weight}kg)')
-                        .join(', ');
+                            '${d.quantity} - ${d.descriptionEn} (${d.quantity}x${d.weight?.toStringAsFixed(1) ?? '0.0'}kg)')
+                        .join('\n');
                     Navigator.pop(context);
                   },
-                  child: Text(widget.hasExistingValue ? 'Update' : 'Confirm'),
+                  child: Text(
+                    widget.hasExistingValue ? 'Update' : 'Confirm',
+                    style: TextStyle(
+                        color: isDarkMode ? Colors.white70 : Colors.black87),
+                  ),
                 ),
               ],
             ),
@@ -390,12 +557,22 @@ class _GoodsDescriptionPopupState extends State<GoodsDescriptionPopup> {
       ),
     );
   }
+}
 
-  void _editItem(GoodsDescription item) {
-    setState(() {
-      selectedForEdit = item;
-      _newDescriptionEnController.text = item.descriptionEn;
-      _newDescriptionArController.text = item.descriptionAr;
-    });
+extension GoodsDescriptionExtension on GoodsDescription {
+  GoodsDescription copyWith({
+    int? id,
+    String? descriptionEn,
+    String? descriptionAr,
+    double? weight,
+    int? quantity,
+  }) {
+    return GoodsDescription(
+      id: id ?? this.id,
+      descriptionEn: descriptionEn ?? this.descriptionEn,
+      descriptionAr: descriptionAr ?? this.descriptionAr,
+      weight: weight ?? this.weight,
+      quantity: quantity ?? this.quantity,
+    );
   }
 }

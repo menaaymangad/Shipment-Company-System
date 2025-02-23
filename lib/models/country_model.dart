@@ -8,9 +8,8 @@ class Country {
   final String currency;
   final double currencyAgainstIQD;
   final bool hasAgent;
-  final double maxWeightKG;
-  final String flagBoxLabel;
-  final String postBoxLabel;
+
+
 
   Country({
     this.id,
@@ -22,9 +21,8 @@ class Country {
     required this.currency,
     required this.currencyAgainstIQD,
     required this.hasAgent,
-    required this.maxWeightKG,
-    required this.flagBoxLabel,
-    required this.postBoxLabel,
+   
+
   });
 
   Map<String, dynamic> toMap() {
@@ -38,9 +36,8 @@ class Country {
       'currency': currency,
       'currencyAgainstIQD': currencyAgainstIQD,
       'hasAgent': hasAgent ? 1 : 0,
-      'maxWeightKG': maxWeightKG,
-      'flagBoxLabel': flagBoxLabel,
-      'postBoxLabel': postBoxLabel,
+     
+    
     };
   }
 
@@ -55,9 +52,8 @@ class Country {
       currency: map['currency'],
       currencyAgainstIQD: map['currencyAgainstIQD'],
       hasAgent: map['hasAgent'] == 1,
-      maxWeightKG: map['maxWeightKG'],
-      flagBoxLabel: map['flagBoxLabel'],
-      postBoxLabel: map['postBoxLabel'],
+     
+  
     );
   }
 }

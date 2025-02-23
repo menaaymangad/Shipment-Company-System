@@ -23,7 +23,7 @@ import 'package:app/models/good_description_model.dart';
 import 'package:app/models/send_model.dart';
 import 'package:app/pages/main_pages/invoice_pdf/invoice_pdf.dart';
 import 'package:app/pages/main_pages/invoice_pdf/pdf_preview_dialog.dart';
-import 'package:app/pages/main_pages/label_pdf/label_pdf.dart';
+import 'package:app/pages/main_pages/label_pdf/label_pdf.dart' hide City;
 import 'package:app/pages/main_pages/label_pdf/pdf_dialog.dart';
 import 'package:app/pages/main_pages/send_page/good_description.dart';
 import 'package:app/pages/main_pages/send_page/id_type_selector.dart';
@@ -53,7 +53,6 @@ class SendScreen extends StatefulWidget {
 }
 
 class _SendScreenState extends State<SendScreen> {
-  
   List<GoodsDescription> selectedGoodsDescriptions = [];
   List<GoodsDescription> goodsList = [];
   bool _isViewMode = false;
@@ -104,6 +103,7 @@ class _SendScreenState extends State<SendScreen> {
   final Map<String, String> _truckCodeMap = {};
   String? _pendingCodeNumber;
 
+  double? _maxCityWeight; // Store the maximum weight of the selected city
   String _selectedAgent = '';
   String? _selectedBranch;
   TextEditingController branchController = TextEditingController();
@@ -144,9 +144,10 @@ class _SendScreenState extends State<SendScreen> {
             controllers: _controllers,
             isInsuranceEnabled: isInsuranceEnabled,
             euroRate: _selectedCurrencyAgainstIQD,
+            maxCityWeight: _maxCityWeight, // Add this
+            context: context, // Add this
           ));
     }
-
     // Retrieve the selected branch from AuthCubit
     final authCubit = context.read<AuthCubit>();
     _selectedBranch = authCubit.selectedBranch;
@@ -193,7 +194,7 @@ class _SendScreenState extends State<SendScreen> {
       'selectedCountry': _selectedCountry,
       'selectedCity': _selectedCity,
       'goodsDescription':
-          _controllers[ControllerKeys.goodsDescriptionController]?.text ?? '',
+          jsonEncode(selectedGoodsDescriptions.map((d) => d.toJson()).toList()),
       'identificationPhoto':
           identificationPhotoBase64, // Save the base64 encoded photo
     };
@@ -224,14 +225,14 @@ class _SendScreenState extends State<SendScreen> {
 
       // Restore goods description
       setState(() {
-        selectedGoodsDescriptions = _parseSelectedDescriptions(
-          formData['goodsDescription'] ?? '',
-        );
         _controllers[ControllerKeys.notesController]?.text =
             formData['notes'] ?? '';
+        final goodsJson = formData['goodsDescription'] ?? '[]';
+        selectedGoodsDescriptions = _parseSelectedDescriptions(goodsJson);
         _controllers[ControllerKeys.goodsDescriptionController]?.text =
             selectedGoodsDescriptions
-                .map((desc) => '${desc.id} - ${desc.descriptionEn}')
+                .map((desc) =>
+                    '${desc.id} - ${desc.descriptionEn} (${desc.quantity}x${desc.weight?.toStringAsFixed(1) ?? '0.0'}kg)')
                 .join('\n');
       });
 
@@ -396,6 +397,16 @@ class _SendScreenState extends State<SendScreen> {
         _showCustomSnackBar(context, 'Phone number must be exactly 11 digits',
             isError: true);
         return; // Exit the function if the 11-digit rule is not met
+      }
+      final totalWeight = double.tryParse(
+              _controllers[ControllerKeys.totalWeightController]?.text ??
+                  '0') ??
+          0;
+      if (_maxCityWeight != null && totalWeight > _maxCityWeight!) {
+        _showCustomSnackBar(context,
+            'Total weight ($totalWeight kg) exceeds the maximum allowed weight for the selected city ($_maxCityWeight kg)',
+            isError: true);
+        return;
       }
       final nextCodeNumber = await _getNextCodeNumber(
         _controllers[ControllerKeys.truckNumberController]!.text,
@@ -655,47 +666,9 @@ class _SendScreenState extends State<SendScreen> {
     }
   }
 
-void _onTruckNumberChanged(String truckNumber) async {
-  if (truckNumber.isEmpty) {
-    // If the truck number is empty, reset to the initial code number
-    setState(() {
-      _controllers[ControllerKeys.codeNumberController]!.text = _initialCodeNumber;
-    });
-    return;
-  }
-
-  try {
-    // Fetch all records for this truck
-    final records = await context.read<SendRecordCubit>().fetchAllSendRecords();
-    final truckRecords = records.where((r) => r.truckNumber == truckNumber).toList();
-
-    // Determine the latest code or use initial
-    String latestCode = truckRecords.isNotEmpty
-        ? truckRecords
-            .map((r) => r.codeNumber ?? '')
-            .reduce((a, b) => a.compareTo(b) > 0 ? a : b)
-        : _initialCodeNumber;
-
-    // Generate next code (only increment if records exist)
-    String nextCode = truckRecords.isNotEmpty
-        ? _incrementCodeNumber(latestCode)
-        : _initialCodeNumber; // Use initial code for new trucks
-
-    setState(() {
-      _controllers[ControllerKeys.codeNumberController]!.text = nextCode;
-    });
-  } catch (e) {
-    if (mounted) {
-      _showCustomSnackBar(context, 'Error fetching records: $e', isError: true);
-    }
-  }
-}
-  void _clearForm() async {
-    final truckNumber =
-        _controllers[ControllerKeys.truckNumberController]?.text ?? '';
-
-    // If no truck number is entered, reset to defaults
+  void _onTruckNumberChanged(String truckNumber) async {
     if (truckNumber.isEmpty) {
+      // If the truck number is empty, reset to the initial code number
       setState(() {
         _controllers[ControllerKeys.codeNumberController]!.text =
             _initialCodeNumber;
@@ -704,11 +677,9 @@ void _onTruckNumberChanged(String truckNumber) async {
     }
 
     try {
-      // Fetch all records from the database
+      // Fetch all records for this truck
       final records =
           await context.read<SendRecordCubit>().fetchAllSendRecords();
-
-      // Filter records for the current truck
       final truckRecords =
           records.where((r) => r.truckNumber == truckNumber).toList();
 
@@ -723,6 +694,54 @@ void _onTruckNumberChanged(String truckNumber) async {
       String nextCode = truckRecords.isNotEmpty
           ? _incrementCodeNumber(latestCode)
           : _initialCodeNumber; // Use initial code for new trucks
+
+      setState(() {
+        _controllers[ControllerKeys.codeNumberController]!.text = nextCode;
+      });
+    } catch (e) {
+      if (mounted) {
+        _showCustomSnackBar(context, 'Error fetching records: $e',
+            isError: true);
+      }
+    }
+  }
+
+  void _clearForm() async {
+    final truckNumber =
+        _controllers[ControllerKeys.truckNumberController]?.text ?? '';
+    final currentBranch = _selectedBranch; // Get current branch
+
+    // If no truck or branch, reset to initial code
+    if (truckNumber.isEmpty || currentBranch == null) {
+      setState(() {
+        _controllers[ControllerKeys.codeNumberController]!.text =
+            _initialCodeNumber;
+      });
+      return;
+    }
+
+    try {
+      // Fetch all records
+      final records =
+          await context.read<SendRecordCubit>().fetchAllSendRecords();
+
+      // Filter records for THIS truck + THIS branch
+      final truckBranchRecords = records
+          .where((r) =>
+                  r.truckNumber == truckNumber &&
+                  r.branchName == currentBranch // Critical: Filter by branch
+              )
+          .toList();
+
+      // Get latest code for this truck/branch
+      String latestCode = truckBranchRecords.isNotEmpty
+          ? truckBranchRecords
+              .map((r) => r.codeNumber ?? '')
+              .reduce((a, b) => a.compareTo(b) > 0 ? a : b)
+          : _initialCodeNumber; // Fallback to branch's initial code
+
+      // Generate next code (even if no records)
+      String nextCode = _incrementCodeNumber(latestCode);
 
       setState(() {
         // Clear all fields except truck number and code
@@ -742,7 +761,6 @@ void _onTruckNumberChanged(String truckNumber) async {
         _controllers[ControllerKeys.receiverNameController]?.clear();
         _controllers[ControllerKeys.receiverPhoneController]?.clear();
         _controllers[ControllerKeys.streetController]?.clear();
-        _controllers[ControllerKeys.apartmentController]?.clear();
         _controllers[ControllerKeys.zipCodeController]?.clear();
         _controllers[ControllerKeys.insurancePercentController]?.clear();
         _controllers[ControllerKeys.goodsValueController]?.clear();
@@ -751,7 +769,6 @@ void _onTruckNumberChanged(String truckNumber) async {
         _controllers[ControllerKeys.minimumPriceController]?.clear();
         _controllers[ControllerKeys.insuranceAmountController]?.clear();
         _controllers[ControllerKeys.customsCostController]?.clear();
-        _controllers[ControllerKeys.exportDocCostController]?.clear();
         _controllers[ControllerKeys.boxPackingCostController]?.clear();
         _controllers[ControllerKeys.doorToDoorCostController]?.clear();
         _controllers[ControllerKeys.postSubCostController]?.clear();
@@ -762,7 +779,7 @@ void _onTruckNumberChanged(String truckNumber) async {
         _controllers[ControllerKeys.totalCostEurController]?.clear();
         _controllers[ControllerKeys.unpaidEurCostController]?.clear();
 
-        // Set the code number
+        // Set the code number to the next increment
         _controllers[ControllerKeys.codeNumberController]!.text = nextCode;
 
         // Reset other state variables
@@ -783,8 +800,11 @@ void _onTruckNumberChanged(String truckNumber) async {
   }
 
   String _incrementCodeNumber(String codeNumber) {
+    // If code is empty (no existing records), use initial code
+    if (codeNumber.isEmpty) return _initialCodeNumber;
+
     final parts = codeNumber.split('-');
-    if (parts.length != 2) return _initialCodeNumber;
+    if (parts.length != 2) return _initialCodeNumber; // Invalid format
 
     final prefix = parts[0];
     final numericPart = parts[1];
@@ -794,7 +814,7 @@ void _onTruckNumberChanged(String truckNumber) async {
     final incremented = (int.tryParse(sequence) ?? 0) + 1;
     final newSequence = incremented.toString().padLeft(sequence.length, '0');
 
-    return '$prefix-$yearPrefix$newSequence';
+    return '$prefix-$yearPrefix$newSequence'; // BA-2400001 → BA-2400002
   }
 
   int? currentRecordId;
@@ -1305,8 +1325,8 @@ void _onTruckNumberChanged(String truckNumber) async {
                 id: item['id'],
                 descriptionEn: item['descriptionEn'],
                 descriptionAr: item['descriptionAr'],
-                weight: item['weight'],
-                quantity: item['quantity'],
+                weight: item['weight']?.toDouble() ?? 0.0,
+                quantity: item['quantity']?.toInt() ?? 1,
               ))
           .toList();
     } catch (e) {
@@ -1330,25 +1350,22 @@ void _onTruckNumberChanged(String truckNumber) async {
                   size: 24.sp,
                 ),
                 child: SendUtils.buildTextField(
+                  context: context,
                   controller:
                       _controllers[ControllerKeys.senderNameController] ??
                           TextEditingController(),
                   hint: 'Sender Name',
-
+                  enabled: !_isViewMode,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Sender Name is required';
                     }
-
                     return null;
                   },
-                  context: context,
-                  enabled: !_isViewMode,
-                  textCapitalization:
-                      TextCapitalization.characters, // Enforce uppercase
-                  inputFormatters: [
-                    UpperCaseTextFormatter(), // Custom formatter to enforce uppercase
-                  ], // Pass the context here
+                  textCapitalization: TextCapitalization.characters,
+                  inputFormatters: [UpperCaseTextFormatter()],
+                  height: 50, // Consistent height
+                  padding: 48, // Consistent padding
                 ),
               ),
               SendUtils.buildInputRow(
@@ -1358,11 +1375,13 @@ void _onTruckNumberChanged(String truckNumber) async {
                   size: 24.sp,
                 ),
                 child: SendUtils.buildTextField(
+                  context: context,
                   controller:
                       _controllers[ControllerKeys.senderPhoneController] ??
                           TextEditingController(),
                   hint: 'Sender Phone',
                   keyboardType: TextInputType.phone,
+                  enabled: !_isViewMode,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Phone number is required';
@@ -1370,14 +1389,10 @@ void _onTruckNumberChanged(String truckNumber) async {
                     if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
                       return 'Phone number must contain only numbers';
                     }
-                    // if (value.length != 11) {
-                    //   return 'Phone number must be exactly 11 digits';
-                    // }
-
                     return null;
                   },
-                  context: context,
-                  enabled: !_isViewMode,
+                  height: 50, // Consistent height
+                  padding: 48, // Consistent padding
                 ),
               ),
               SendUtils.buildInputRow(
@@ -1387,36 +1402,35 @@ void _onTruckNumberChanged(String truckNumber) async {
                   width: 24.w,
                   child: IdTypeSelector(
                     iconColor: isDark ? Colors.white : Colors.grey[700],
-
-                    // Pass IdTypeSelector as a widget
                     onTypeSelected: (type) {
                       setState(() {
                         _selectedIdType = type;
                       });
                     },
                     currentType: _selectedIdType,
-                    // iconColor: SendUtils.secondaryColor(context),
                   ),
                 ),
                 child: Row(
                   children: [
                     Expanded(
                       child: Padding(
-                        padding: EdgeInsets.only(left: 38.0.w),
+                        padding: EdgeInsets.only(
+                            left: 38.0.w), // Keep this for alignment
                         child: SendUtils.buildTextField(
-                          padding: 8.w,
                           context: context,
                           controller:
                               _controllers[ControllerKeys.senderIdController]!,
+                          hint: 'Sender ID',
                           keyboardType: TextInputType.number,
                           enabled: !_isViewMode,
-                          hint: 'Sender ID',
                           validator: (value) {
                             if (!RegExp(r'^[0-9]+$').hasMatch(value ?? '')) {
                               return 'ID number must contain only numbers';
                             }
                             return null;
                           },
+                          height: 50, // Consistent height
+                          padding: 0, // Adjust padding to fit within the Row
                         ),
                       ),
                     ),
@@ -1530,7 +1544,8 @@ void _onTruckNumberChanged(String truckNumber) async {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Container(
-                              width: 70.w,
+                              width:
+                                  70.w, // Keep fixed width for the icon button
                               height: 40.h,
                               decoration: BoxDecoration(
                                 color: _selectedIdentificationPhoto == null
@@ -1567,46 +1582,30 @@ void _onTruckNumberChanged(String truckNumber) async {
                 ),
                 child: InkWell(
                   onTap: () {
-                    final currentText =
-                        _controllers[ControllerKeys.goodsDescriptionController]
-                                ?.text ??
-                            '';
-
-                    // Parse the current text to get selected items
-                    _parseSelectedDescriptions(currentText);
                     if (!_isViewMode) {
                       showDialog(
                         context: context,
                         builder: (context) => GoodsDescriptionPopup(
                           controller: _controllers[
                               ControllerKeys.goodsDescriptionController]!,
-                          // Inside the GoodsDescriptionPopup dialog
                           onDescriptionsSelected:
                               (List<GoodsDescription> newSelected) {
                             setState(() {
-                              selectedGoodsDescriptions =
-                                  newSelected; // Store full objects
+                              selectedGoodsDescriptions = newSelected;
                               _controllers[ControllerKeys
                                           .goodsDescriptionController]
                                       ?.text =
                                   newSelected
                                       .map((desc) =>
-                                          '${desc.id} - ${desc.descriptionEn}')
+                                          '${desc.quantity} - ${desc.descriptionEn} (${desc.quantity}x${desc.weight?.toStringAsFixed(1) ?? '0.0'}kg)')
                                       .join('\n');
                             });
                           },
                           dbHelper: DatabaseHelper(),
                           initialSelectedDescriptions:
-                              _parseSelectedDescriptions(
-                            _controllers[
-                                    ControllerKeys.goodsDescriptionController]!
-                                .text,
-                            // Pass goodsList
-                          ),
-                          hasExistingValue: _controllers[
-                                  ControllerKeys.goodsDescriptionController]!
-                              .text
-                              .isNotEmpty,
+                              selectedGoodsDescriptions, // Pass the current list with updated values
+                          hasExistingValue:
+                              selectedGoodsDescriptions.isNotEmpty,
                         ),
                       );
                     }
@@ -1615,30 +1614,29 @@ void _onTruckNumberChanged(String truckNumber) async {
                     padding: EdgeInsets.symmetric(horizontal: 48.w),
                     child: TextFormField(
                       style: TextStyle(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Poppins',
                         color: isDark ? Colors.white : Colors.black,
-                        fontSize: 14.sp,
                       ),
                       controller: _controllers[
                               ControllerKeys.goodsDescriptionController] ??
                           TextEditingController(),
                       enabled: false,
-
                       decoration: InputDecoration(
                         hintText: 'Goods Description',
                         hintStyle: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Poppins',
                           color: isDark ? Colors.white70 : Colors.grey[600],
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                            borderRadius: BorderRadius.circular(8)),
                         filled: true,
                         fillColor: isDark ? Colors.grey[800] : Colors.grey[200],
                       ),
-
-                      maxLines: 2, // Allow multiple lines for notes
-                      onChanged: (value) {
-                        // Handle the note input if needed
-                      },
+                      maxLines: 2,
                     ),
                   ),
                 ),
@@ -1678,6 +1676,8 @@ void _onTruckNumberChanged(String truckNumber) async {
                           ?.text = boxPackingCost.toStringAsFixed(2);
                       SendPageLogic.updateCalculations(
                         controllers: _controllers,
+                        maxCityWeight: _maxCityWeight, // Add this
+                        context: context,
                         isInsuranceEnabled: isInsuranceEnabled,
                         euroRate: _selectedCurrencyAgainstIQD,
                       );
@@ -1733,7 +1733,7 @@ void _onTruckNumberChanged(String truckNumber) async {
           SizedBox(height: 8.h),
           SendUtils.buildInputRow(
             context: context,
-            label: 'Weight\n volume\n KG',
+            label: 'Weight (KG)',
             child: Row(
               children: [
                 Expanded(
@@ -1872,6 +1872,20 @@ void _onTruckNumberChanged(String truckNumber) async {
               controller: _controllers[ControllerKeys.totalWeightController] ??
                   TextEditingController(),
               hint: 'Total Weight KG',
+              validator: (value) {
+                final totalWeight = double.tryParse(
+                        _controllers[ControllerKeys.totalWeightController]
+                                ?.text ??
+                            '0') ??
+                    0;
+                if (_maxCityWeight != null && totalWeight > _maxCityWeight!) {
+                  _showCustomSnackBar(context,
+                      'Total weight ($totalWeight kg) exceeds the maximum allowed weight for the selected city ($_maxCityWeight kg)',
+                      isError: true);
+                  return;
+                }
+                return null;
+              },
               enabled: false, // Make the field read-only
             ),
           ),
@@ -1996,7 +2010,7 @@ void _onTruckNumberChanged(String truckNumber) async {
                       filled: true,
                       fillColor: isDark ? Colors.grey[800] : Colors.grey[200],
                     ),
-                    maxLines: 3, // Allow multiple lines for notes
+                    maxLines: 4, // Allow multiple lines for notes
                   ),
                 ),
               ),
@@ -2021,6 +2035,9 @@ void _onTruckNumberChanged(String truckNumber) async {
           priceKg: 0,
           minimumPrice: 0,
           boxPrice: 0,
+          circularFlag: '',
+          squareFlag: '',
+          maxWeightKG: 0,
         ),
       );
       return selectedCity
@@ -2089,7 +2106,7 @@ void _onTruckNumberChanged(String truckNumber) async {
               enabled: isPostCity && !_isViewMode, // Disable if not a post city
             ),
           ),
-          _buildCityDropdown(),
+          _buildAdressDropdown(),
         ],
       ),
     );
@@ -2230,9 +2247,6 @@ void _onTruckNumberChanged(String truckNumber) async {
                       currency: '',
                       currencyAgainstIQD: 1.0,
                       hasAgent: false,
-                      maxWeightKG: 0,
-                      flagBoxLabel: '',
-                      postBoxLabel: '',
                     ),
                   );
                   _selectedCurrencyAgainstIQD =
@@ -2364,15 +2378,133 @@ void _onTruckNumberChanged(String truckNumber) async {
                   final city = state.cities.firstWhere(
                     (city) => city.cityName == newValue,
                     orElse: () => City(
-                      cityName: '',
-                      country: '',
-                      hasAgent: false,
-                      isPost: false,
-                      doorToDoorPrice: 0,
-                      priceKg: 0,
-                      minimumPrice: 0,
-                      boxPrice: 0,
-                    ),
+                        cityName: '',
+                        country: '',
+                        hasAgent: false,
+                        isPost: false,
+                        doorToDoorPrice: 0,
+                        priceKg: 0,
+                        minimumPrice: 0,
+                        boxPrice: 0,
+                        circularFlag: '',
+                        squareFlag: '',
+                        maxWeightKG: 0),
+                  );
+
+                  // Update the fields with the city's prices
+                  _controllers[ControllerKeys.doorToDoorPriceController]?.text =
+                      city.doorToDoorPrice.toString();
+                  _controllers[ControllerKeys.pricePerKgController]?.text =
+                      city.priceKg.toString();
+                  _controllers[ControllerKeys.minimumPriceController]?.text =
+                      city.minimumPrice.toString();
+                  _maxCityWeight = city.maxWeightKG;
+                  // Set the box price from the selected city
+                  setState(() {
+                    _boxPrice =
+                        city.boxPrice; // Store the box price in the variable
+                  });
+
+                  // Calculate and update the Box Packing Cost
+                  final boxNumber = int.tryParse(
+                          _controllers[ControllerKeys.boxNumberController]
+                                  ?.text ??
+                              '0') ??
+                      0;
+                  final boxPackingCost =
+                      boxNumber * _boxPrice; // Use the stored box price
+                  _controllers[ControllerKeys.boxPackingCostController]?.text =
+                      boxPackingCost.toStringAsFixed(2);
+
+                  // Trigger calculations
+                  SendPageLogic.updateCalculations(
+                    controllers: _controllers,
+                    isInsuranceEnabled: isInsuranceEnabled,
+                    euroRate: _selectedCurrencyAgainstIQD,
+                    maxCityWeight: _maxCityWeight, // Add this
+                    context: context,
+                  );
+
+                  // Check if the selected city supports postal services
+                  if (!city.isPost) {
+                    // Clear the postal fields if the city does not support postal services
+                    _controllers[ControllerKeys.streetController]?.clear();
+                    _controllers[ControllerKeys.zipCodeController]?.clear();
+                  }
+                }
+              }
+              // Update city-dependent fields
+              _updateCityDependentFields(newValue!);
+            },
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'City is required';
+              }
+              return null;
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAdressDropdown() {
+    return BlocConsumer<CityCubit, CityState>(
+      listener: (context, state) {
+        if (state is CityErrorState) {
+          _showCustomSnackBar(context, state.errorMessage, isError: true);
+        }
+      },
+      builder: (context, state) {
+        List<String> cityNames = [];
+
+        // Check if the state is CityLoadedState
+        if (state is CityLoadedState) {
+          // Filter cities to include only those with hasAgent = true and matching the selected country
+          final citiesWithAgent = state.cities
+              .where((city) =>
+                  city.country == _selectedCountry &&
+                  city.hasAgent) // Filter by country and hasAgent
+              .toList();
+
+          cityNames = citiesWithAgent.map((city) => city.cityName).toList();
+        }
+
+        return SendUtils.buildInputRow(
+          context: context,
+          icon: Icon(
+            Icons.location_on,
+            size: 24.sp,
+          ),
+          child: SendUtils.buildDropdownField(
+            context: context,
+            enabled: !_isViewMode,
+            label: 'City',
+            items: cityNames,
+            value: _selectedCity,
+            height: 65.h,
+            onChanged: (String? newValue) async {
+              if (newValue != null) {
+                setState(() {
+                  _selectedCity = newValue;
+                });
+
+                // Fetch the city details based on the selected city name
+                if (state is CityLoadedState) {
+                  final city = state.cities.firstWhere(
+                    (city) => city.cityName == newValue,
+                    orElse: () => City(
+                        cityName: '',
+                        country: '',
+                        hasAgent: false,
+                        isPost: false,
+                        doorToDoorPrice: 0,
+                        priceKg: 0,
+                        minimumPrice: 0,
+                        boxPrice: 0,
+                        circularFlag: '',
+                        squareFlag: '',
+                        maxWeightKG: 0),
                   );
 
                   // Update the fields with the city's prices
@@ -2402,9 +2534,12 @@ void _onTruckNumberChanged(String truckNumber) async {
 
                   // Trigger calculations
                   SendPageLogic.updateCalculations(
-                      controllers: _controllers,
-                      isInsuranceEnabled: isInsuranceEnabled,
-                      euroRate: _selectedCurrencyAgainstIQD);
+                    controllers: _controllers,
+                    isInsuranceEnabled: isInsuranceEnabled,
+                    euroRate: _selectedCurrencyAgainstIQD,
+                    maxCityWeight: _maxCityWeight, // Add this
+                    context: context,
+                  );
 
                   // Check if the selected city supports postal services
                   if (!city.isPost) {
@@ -2443,6 +2578,9 @@ void _onTruckNumberChanged(String truckNumber) async {
           priceKg: 0,
           minimumPrice: 0,
           boxPrice: 0,
+          circularFlag: '',
+          squareFlag: '',
+          maxWeightKG: 0,
         ),
       );
 
@@ -2615,222 +2753,214 @@ void _onTruckNumberChanged(String truckNumber) async {
   }
 
   Widget costsCard() {
-    return SendUtils.buildCard(
-      context: context,
-      child: Column(
-        spacing: 10.h,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: Text(
-              'Exchange Currency: 1 EUR = $_selectedCurrencyAgainstIQD IQD', // Dynamic exchange rate
-              style: TextStyle(
-                color: Colors.blue,
-                fontSize: 14.sp,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-
-          // Insurance Amount
-          SendUtils.buildInputRow(
-            context: context,
-            label: 'Insurance Amount',
-            child: SendUtils.buildTextField(
-              context: context,
-              controller:
-                  _controllers[ControllerKeys.insuranceAmountController] ??
-                      TextEditingController(),
-              hint: 'Insurance Amount',
-            ),
-          ),
-
-          // Customs Cost
-          SendUtils.buildInputRow(
-            context: context,
-            label: 'Customs Cost',
-            child: Padding(
-              padding: EdgeInsets.only(left: 32.w),
-              child: SendUtils.buildTextField(
-                context: context,
-                controller:
-                    _controllers[ControllerKeys.customsCostController] ??
-                        TextEditingController(),
-                hint: 'Customs Cost',
-                optional: true,
-                enabled: !_isViewMode,
-              ),
-            ),
-          ),
-
-          // Box Packing Cost
-          SendUtils.buildInputRow(
-            context: context,
-            label: 'Box Packing Cost',
-            child: Padding(
-              padding: EdgeInsets.only(left: 8.0.w),
-              child: SendUtils.buildTextField(
-                context: context,
-                controller:
-                    _controllers[ControllerKeys.boxPackingCostController] ??
-                        TextEditingController(),
-                hint: 'Box Packing Cost',
-              ),
-            ),
-          ),
-
-          // Door To Door Cost
-          SendUtils.buildInputRow(
-            context: context,
-            label: 'Door To Door Cost',
-            child: SendUtils.buildTextField(
-              context: context,
-              controller:
-                  _controllers[ControllerKeys.doorToDoorCostController] ??
-                      TextEditingController(),
-              hint: 'Door To Door Cost',
-            ),
-          ),
-
-          // Post Sub Cost
-          SendUtils.buildInputRow(
-            context: context,
-            label: 'Post Sub Cost',
-            child: Padding(
-              padding: EdgeInsets.only(left: 32.0.w),
-              child: SendUtils.buildTextField(
-                context: context,
-                controller:
-                    _controllers[ControllerKeys.postSubCostController] ??
-                        TextEditingController(),
-                hint: 'Post Sub Cost',
-              ),
-            ),
-          ),
-
-          // Discount Amount
-          SendUtils.buildInputRow(
-            context: context,
-            label: 'Discount Amount',
-            child: Padding(
-              padding: EdgeInsets.only(left: 8.0.w),
-              child: SendUtils.buildTextField(
-                context: context,
-                controller:
-                    _controllers[ControllerKeys.discountAmountController] ??
-                        TextEditingController(),
-                hint: 'Discount Amount',
-                optional: true,
-                enabled: !_isViewMode,
-              ),
-            ),
-          ),
-
-          // Total Post Cost
-          SendUtils.buildInputRow(
-            context: context,
-            label: 'Total Post Cost',
-            child: Padding(
-              padding: EdgeInsets.only(left: 30.w),
-              child: SendUtils.buildTextField(
-                context: context,
-                controller:
-                    _controllers[ControllerKeys.totalPostCostController] ??
-                        TextEditingController(),
-                hint: 'Total Post Cost',
-              ),
-            ),
-          ),
-
-          // Total Post Cost Paid with Checkbox
-          SendUtils.buildInputRow(
-            context: context,
-            label: 'Total Post Cost Paid',
-            child: Row(
+    return BlocBuilder<SendThemeCubit, bool>(
+      builder: (context, isDark) {
+        return SendUtils.buildCard(
+          context: context,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 48.w),
+            child: Column(
+              spacing: 10.h, // Consistent spacing with other cards
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(left: 32.0.w),
-                    child: SendUtils.buildTextField(
-                      padding: 8.w,
-                      context: context,
-                      controller: _controllers[
-                              ControllerKeys.totalPostCostPaidController] ??
-                          TextEditingController(),
-                      hint: 'Total Post Cost Paid',
-                      enabled: !_isViewMode,
+                // Exchange Currency Text (not a field, so keep as is but update style)
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 16.w), // Consistent padding
+                  child: Text(
+                    'Exchange Currency: 1 EUR = $_selectedCurrencyAgainstIQD IQD',
+                    style: TextStyle(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Poppins',
+                      color: Colors.blue,
                     ),
                   ),
                 ),
-                Checkbox(
-                  value: isPostCostPaid,
-                  onChanged: (value) {
-                    setState(() {
-                      isPostCostPaid = value ?? false;
-                      if (isPostCostPaid) {
-                        _controllers[ControllerKeys.totalPostCostPaidController]
-                                ?.text =
-                            _controllers[ControllerKeys.totalPostCostController]
-                                    ?.text ??
-                                '0.00';
-                      }
-                    });
-                  },
+
+                // Insurance Amount (without label)
+                SendUtils.buildTextField(
+                  context: context,
+                  controller:
+                      _controllers[ControllerKeys.insuranceAmountController] ??
+                          TextEditingController(),
+                  hint: 'Insurance Amount',
+                  enabled: true,
+                  height: 50,
+                  padding: 48,
+                ),
+
+                // Customs Cost (without label)
+                SendUtils.buildTextField(
+                  context: context,
+                  controller:
+                      _controllers[ControllerKeys.customsCostController] ??
+                          TextEditingController(),
+                  hint: 'Customs Cost',
+                  optional: true,
+                  enabled: !_isViewMode,
+                  height: 50,
+                  padding: 48,
+                ),
+
+                // Box Packing Cost (without label)
+                SendUtils.buildTextField(
+                  context: context,
+                  controller:
+                      _controllers[ControllerKeys.boxPackingCostController] ??
+                          TextEditingController(),
+                  hint: 'Box Packing Cost',
+                  enabled: true,
+                  height: 50,
+                  padding: 48,
+                ),
+
+                // Door To Door Cost (without label)
+                SendUtils.buildTextField(
+                  context: context,
+                  controller:
+                      _controllers[ControllerKeys.doorToDoorCostController] ??
+                          TextEditingController(),
+                  hint: 'Door To Door Cost',
+                  enabled: true,
+                  height: 50,
+                  padding: 48,
+                ),
+
+                // Post Sub Cost (without label)
+                SendUtils.buildTextField(
+                  context: context,
+                  controller:
+                      _controllers[ControllerKeys.postSubCostController] ??
+                          TextEditingController(),
+                  hint: 'Post Sub Cost',
+                  enabled: true,
+                  height: 50,
+                  padding: 48,
+                ),
+
+                // Discount Amount (without label)
+                SendUtils.buildTextField(
+                  context: context,
+                  controller:
+                      _controllers[ControllerKeys.discountAmountController] ??
+                          TextEditingController(),
+                  hint: 'Discount Amount',
+                  optional: true,
+                  enabled: !_isViewMode,
+                  height: 50,
+                  padding: 48,
+                ),
+
+                // Total Post Cost (without label)
+                SendUtils.buildTextField(
+                  context: context,
+                  controller:
+                      _controllers[ControllerKeys.totalPostCostController] ??
+                          TextEditingController(),
+                  hint: 'Total Post Cost',
+                  enabled: true,
+                  height: 50,
+                  padding: 48,
+                ),
+
+                // Total Post Cost Paid with Checkbox (without label, adjust layout)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      flex:
+                          1, // Ensure the text field fills the available width
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 48.0.w),
+                        child: SendUtils.buildTextField(
+                          context: context,
+                          controller: _controllers[
+                                  ControllerKeys.totalPostCostPaidController] ??
+                              TextEditingController(),
+                          hint: 'Total Post Cost Paid',
+                          enabled: !_isViewMode,
+                          height: 50,
+                          padding: 0,
+                        ),
+                      ),
+                    ),
+                    Checkbox(
+                      value: isPostCostPaid,
+                      onChanged: (value) {
+                        setState(() {
+                          isPostCostPaid = value ?? false;
+                          final totalPostCostController = _controllers[
+                              ControllerKeys.totalPostCostController];
+                          final totalPostCostPaidController = _controllers[
+                              ControllerKeys.totalPostCostPaidController];
+
+                          if (totalPostCostController != null &&
+                              totalPostCostPaidController != null) {
+                            if (isPostCostPaid) {
+                              // When checked, set to total post cost
+                              totalPostCostPaidController.text =
+                                  totalPostCostController.text;
+                            } else {
+                              // When unchecked, set to zero
+                              totalPostCostPaidController.text = '0.00';
+                            }
+
+                            // Trigger recalculation of unpaid amounts
+                            SendPageLogic.updateCalculations(
+                              controllers: _controllers,
+                              maxCityWeight: _maxCityWeight, // Add this
+                              context: context,
+                              isInsuranceEnabled: isInsuranceEnabled,
+                              euroRate: _selectedCurrencyAgainstIQD,
+                            );
+                          }
+                        });
+                      },
+                    ),
+                  ],
+                ),
+
+                // Unpaid Amount (without label)
+                SendUtils.buildTextField(
+                  context: context,
+                  controller:
+                      _controllers[ControllerKeys.unpaidAmountController] ??
+                          TextEditingController(),
+                  hint: 'Unpaid Amount',
+                  enabled: true,
+                  height: 50,
+                  padding: 48,
+                ),
+
+                // Total Cost By Europe Currency (without label)
+                SendUtils.buildTextField(
+                  context: context,
+                  controller:
+                      _controllers[ControllerKeys.totalCostEurController] ??
+                          TextEditingController(),
+                  hint: 'Total Cost By Europe Currency',
+                  enabled: true,
+                  height: 50,
+                  padding: 48,
+                ),
+
+                // Unpaid and Will Paid In Europe (without label)
+                SendUtils.buildTextField(
+                  context: context,
+                  controller:
+                      _controllers[ControllerKeys.unpaidEurCostController] ??
+                          TextEditingController(),
+                  hint: 'Unpaid and Will Paid In Europe',
+                  enabled: true,
+                  height: 50,
+                  padding: 48,
                 ),
               ],
             ),
           ),
-
-          // Unpaid Amount
-          SendUtils.buildInputRow(
-            context: context,
-            label: 'Unpaid Amount',
-            child: Padding(
-              padding: EdgeInsets.only(left: 22.0.w),
-              child: SendUtils.buildTextField(
-                context: context,
-                controller:
-                    _controllers[ControllerKeys.unpaidAmountController] ??
-                        TextEditingController(),
-                hint: 'Unpaid Amount',
-              ),
-            ),
-          ),
-
-          // Total Cost By Europe Currency
-          SendUtils.buildInputRow(
-            context: context,
-            label: 'Total Cost (EUR)',
-            child: Padding(
-              padding: EdgeInsets.only(left: 18.0.w),
-              child: SendUtils.buildTextField(
-                context: context,
-                controller:
-                    _controllers[ControllerKeys.totalCostEurController] ??
-                        TextEditingController(),
-                hint: 'Total Cost By Europe Currency',
-              ),
-            ),
-          ),
-
-          // Unpaid and Will Paid In Europe
-          SendUtils.buildInputRow(
-            context: context,
-            label: 'Unpaid (EUR)',
-            child: Padding(
-              padding: EdgeInsets.only(left: 32.0.w),
-              child: SendUtils.buildTextField(
-                context: context,
-                controller:
-                    _controllers[ControllerKeys.unpaidEurCostController] ??
-                        TextEditingController(),
-                hint: 'Unpaid and Will Paid In Europe',
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -3011,25 +3141,78 @@ void _onTruckNumberChanged(String truckNumber) async {
       }
     }
   }
-
-  void generateLabelPdf() async {
+ void generateLabelPdf() async {
     final palletNumber = int.tryParse(
             _controllers[ControllerKeys.palletNumberController]?.text ?? '1') ??
         1;
 
-    // Get the country flag path from the selected country
+    // Fetch the selected city from CityCubit based on _selectedCity
+    final cityState = context.read<CityCubit>().state;
+    City? selectedCity;
+    if (cityState is CityLoadedState) {
+      selectedCity = cityState.cities.firstWhere(
+        (city) => city.cityName == _selectedCity,
+        orElse: () => City(
+          id: null,
+          cityName: _selectedCity,
+          country: _selectedCountry,
+          hasAgent: false,
+          isPost: false,
+          doorToDoorPrice: 0,
+          priceKg: 0,
+          minimumPrice: 0,
+          boxPrice: 0,
+          circularFlag: 'assets/icons/Subtraction 1.png', // Fallback flag
+          squareFlag: 'assets/icons/Subtraction 1.png',
+          maxWeightKG: 0,
+        ),
+      );
+    } else {
+      selectedCity = City(
+        id: null,
+        cityName: _selectedCity,
+        country: _selectedCountry,
+        hasAgent: false,
+        isPost: false,
+        doorToDoorPrice: 0,
+        priceKg: 0,
+        minimumPrice: 0,
+        boxPrice: 0,
+        circularFlag: 'assets/icons/Subtraction 1.png', // Fallback flag
+        squareFlag: 'assets/icons/Subtraction 1.png',
+        maxWeightKG: 0,
+      );
+    }
 
     // Loop through each pallet and generate a label
     for (int currentLabelIndex = 1;
         currentLabelIndex <= palletNumber;
         currentLabelIndex++) {
-      var regularFont = await PDFGenerator.loadCairoFont(isBold: false);
-      var boldFont = await PDFGenerator.loadCairoFont(isBold: true);
+      // var regularFont =
+      //     await ShippingLabelGenerator.loadCairoFont(isBold: false);
+      // var boldFont = await ShippingLabelGenerator.loadCairoFont(isBold: true);
+
+      // Create ShipmentInfo with correct parameters
+      final shipment = ShipmentInfo(
+        // date: DateTime.now().toString(), // Use DateTime.now() for date
+        // time: TimeOfDay.now()
+        //     .format(context)
+        //     .toString(), // Use TimeOfDay for time
+        // truckNumber:
+        //     _controllers[ControllerKeys.truckNumberController]?.text ?? '',
+        itemDetails:
+            _controllers[ControllerKeys.goodsDescriptionController]?.text ?? '',
+        itemNumber:
+            '$currentLabelIndex of $palletNumber', // Dynamic item number
+        weight: _controllers[ControllerKeys.weightController]?.text ?? '',
+        // volumeDifference:
+        //     _controllers[ControllerKeys.additionalKGController]?.text ?? '',
+        code: _controllers[ControllerKeys.codeNumberController]?.text ?? '',
+      );
 
       // Generate the label for the current pallet
-      await ShippingLabelGenerator.generateShippingLabel(
-        regularFont: regularFont,
-        boldFont: boldFont,
+     // Modify this section in paste.txt
+      final pdfData = await ShippingLabelGenerator.generateShippingLabel(
         sender: SenderDetails(
           name: _controllers[ControllerKeys.senderNameController]?.text ?? '',
         ),
@@ -3039,51 +3222,30 @@ void _onTruckNumberChanged(String truckNumber) async {
               _controllers[ControllerKeys.receiverPhoneController]?.text ?? '',
           city: _selectedCity,
           country: _selectedCountry,
-          street: _controllers[ControllerKeys.streetController]?.text ?? '',
-          apartment:
-              _controllers[ControllerKeys.apartmentController]?.text ?? '',
-          zipCode: _controllers[ControllerKeys.zipCodeController]?.text ?? '',
+          address: _controllers[ControllerKeys.streetController]?.text ?? '',
         ),
-        shipment: ShipmentInfo(
-          date: DateTime.now().toString(),
-          time: TimeOfDay.now().toString(),
-          truckNumber:
-              _controllers[ControllerKeys.truckNumberController]?.text ?? '',
-          itemDetails:
-              _controllers[ControllerKeys.goodsDescriptionController]?.text ??
-                  '',
-          itemNumber:
-              '$currentLabelIndex of $palletNumber', // Dynamic item number
-          weight: _controllers[ControllerKeys.weightController]?.text ?? '',
-          volumeDifference:
-              _controllers[ControllerKeys.additionalKGController]?.text ?? '',
-          code: _controllers[ControllerKeys.codeNumberController]?.text ?? '',
-          branch: _selectedBranch ?? '',
-          insuranceAmount:
-              _controllers[ControllerKeys.insuranceAmountController]?.text ??
-                  '',
-        ),
-        onGenerated: (Uint8List pdfData) async {
-          final tempDir = await getTemporaryDirectory();
-          final file = await File(
-                  '${tempDir.path}/shipping_label_$currentLabelIndex.pdf')
-              .create();
-          await file.writeAsBytes(pdfData);
-
-          if (mounted) {
-            // Show the preview dialog for the current label
-            final result = await showDialog(
-              context: context,
-              builder: (context) => LabelPDFPreviewDialog(pdfFile: file),
-            );
-
-            if (mounted && result == 'save') {
-              _showCustomSnackBar(context, 'Label saved: ${file.path}');
-            }
-          }
-        },
+        shipment: shipment,
+        selectedCity: selectedCity,
       );
-    }
+
+// Handle the PDF data
+      final tempDir = await getTemporaryDirectory();
+      final file =
+          await File('${tempDir.path}/shipping_label_$currentLabelIndex.pdf')
+              .create();
+      await file.writeAsBytes(pdfData);
+
+      if (mounted) {
+        // Show the preview dialog for the current label
+        final result = await showDialog(
+          context: context,
+          builder: (context) => LabelPDFPreviewDialog(pdfFile: file),
+        );
+
+        if (mounted && result == 'save') {
+          _showCustomSnackBar(context, 'Label saved: ${file.path}');
+        }
+      }    }
   }
 }
 

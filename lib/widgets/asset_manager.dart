@@ -1,114 +1,124 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
 
 class AssetManager {
-  static Future<Directory> ensureAssetsDirectoryExists() async {
-    try {
-      // Get the executable directory
-      final exePath = Platform.resolvedExecutable;
-      final appDir = path.dirname(exePath);
+  // Base directory for all assets
+  static const String _baseAssetsDir = 'assets';
+  static const String _flagsDir = 'flags';
 
-      if (kDebugMode) {
-        print('Application directory: $appDir');
-      }
+  // Get the absolute path to the assets directory
+  static Future<String> get _assetsPath async {
+    final exePath = Platform.resolvedExecutable;
+    final appDir = path.dirname(exePath);
+    final assetsDir = path.join(appDir, _baseAssetsDir, _flagsDir);
 
-      // Create the full path for assets/flags
-      final assetDir = Directory(path.join(appDir, 'assets', 'flags'));
-
-      if (kDebugMode) {
-        print('Attempting to create directory at: ${assetDir.path}');
-      }
-
-      // Check if directory exists
-      final exists = await assetDir.exists();
-      if (kDebugMode) {
-        print('Directory exists: $exists');
-      }
-
-      // Create if it doesn't exist
-      if (!exists) {
-        final createdDir = await assetDir.create(recursive: true);
-        if (kDebugMode) {
-          print('Created directory at: ${createdDir.path}');
-        }
-        return createdDir;
-      }
-
-      return assetDir;
-    } catch (e, stackTrace) {
-      if (kDebugMode) {
-        print('Error creating assets directory: $e');
-        print('Stack trace: $stackTrace');
-      }
-      rethrow;
+    // Ensure the directory exists
+    final directory = Directory(assetsDir);
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
     }
+
+    return assetsDir;
   }
 
-static Future<String> saveImageToAssets(
-      String sourceImagePath, String fileName) async {
+  // Save an image to the assets directory
+  static Future<String> saveImageToAssets(
+      String sourcePath, String fileName) async {
     try {
-      if (kDebugMode) {
-        print('Attempting to save image from: $sourceImagePath');
-      }
+      final assetsDir = await _assetsPath;
+      final extension = path.extension(sourcePath);
+      final destinationPath = path.join(assetsDir, '$fileName$extension');
 
-      // Get the application documents directory
-      final appDir = await getApplicationDocumentsDirectory();
-
-      // Create the flags directory if it doesn't exist
-      final flagsDir = Directory('${appDir.path}/assets/flags');
-      if (!await flagsDir.exists()) {
-        await flagsDir.create(recursive: true);
-      }
-
-      // Generate unique filename
-      final extension = path.extension(sourceImagePath);
-      final uniqueFileName = '$fileName$extension';
-
-      // Create destination path
-      final destinationPath = path.join(flagsDir.path, uniqueFileName);
+      // Create a copy of the file in the assets directory
+      await File(sourcePath).copy(destinationPath);
 
       if (kDebugMode) {
-        print('Saving image to: $destinationPath');
+        print('Image saved successfully to: $destinationPath');
       }
 
-      // Copy the file
-      await File(sourceImagePath).copy(destinationPath);
-
-      // Return the asset path format
-      return 'assets/flags/$uniqueFileName';
-    } catch (e, stackTrace) {
+      return destinationPath;
+    } catch (e) {
       if (kDebugMode) {
         print('Error saving image to assets: $e');
-        print('Stack trace: $stackTrace');
       }
       rethrow;
     }
   }
+
+  // Delete an image from the assets directory
   static Future<void> deleteImageFromAssets(String imagePath) async {
     try {
-      if (kDebugMode) {
-        print('Attempting to delete image at: $imagePath');
-      }
-
       final file = File(imagePath);
       if (await file.exists()) {
         await file.delete();
         if (kDebugMode) {
-          print('Image deleted successfully');
-        }
-      } else {
-        if (kDebugMode) {
-          print('Image file does not exist: $imagePath');
+          print('Image deleted successfully: $imagePath');
         }
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       if (kDebugMode) {
         print('Error deleting image from assets: $e');
-        print('Stack trace: $stackTrace');
       }
       rethrow;
     }
+  }
+
+  // Get all saved flags
+  static Future<List<String>> getAllFlags() async {
+    try {
+      final assetsDir = await _assetsPath;
+      final directory = Directory(assetsDir);
+
+      if (!await directory.exists()) {
+        return [];
+      }
+
+      return directory
+          .listSync()
+          .whereType<File>()
+          .map((file) => file.path)
+          .toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting flags: $e');
+      }
+      return [];
+    }
+  }
+
+  // Get a specific flag by country name
+  static Future<String?> getFlagByCountry(String countryName,
+      {bool isCircular = true}) async {
+    try {
+      final assetsDir = await _assetsPath;
+      final prefix = isCircular ? 'circular_' : 'square_';
+      final pattern = '$prefix${countryName.replaceAll(' ', '_')}';
+
+      final directory = Directory(assetsDir);
+      if (!await directory.exists()) {
+        return null;
+      }
+
+      final files = directory
+          .listSync()
+          .whereType<File>()
+          .where((file) => path.basename(file.path).startsWith(pattern))
+          .toList();
+
+      return files.isEmpty ? null : files.first.path;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting flag for country $countryName: $e');
+      }
+      return null;
+    }
+  }
+
+  // Check if a flag exists
+  static Future<bool> flagExists(String countryName,
+      {bool isCircular = true}) async {
+    final flag = await getFlagByCountry(countryName, isCircular: isCircular);
+    return flag != null;
   }
 }

@@ -1,9 +1,13 @@
+
 import 'package:app/cubits/cities_cubit/cities_cubit.dart';
 import 'package:app/cubits/cities_cubit/cities_state.dart';
 import 'package:app/cubits/countries_cubit/countries_cubit.dart';
 import 'package:app/cubits/countries_cubit/countries_state.dart';
 import 'package:app/models/city_model.dart';
+import 'package:app/widgets/asset_manager.dart';
+import 'package:app/widgets/flag_upload.dart';
 import 'package:app/widgets/page_utils.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -20,15 +24,22 @@ class CitiesPage extends StatefulWidget {
 }
 
 class _CitiesPageState extends State<CitiesPage> with RouteAware {
+  String _selectedCircularImage = '';
+  String _selectedSquareImage = '';
+  bool _isLoadingCircularFlag = false;
+  bool _isLoadingSquareFlag = false;
   String _searchQuery = '';
   final _formKey = GlobalKey<FormState>();
-
+  String _selectedCircularFlag = '';
+  String _selectedSquareFlag = '';
   final TextEditingController _cityNameController = TextEditingController();
   final TextEditingController _doorToDoorPriceController =
       TextEditingController();
   final TextEditingController _priceKgController = TextEditingController();
   final TextEditingController _minimumPriceController = TextEditingController();
   final TextEditingController _boxPriceController = TextEditingController();
+  final TextEditingController _maximumWeightController =
+      TextEditingController();
 
   String _selectedCountry = '';
   City? selectedCity;
@@ -54,10 +65,13 @@ class _CitiesPageState extends State<CitiesPage> with RouteAware {
       'selectedCountry': _selectedCountry,
       'doorToDoorPrice': _doorToDoorPriceController.text,
       'priceKg': _priceKgController.text,
+      'maximumWeight': _maximumWeightController.text,
       'minimumPrice': _minimumPriceController.text,
       'boxPrice': _boxPriceController.text,
       'hasAgent': _hasAgent,
       'isPost': _isPost,
+      'circularImage': _selectedCircularImage,
+      'squareImage': _selectedSquareImage,
     };
     context.read<CityFormCubit>().saveFormData(formData);
   }
@@ -70,9 +84,12 @@ class _CitiesPageState extends State<CitiesPage> with RouteAware {
       _doorToDoorPriceController.text = formData['doorToDoorPrice'] ?? '';
       _priceKgController.text = formData['priceKg'] ?? '';
       _minimumPriceController.text = formData['minimumPrice'] ?? '';
+      _maximumWeightController.text = formData['maximumWeight'] ?? '';
       _boxPriceController.text = formData['boxPrice'] ?? '';
       _hasAgent = formData['hasAgent'] ?? false;
       _isPost = formData['isPost'] ?? false;
+      _selectedCircularImage = formData['circularImage'] ?? '';
+      _selectedSquareImage = formData['squareImage'] ?? '';
       setState(() {});
     }
   }
@@ -103,12 +120,33 @@ class _CitiesPageState extends State<CitiesPage> with RouteAware {
     _priceKgController.clear();
     _minimumPriceController.clear();
     _boxPriceController.clear();
+    _maximumWeightController.clear();
     setState(() {
       selectedCity = null;
       _selectedCountry = '';
       _hasAgent = false;
+      _selectedCircularImage = '';
+      _selectedSquareImage = '';
       _isPost = false;
     });
+  }
+
+  Future<void> _loadExistingFlags() async {
+    if (_cityNameController.text.isNotEmpty) {
+      final circularFlag = await AssetManager.getFlagByCountry(
+        _cityNameController.text,
+        isCircular: true,
+      );
+      final squareFlag = await AssetManager.getFlagByCountry(
+        _cityNameController.text,
+        isCircular: false,
+      );
+
+      setState(() {
+        _selectedCircularFlag = circularFlag ?? '';
+        _selectedSquareFlag = squareFlag ?? '';
+      });
+    }
   }
 
   void _populateForm(City city) {
@@ -122,7 +160,12 @@ class _CitiesPageState extends State<CitiesPage> with RouteAware {
       _selectedCountry = city.country;
       _hasAgent = city.hasAgent;
       _isPost = city.isPost;
+      _selectedCircularFlag = city.circularFlag;
+      _selectedSquareFlag = city.squareFlag;
+
+      _maximumWeightController.text = city.maxWeightKG.toString();
     });
+    _loadExistingFlags();
   }
 
   City _createCityFromForm() {
@@ -136,6 +179,9 @@ class _CitiesPageState extends State<CitiesPage> with RouteAware {
       priceKg: double.parse(_priceKgController.text),
       minimumPrice: double.parse(_minimumPriceController.text),
       boxPrice: double.parse(_boxPriceController.text),
+      circularFlag: _selectedCircularFlag,
+      squareFlag: _selectedSquareFlag,
+      maxWeightKG: double.parse(_maximumWeightController.text),
     );
   }
 
@@ -329,7 +375,176 @@ class _CitiesPageState extends State<CitiesPage> with RouteAware {
             return null;
           },
         ),
+        SizedBox(height: 16.h),
+        PageUtils.buildTextField(
+          controller: _maximumWeightController,
+          labelText: 'Maximum Weight (KG)',
+          keyboardType: TextInputType.number,
+        ),
+        SizedBox(height: 16.h),
+        _buildImageSelectors(),
       ],
+    );
+  }
+
+// In your CitiesPage
+  Widget _buildImageSelectors() {
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 16.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Country Flags',
+            style: TextStyle(
+              fontSize: 24.sp,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF6366F1), // Purple color from screenshot
+            ),
+          ),
+          SizedBox(height: 16.h),
+          Row(
+            children: [
+              Expanded(
+                child: FlagUploadWidget(
+                  flagPath: _selectedCircularFlag,
+                  isCircular: true,
+                  isLoading: _isLoadingCircularFlag,
+                  onUpload: _pickCircularImage,
+                  onDelete: () => _handleImageDeletion(true),
+                ),
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: FlagUploadWidget(
+                  flagPath: _selectedSquareFlag,
+                  isCircular: false,
+                  isLoading: _isLoadingSquareFlag,
+                  onUpload: _pickSquareImage,
+                  onDelete: () => _handleImageDeletion(false),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+  Future<void> _pickCircularImage() async {
+    try {
+      setState(() => _isLoadingCircularFlag = true);
+
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final sourcePath = result.files.single.path!;
+        final cityName = _cityNameController.text;
+
+        if (cityName.isEmpty) {
+          _showError('Please enter a city name first');
+          return;
+        }
+
+        // Delete existing flag if it exists
+        if (_selectedCircularFlag.isNotEmpty) {
+          await AssetManager.deleteImageFromAssets(_selectedCircularFlag);
+        }
+
+        final savedPath = await AssetManager.saveImageToAssets(
+          sourcePath,
+          'circular_${cityName.replaceAll(' ', '_')}',
+        );
+
+        setState(() => _selectedCircularFlag = savedPath);
+        _showSuccess('Circular flag saved successfully');
+      }
+    } catch (e) {
+      _showError('Error saving circular flag: $e');
+    } finally {
+      setState(() => _isLoadingCircularFlag = false);
+    }
+  }
+
+  Future<void> _pickSquareImage() async {
+    try {
+      setState(() => _isLoadingSquareFlag = true);
+
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final sourcePath = result.files.single.path!;
+        final cityName = _cityNameController.text;
+
+        if (cityName.isEmpty) {
+          _showError('Please enter a city name first');
+          return;
+        }
+
+        // Delete existing flag if it exists
+        if (_selectedSquareFlag.isNotEmpty) {
+          await AssetManager.deleteImageFromAssets(_selectedSquareFlag);
+        }
+
+        final savedPath = await AssetManager.saveImageToAssets(
+          sourcePath,
+          'square_${cityName.replaceAll(' ', '_')}',
+        );
+
+        setState(() => _selectedSquareFlag = savedPath);
+        _showSuccess('Square flag saved successfully');
+      }
+    } catch (e) {
+      _showError('Error saving square flag: $e');
+    } finally {
+      setState(() => _isLoadingSquareFlag = false);
+    }
+  }
+
+// Update the image deletion handling
+  Future<void> _handleImageDeletion(bool isCircular) async {
+    try {
+      final imagePath =
+          isCircular ? _selectedCircularFlag : _selectedSquareFlag;
+      if (imagePath.isNotEmpty) {
+        await AssetManager.deleteImageFromAssets(imagePath);
+        setState(() {
+          if (isCircular) {
+            _selectedCircularFlag = '';
+          } else {
+            _selectedSquareFlag = '';
+          }
+        });
+        _showSuccess('Flag deleted successfully');
+      }
+    } catch (e) {
+      _showError('Error deleting flag: $e');
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  void _showSuccess(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+      ),
     );
   }
 

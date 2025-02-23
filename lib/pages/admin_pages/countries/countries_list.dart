@@ -49,7 +49,8 @@ class CountriesDataGrid extends StatelessWidget {
           columnSpacing: 16.w,
           dataRowMinHeight: 56.h,
           headingRowColor: WidgetStateProperty.all(Colors.grey[100]),
-          headingTextStyle: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
+          headingTextStyle:
+              TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
           dataTextStyle: TextStyle(fontSize: 18.sp),
           columns: [
             DataColumn(label: Text('ID')),
@@ -58,7 +59,6 @@ class CountriesDataGrid extends StatelessWidget {
             DataColumn(label: Text('Zip Code Digit 1')),
             DataColumn(label: Text('Zip Code Digit 2')),
             DataColumn(label: Text('Zip Code Text')),
-            DataColumn(label: Text('Max Weight (KG)')),
           ],
           rows: filteredCountries.map((country) {
             return DataRow(
@@ -76,7 +76,6 @@ class CountriesDataGrid extends StatelessWidget {
                 DataCell(Text(country.zipCodeDigit1)),
                 DataCell(Text(country.zipCodeDigit2)),
                 DataCell(Text(country.zipCodeText)),
-                DataCell(Text(country.maxWeightKG.toString())),
               ],
               onSelectChanged: (_) => onCountrySelected(country),
             );
